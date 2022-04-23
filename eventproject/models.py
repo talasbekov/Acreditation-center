@@ -19,6 +19,9 @@ class Operator(models.Model):
 	workplace = models.CharField(max_length = 128, default="")
 	is_accreditator = models.BooleanField(default=False)
 
+	def __str__(self):
+		return self.user.first_name
+
 
 class Request(models.Model):
 	name = models.CharField(max_length=128)
@@ -28,6 +31,9 @@ class Request(models.Model):
 	created_by = models.ForeignKey(Operator, on_delete=models.CASCADE, related_name="created_operator")
 	registration_time = models.DateTimeField()
 	exported_by = models.ForeignKey(Operator, on_delete=models.CASCADE, related_name="exported_operator")
+
+	def __str__(self):
+		return self.name
 
 class Attendee(models.Model):
 	surname = models.CharField(max_length=128)
@@ -51,5 +57,8 @@ class Attendee(models.Model):
 	transcription = models.CharField(max_length=128)
 	request = models.ForeignKey(Request, on_delete=models.CASCADE)
 	dateEnd = models.DateField()
+
+	def __str__(self):
+		return self.firstname
 
 

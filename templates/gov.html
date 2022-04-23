@@ -1,0 +1,86 @@
+{% load static %}
+<head>
+    <link rel="stylesheet" type="text/css" href="{% static 'css/gov.css' %}">
+    <link rel="stylesheet" type="text/css" href="{% static 'css/gov2.css' %}">
+    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet"
+          integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+
+</head>
+<body>
+<div data-tip="true" class=" ministry-header-top-wrap  ">
+    <div class="container flex-column flex-sm-row align-items-sm-center ministry-header-top">
+        <div class="row justify-content-between align-items-center">
+            <div class="col-lg-8">
+                <div class="d-flex "><a data-tip="true"
+                                        class=" button button--flat button--flatter button--transition p-0 ministry-header-top__logo "
+                                        title="" tabindex="-1" href="http://gov.kz/memleket/entities/qrmkq"><img
+                        src="{% static 'img/75990035312e271b60f34583fee5d878_original.332798.png' %}"
+                        alt="Служба государственной охраны РК" data-tip="true"
+                        class="ministry-header-top__logo-img image  " title="Служба государственной охраны РК"
+                        tabindex="-1"></a><a data-tip="true"
+                                             class=" button button--flat button--flatter button--transition p-0 ministry-header-top__title "
+                                             title="" tabindex="-1" href="/memleket/entities/qrmkq"><h2
+                        class="color_white typography typography__variant-h2  " data-tip="true">Служба государственной
+                    охраны Республики Казахстан</h2></a>
+                    <div class="d-flex d-lg-none ml-auto">
+                        <div class="hamburger d-flex">
+                            <button data-tip="true"
+                                    class="hamburger__btn button button--flat button--flatter button--transition  "
+                                    type="button"><i class="fas fa-bars"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3 ministry-header-top__links d-none d-lg-block"></div>
+            <div class="col-md-1 ministry-header-top__links d-none d-lg-block">
+                <div class="navbar__links mt-4">
+                    <a class="color_grey" href="">KZ</a>&#160;
+                    <a class="color_white" href=""><b>RU</b></a>&#160;
+                    <a class="color_grey" href="">EN</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container flex-column flex-sm-row align-items-sm-center ministry-header-top">
+    <div class="row justify-content-between align-items-center">
+        <div class="col-lg-12">
+            <br>
+            <h2>Портал подачи заявок</h2>
+            <hr>
+        </div>
+    </div>
+    <div class="row justify-content-md-center">
+        <div class="col-lg-4">
+            <form data-tip="true" class=" form-control row flex-column flex-wrap" method="post" action="/user_login/">
+                {% csrf_token %}
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-12 mb-2 ">
+                    <label for="title" class="color_red">{{ error_message }} </label>
+                </div>
+                <input type="hidden"  autocomplete="false"/>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-12 mb-2 ">
+                    <label for="title">Логин </label>
+                    <div class="d-flex pos_relative"><input type="text"
+                                                            class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
+                                                            name="username" autocomplete="off" ></div>
+                </div>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-12 mb-2 ">
+                    <label for="title">Пароль </label>
+                    <div class="d-flex pos_relative"><input type="password"
+                                                            class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
+                                                            name="password" autocomplete="off" ></div>
+                </div>
+                <div class="my-3 col-md-12">
+                    <button data-tip="true" class=" button button--transition button--color-blue mr-3 col-md-12 ripple"
+                            type="submit">Войти
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+</body>

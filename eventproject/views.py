@@ -1,10 +1,18 @@
 from django.shortcuts import render
 from django.http import HttpResponse
-from eventproject.models import Event, Operator
+from eventproject.models import Event, Operator, Request, Attendee
 from eventproject.forms import EventForm
 import datetime
 from django.http import HttpResponseRedirect
 from django.contrib.auth.models import User
+from django.contrib.auth import authenticate, login
+from django.template import RequestContext
+from django.contrib.auth.decorators import login_required
+from datetime import date, timedelta
+from django.contrib.auth import logout
+from directories.models import Sex, Country, DocumentType
+from django.forms.models import model_to_dict
+import json
 
 # Create your views here.
 
@@ -20,7 +28,7 @@ def index(request):
 	# Return a rendered response to send to the client.
 	# We make use of the shortcut function to make our lives easier.
 	# Note that the first parameter is the template we wish to use.
-	return render(request, 'index.html', context=context_dict)
+	return render(request, 'gov.html', context=context_dict)
 
 def add_event(request):
 	form = EventForm()
@@ -72,3 +80,79 @@ def add_operator(request):
 		operator.save()
 
 	return HttpResponseRedirect('/')
+
+@login_required(login_url='/user_login/')
+def application(request):
+	if not request.user.is_authenticated:
+		return HttpResponse("You are logged in.")
+	user = request.user
+	operator = Operator.objects.get(user=user)
+	if not operator:
+		return HttpResponse("You are logged in.")
+	startdate = date.today()
+	enddate = startdate + timedelta(days=600)
+	events = operator.events.filter(date_start__range=[startdate, enddate])
+	return render(request, 'gov2.html', {'user': user, 'operator':operator, 'events': events})
+
+@login_required(login_url='/user_login/')
+def create_request(request, event_id):
+	context_dict = {}
+	try:
+		event = Event.objects.get(pk=event_id)
+		context_dict['event'] = event
+		operator = Operator.objects.get(user=request.user)
+		request_set = Request.objects.filter(event = event, status = 'Sent')
+		sexs = Sex.objects.all()
+		context_dict['sexs'] = sexs
+		countries = Country.objects.all()
+		context_dict['countries'] = countries
+		document_types = DocumentType.objects.all()
+		context_dict['document_types'] = document_types
+		list_of_requests =[]
+		for req in request_set:
+			request_dict = model_to_dict(req)
+			attendees = Attendee.objects.filter(request=req)
+			list_of_attendees = []
+			for attendee in attendees:
+				attendee_dict = model_to_dict(attendee)
+				list_of_attendees.append(attendee_dict)
+			request_dict['attendees'] = list_of_attendees
+			serialized_request = json.dumps(request_dict, indent=4, sort_keys=True, default=str, ensure_ascii=False)
+			file = open(request_dict['name']+'.txt', 'w')
+			file.write(serialized_request)
+			file.close()
+			list_of_requests.append(request_dict)
+		#print("ai  m here")
+		event_dict = model_to_dict(event)
+		event_dict['requests'] = list_of_requests
+		serialized_event = json.dumps(event_dict, indent=4, sort_keys=True, default=str, ensure_ascii=False)
+		print(serialized_event)
+		file = open('event_json.txt', 'w')
+		file.write(serialized_event)
+		file.close()
+
+	except Event.DoesNotExist:
+		return HttpResponse("Could not find event")
+	return render(request, 'gov3.html', context_dict)
+
+@login_required(login_url='/user_login/')
+def user_logout(request):
+	logout(request)
+	return HttpResponseRedirect('/user_login/')
+
+def user_login(request):
+	context = RequestContext(request)
+	if request.method == 'POST':
+		username = request.POST['username']
+		password = request.POST['password']
+		user = authenticate(username=username, password=password)
+		if user is not None:
+			if user.is_active:
+				login(request, user)
+				return HttpResponseRedirect('/application/')
+			else:
+				return HttpResponse("Your account is suspended")
+		else:
+			return render(request, 'gov.html', context={'error_message':'invalid login details'})
+	return render(request, 'gov.html', context={})
+	#return render_to_response('gov.html', , context)

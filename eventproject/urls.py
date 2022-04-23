@@ -23,6 +23,10 @@ urlpatterns = [
     path('add_event/', views.add_event, name='add_event'),
     path('create_event/', views.create_event, name='create_event'),
     path('add_operator/', views.add_operator, name='add_operator'),
+    path('user_login/', views.user_login, name='user_login'),
+    path('application/', views.application, name='application'),
+    path('logout/', views.user_logout, name='logout'),
+    path('create/<int:event_id>/', views.create_request, name='create_request'),
 	path('', views.index, name='index'),
     path('admin/', admin.site.urls),
 ]
