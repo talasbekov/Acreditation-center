@@ -1,6 +1,6 @@
 {
-    "date_end": "2022-04-22",
-    "date_start": "2022-04-22",
+    "date_end": "2022-04-30",
+    "date_start": "2022-04-29",
     "event_code": "0102",
     "id": 4,
     "name_eng": "Cat exhibition",

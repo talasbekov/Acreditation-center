@@ -30,33 +30,39 @@ class Request(models.Model):
 	date_created = models.DateTimeField()
 	created_by = models.ForeignKey(Operator, on_delete=models.CASCADE, related_name="created_operator")
 	registration_time = models.DateTimeField()
-	exported_by = models.ForeignKey(Operator, on_delete=models.CASCADE, related_name="exported_operator")
+	exported_by = models.ForeignKey(Operator, on_delete=models.CASCADE, related_name="exported_operator", null=True, blank=True)
 
 	def __str__(self):
 		return self.name
+
+def event_photo_directory_path(instance, filename):
+    return 'event_{0}/attendee_photos/{1}'.format(instance.request.event.id, filename)
+
+def event_document_directory_path(instance, filename):
+    return 'event_{0}/attendee_documents/{1}'.format(instance.request.event.id, filename)
 
 class Attendee(models.Model):
 	surname = models.CharField(max_length=128)
 	firstname = models.CharField(max_length=128)
 	patronymic = models.CharField(max_length=128)
-	birthDate = models.DateField()
+	birthDate = models.DateField(null=True, blank=True)
 	post = models.CharField(max_length=128)
 	countryId = models.CharField(max_length=30)
 	docTypeId = models.CharField(max_length=30)
 	docSeries = models.CharField(max_length=128)
 	iin = models.CharField(max_length=12)
 	docNumber = models.CharField(max_length=20)
-	docBegin = models.DateField()
-	docEnd = models.DateField()
+	docBegin = models.DateField(null=True, blank=True)
+	docEnd = models.DateField(null=True, blank=True)
 	docIssue = models.CharField(max_length=50)	
-	photo = models.ImageField(upload_to='attendee_photos', blank=True)
-	docScan = models.ImageField(upload_to='attendee_document', blank=True)
+	photo = models.ImageField(upload_to=event_photo_directory_path, blank=True)
+	docScan = models.ImageField(upload_to=event_document_directory_path, blank=True)
 	sexId = models.CharField(max_length=20)
 	dateAdd = models.DateTimeField()
 	visitObjects = models.CharField(max_length=200)
 	transcription = models.CharField(max_length=128)
 	request = models.ForeignKey(Request, on_delete=models.CASCADE)
-	dateEnd = models.DateField()
+	dateEnd = models.DateField(null=True, blank=True)
 
 	def __str__(self):
 		return self.firstname
