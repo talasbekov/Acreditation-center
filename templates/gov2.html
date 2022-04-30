@@ -10,24 +10,36 @@
             <br>
             <a href="/logout/" class="btn float-right">Выйти</a>
             <a href="/change_password/" class="btn float-right">Изменить пароль</a>
-            <h2>Добро пожаловать, {{ user.first_name }} {{ user.last_name }}&#160;</h2>
+            <a class="btn float-left">Добро пожаловать, {{ user.first_name }} {{ user.last_name }}&#160;</a>
 
 
             <hr>
         </div>
     </div>
     <div class="col-md-12 mt-4">
+        {% if events %}
+            <h4>Список мероприятий, на которые Вам был предоставлен доступ</h4>
+        {% else %}
+            <h4>Нет предстоящих активных мероприятий</h4>
+        {% endif %}
+        <hr>
         {% for event in events %}
-        <h4>{{ event.name_rus }}</h4>
-        <a href="/create/{{ event.id }}">Создать новую заявку</a><br><br>
+        <h5>Мероприятие:&#160;{{ event.name_rus }}</h5>
+        <br>
+            <a href="/create/{{ event.id }}" class="btn btn-primary">+ Создать новый список участников(заявку) для этого мероприятия</a><br><br>
         {% for req in reqs %}
             {% if req.event == event %}
-        <a href="/show/{{ req.id }}"> {{ req.name }}</a> статус: {% if req.status == "Active" %} Создано <a href="/delete_request/{{ req.id }}" style="color:red">удалить</a>{% elif req.status == "Checking" %} Предпросмотр {% elif req.status == "Sent" %} Отправлено {% else %} Неизвестен {% endif %}
+        <a href="/show/{{ req.id }}" class="btn
+            {% if req.status == 'Active' %}     btn-secondary
+            {% elif req.status == 'Checking' %} btn-warning
+            {% elif req.status == 'Sent' %} btn-success
+            {% else %} btn-primary {% endif %}" role="button">
+            {% if req.status == 'Active' %} Редактировать список участников {% else %} Посмотреть список участников &#160;&#160;&#160;&#160;&#160;{% endif %}</a> Номер заявки:&#160;{{ req.name }}. статус: {% if req.status == "Active" %} Создано <a href="/delete_request/{{ req.id }}" style="color:red">удалить список</a>{% elif req.status == "Checking" %} Предпросмотр {% elif req.status == "Sent" %} Отправлено {% else %} Неизвестен {% endif %}
 
         <br><br>
             {% endif %}
         {% endfor %}
-        <br><br><hr>
+        <hr>
         {% endfor %}
     </div>
 </div>

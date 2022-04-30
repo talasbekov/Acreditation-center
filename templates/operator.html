@@ -3,7 +3,7 @@
 {% load static %}
 <html>
 <head>
-    <title>Salem </title>
+    <title>Admin portal </title>
     <link rel="stylesheet" type="text/css" href="{% static 'css/all.min.css' %}">
     <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet"
           integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
@@ -35,7 +35,7 @@
 
         <main>
             <div class="py-5 text-center">
-                <h2>Список мероприятий и пользователей</h2>
+                <h2>Профиль пользователя</h2>
                 <p class="lead"></p>
                 {% if success_message %}
                     <div class="alert alert-success" role="alert">
@@ -58,18 +58,15 @@
                     <b>Имя:</b> {{ operator.user.last_name }}<br>
                     <b>Фамиилия:</b> {{ operator.user.first_name }}<br>
                     <b>Отчество:</b> {{ operator.patronymic }}<br>
-                    <ul class="list-group mb-3">
-
-                        <li class="list-group-item d-flex justify-content-between lh-sm">
-                            <div>
-                                <a href="/show_operator/{{ operator.id }}/"><h6 class="my-0">{{ operator.user.last_name }} {{ operator.user.first_name }} {{ operator.patronymic }}</h6></a>
-                                <small class="text-muted">{{ operator.user.username }}, {{ operator.workplace }}</small>
-                            </div>
-                            <span class="text-muted">{{ operator.phone_number }}</span>
-                        </li>
-                    </ul>
-
-
+                    <b>Логин:</b> {{ operator.user.username }}<br>
+                    <b>Пароль:</b> <a href="/new_password/{{ operator.user.username }}/">Сгенерировать новый пароль для пользователя</a><br>
+                    <b>Телефон:</b> {{ operator.phone_number }}<br>
+                    <b>Место работы:</b> {{ operator.workplace }}<br>
+                    <br><br>
+                    <a href="/delete_operator/{{ operator.user.username }}/">
+                    <button class="w-100 btn btn-danger btn-md" type="submit">Удалить пользователя
+                                </button>
+                    </a>
                 </div>
                 <div class="col-md-6 col-lg-6 order-md-last">
                     <h4 class="mb-3">Мероприятия</h4>
@@ -81,7 +78,7 @@
                     <h6>{{ event.date_start|date:"d.m.Y" }}-{{ event.date_end|date:"d.m.Y" }}</h6>
                     {% for req in reqs %}
                         {% if req.event == event %}
-                    <a href="/show/{{ req.id }}"> {{ req.name }}</a> статус: {% if req.status == "Active" %} Создано <a href="/delete_request/{{ req.id }}" style="color:red">удалить</a>{% elif req.status == "Checking" %} Предпросмотр {% elif req.status == "Sent" %} Отправлено {% else %} Неизвестен {% endif %}
+                    <a href="/show_request_to_admin/{{ req.id }}"> {{ req.name }}</a> статус: {% if req.status == "Active" %} <span class="text-primary">Создано</span> {% elif req.status == "Checking" %} <span class="text-warning">Предпросмотр </span>{% elif req.status == "Sent" %} <span class="text-success">Отправлено</span> {% else %} Неизвестен {% endif %}
 
                     <br><br>
                         {% endif %}

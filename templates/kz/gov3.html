@@ -1,0 +1,239 @@
+{% extends 'kz/gov_base.html' %}
+{% load static %}
+{% block body_block %}
+
+<div class="container flex-column flex-sm-row align-items-sm-center ministry-header-top">
+    <div class="row justify-content-between align-items-center">
+        <div class="col-lg-12">
+            <br>
+            <a href="/kz/logout/" class="btn float-right">Шығу</a>
+            <h4>"{{ req.event.name_kaz }}" шарасына қатысушы қосу</h4>
+
+
+            <hr>
+        </div>
+    </div>
+    <div class="col-md-12 mt-4">
+        <form data-tip="true" class=" form-control row flex-column flex-wrap " action="/kz/add_attendee/{{ req.id }}/" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="row">
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-3 mb-2 ">
+                    <label for="" title> Тегі </label>
+                    <div class="d-flex pos_relative">
+                        <input placeholder="Алиев"
+                               type="text" required=""
+                               class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
+                               value="" name="last_name">
+                    </div>
+                </div>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-2 mb-2 ">
+                    <label for="title"> Аты </label>
+                    <div class="d-flex pos_relative">
+                        <input placeholder="Али"
+                               type="text" required=""
+                               class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
+                               value="" name="first_name">
+                    </div>
+                </div>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-3 mb-2 ">
+                    <label for="title"> Әкесінің аты </label>
+                    <div class="d-flex pos_relative">
+                        <input placeholder="Алиевич"
+                               type="text"
+                               class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
+                               value="" name="patronymic">
+                    </div>
+                </div>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-4 mb-2 ">
+                    <label for="title"> Толық атының транслитерациясы </label>
+                    <div class="d-flex pos_relative">
+                        <input placeholder="Aliev Ali Alievich"
+                               type="text"
+                               class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
+                               value="" name="latin_name">
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-12">
+                <hr>
+            </div>
+            <div class="row">
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-2 mb-2 ">
+                    <label for="title"> ЖСН </label>
+                    <div class="d-flex pos_relative">
+                        <input placeholder="781213351207"
+                               type="text"
+                               class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
+                               value="" name="iin">
+                    </div>
+                </div>
+                <div class="form-control__input form-control__input--visible-first col-md-2 mb-2"><label for="title">
+                    Туған күні </label>
+                    <div class="d-flex align-items-center">
+                        <div class="ant-picker ant-picker-range">
+                            <div class="ant-picker-input ant-picker-input-active"><input type="date" name="dob" required=""
+                                                                                         placeholder="Начальная дата"
+                                                                                         size="12" value=""></div>
+                        </div>
+                    </div>
+                </div>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-select pos_relative col-md-2 mb-2 ">
+                    <label for="gosorgan">Жынысы </label>
+                    <div><select name="sex" type="select"
+                                 class="color_white__bg form-input-select__input typography__variant-bodysubreg form-input-select__input--outlined"
+                                 contenttype="projectdetails"  >
+                        {% for sex in sexs %}
+                        <option value="{{ sex.sex_code }}">{{ sex.name_kaz }}</option>
+                        {% endfor %}
+                    </select></div>
+                </div>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-select pos_relative col-md-2 mb-2 ">
+                    <label for="gosorgan">Азаматтығы </label>
+                    <div><select name="citizenship" type="select"
+                                 class="color_white__bg form-input-select__input typography__variant-bodysubreg form-input-select__input--outlined"
+                                 contenttype="">
+                        {% for country in countries %}
+                        <option value="{{ country.country_code }}"  {% if country.country_code == "1000000105" %} selected="selected" {% endif %}>
+                        {{ country.name_kaz }}</option>
+                        {% endfor %}
+                    </select></div>
+                </div>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-4 mb-2 ">
+                    <label for="title"> Қызметі </label>
+                    <div class="d-flex pos_relative">
+                        <input placeholder="директор"
+                               type="text"
+                               name="post"
+                               class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined">
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-12">
+                <hr>
+            </div>
+            <div class="row">
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-select pos_relative col-md-3 mb-2 ">
+                    <label for="title">Құжат түрі </label>
+                    <div><select name="document_type" type="select"
+                                 class="color_white__bg form-input-select__input typography__variant-bodysubreg form-input-select__input--outlined"
+                                 contenttype="">
+                        {% for dc in document_types %}
+                        <option value="{{ dc.doc_code }}" {% if dc.doc_code == "1000000003" %} selected="selected" {% endif %}>
+                        {{ dc.name_kaz }}</option>
+                        {% endfor %}
+                    </select></div>
+                </div>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-1 mb-2 ">
+                    <label for="title"> Сериясы </label>
+                    <div class="d-flex pos_relative">
+                        <input placeholder=""
+                               type="text"
+                               class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
+                               value="" name="doc_series">
+                    </div>
+                </div>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-2 mb-2 ">
+                    <label for="title"> Құжат нөмірі </label>
+                    <div class="d-flex pos_relative">
+                        <input
+                                type="text" required=""
+                                class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
+                                value="" name="doc_number">
+                    </div>
+                </div>
+                <div class="form-control__input form-control__input--visible-first col-md-2 mb-2">
+                    <label for="title"> Берілген күні </label>
+                    <div class="d-flex align-items-center">
+                        <div class="ant-picker ant-picker-range">
+                            <div class="ant-picker-input ant-picker-input-active"><input type="date" required=""
+                                                                                         name="doc_date_start"
+                                                                                         size="12" value=""></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-control__input form-control__input--visible-first col-md-2 mb-2"><label for="title">
+                    Жарамдылық күні </label>
+                    <div class="d-flex align-items-center">
+                        <div class="ant-picker ant-picker-range">
+                            <div class="ant-picker-input ant-picker-input-active">
+                                <input type="date" name="doc_date_end" size="12" value="" required="">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-2 mb-2 ">
+                    <label for="title"> Берген мекеме </label>
+                    <div class="d-flex pos_relative">
+                        <input placeholder="Алиев"
+                               type="text"
+                               class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
+                               value="" name="doc_issuer">
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-12">
+                <hr>
+            </div>
+            <div class="row">
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-1 mb-2 ">
+                    <img src="{% static 'img/upload_photo.png' %}" width="100%">
+
+                </div>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-3 mb-2 ">
+                    <label for="title"> Қатысушының суретін тіркеңіз(.jpg, .png) </label>
+                    <div class="d-flex pos_relative">
+                        <input placeholder="Алиев"
+                               type="file" required="" accept=".jpg,.jpeg,.png"
+                               class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
+                               value="" name="photo">
+                    </div>
+                </div>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-1 mb-2 ">
+                    <img src="{% static 'img/id.png' %}" width="100%">
+
+                </div>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-3 mb-2 ">
+                    <label for="title"> Құжатының суретің тіркеңіз(jpg, .png)</label>
+                    <div class="d-flex pos_relative">
+                        <input placeholder="Алиев"
+                               type="file" required="" accept=".jpg,.jpeg,.png"
+                               class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
+                               value="" name="doc_photo">
+                    </div>
+                </div>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-4 mb-2 ">
+                    <label for="title"> Баратын объектілер</label>
+                    <div class="d-flex pos_relative">
+                        <textarea class="form-control" id="exampleFormControlTextarea3" rows="3" name="visit_objects"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="my-3 col-md-12">
+                <input type="hidden" name="req_id" value="{{ req.id }}">
+                <button data-tip="true" class=" button button--transition button--color-blue mr-3 col-md-12 ripple"
+                        type="submit">Қатысушыны қосу
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+</div>
+{% endblock %}

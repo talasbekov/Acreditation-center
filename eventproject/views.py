@@ -13,8 +13,12 @@ from django.contrib.auth import logout
 from directories.models import Sex, Country, DocumentType
 from django.forms.models import model_to_dict
 from django.contrib.auth.decorators import user_passes_test
+from django.http import JsonResponse
+from django.http import FileResponse
 import json
 import secrets
+import os
+import shutil
 
 
 # Create your views here.
@@ -24,7 +28,7 @@ def index(request):
     # Note the key boldmessage is the same as {{ boldmessage }} in the template!
     startdate = date.today()
     enddate = startdate + timedelta(days=900)
-    event_list = Event.objects.filter(date_end__range=[startdate, enddate]).order_by('-date_start')
+    event_list = Event.objects.filter(date_end__range=[startdate, enddate]).order_by('date_start')
     operators = Operator.objects.all()
     context_dict = {'events': event_list}
     context_dict['operators'] = operators
@@ -36,7 +40,7 @@ def show_admin(request, success_message):
     # Note the key boldmessage is the same as {{ boldmessage }} in the template!
     startdate = date.today()
     enddate = startdate + timedelta(days=900)
-    event_list = Event.objects.filter(date_end__range=[startdate, enddate]).order_by('-date_start')
+    event_list = Event.objects.filter(date_end__range=[startdate, enddate]).order_by('date_start')
     operators = Operator.objects.all()
     context_dict = {'events': event_list}
     context_dict['operators'] = operators
@@ -48,7 +52,7 @@ def show_admin_error(request, error_message):
     # Note the key boldmessage is the same as {{ boldmessage }} in the template!
     startdate = date.today()
     enddate = startdate + timedelta(days=900)
-    event_list = Event.objects.filter(date_end__range=[startdate, enddate]).order_by('-date_start')
+    event_list = Event.objects.filter(date_end__range=[startdate, enddate]).order_by('date_start')
     operators = Operator.objects.all()
     context_dict = {'events': event_list}
     context_dict['operators'] = operators
@@ -147,7 +151,20 @@ def show_operator(request, operator_id):
         reqs = Request.objects.filter(created_by = operator).order_by('-date_created')
         context_dict['events'] = event_list
         context_dict['operator'] = operator
-        context_dict['requests'] = reqs
+        context_dict['reqs'] = reqs
+    except Exception as e:
+        return HttpResponse("Could not find operator")
+    return render(request, 'operator.html', context_dict)
+
+@user_passes_test(lambda u: u.is_superuser, login_url='/user_login/')
+def delete_operator(request, username):
+    context_dict = {}
+    try:
+        user = User.objects.get(username=username)
+        operator = Operator.objects.get(user=user)
+        success_message = user.first_name + " " + user.last_name + " успешно удален"
+        operator.delete()
+        return show_admin(request, success_message)
     except Exception as e:
         return HttpResponse("Could not find operator")
     return render(request, 'operator.html', context_dict)
@@ -177,7 +194,7 @@ def create_request(request, event_id):
         operator = Operator.objects.get(user=request.user)
         req = Request()
         now = datetime.now()
-        req.name = now.strftime("%d%m%Y%H:%M:%S")
+        req.name = now.strftime("%d%m%Y%H%M%S")
         req.event = event
         req.status = "Active"
         req.date_created = now
@@ -188,6 +205,147 @@ def create_request(request, event_id):
     except Event.DoesNotExist:
         return HttpResponse("Could not find event")
     return render(request, 'request.html', context_dict)
+
+@user_passes_test(lambda u: u.is_superuser, login_url='/user_login/')
+def new_password(request, username):
+    context_dict = {}
+    try:
+        user = User.objects.get(username=username)
+        operator = Operator.objects.get(user=user)
+        password = secrets.token_urlsafe(8)
+        user.set_password(password)
+        user.save()
+        startdate = date.today()
+        enddate = startdate + timedelta(days=900)
+        event_list = operator.events.filter(date_end__range=[startdate, enddate]).order_by('-date_start')
+        reqs = Request.objects.filter(created_by=operator).order_by('-date_created')
+        context_dict['events'] = event_list
+        context_dict['operator'] = operator
+        context_dict['requests'] = reqs
+        context_dict['success_message'] = "Сгенерирован новый пароль: " + password
+    except Event.DoesNotExist:
+        return HttpResponse("Could not find event")
+    return render(request, 'operator.html', context_dict)
+
+@user_passes_test(lambda u: u.is_superuser, login_url='/user_login/')
+def show_request_to_admin(request, request_id):
+    context_dict = {}
+    try:
+        req = Request.objects.get(pk=request_id)
+        context_dict['req'] = req
+        attendees = Attendee.objects.filter(request = req)
+        context_dict['attendees'] = attendees
+        countries = Country.objects.all()
+        context_dict['countries'] = countries
+        document_types = DocumentType.objects.all()
+        context_dict['document_types'] = document_types
+        sexs = Sex.objects.all()
+        context_dict['sexs'] = sexs
+        if req.status == "Sent":
+            context_dict['delete_message'] = "Отправлено " + str(req.registration_time)
+    except Request.DoesNotExist:
+        return HttpResponse("Could not find event")
+    return render(request, 'request_admin.html', context_dict)
+
+@user_passes_test(lambda u: u.is_superuser, login_url='/user_login/')
+def show_event(request, event_id):
+    context_dict = {}
+    try:
+        event = Event.objects.get(pk=event_id)
+        operators = Operator.objects.filter(events__in=[event])
+        reqs = Request.objects.filter(event=event)
+        context_dict = {'events': [event]}
+        context_dict['operators'] = operators
+        context_dict['event'] = event
+        context_dict['reqs'] = reqs
+    except Request.DoesNotExist:
+        return HttpResponse("Could not find event")
+    return render(request, 'event.html', context_dict)
+
+@user_passes_test(lambda u: u.is_superuser, login_url='/user_login/')
+def download_json(request, event_id):
+    context_dict = {}
+    try:
+        event = Event.objects.get(pk=event_id)
+        request_set = Request.objects.filter(event=event, status='Sent')
+        list_of_requests = []
+        print(len(request_set))
+        for req in request_set:
+            request_dict = model_to_dict(req)
+            attendees = Attendee.objects.filter(request=req)
+            list_of_attendees = []
+            for attendee in attendees:
+                attendee_dict = model_to_dict(attendee)
+                #attendee_dict['photo'] = attendee.photo.url
+                list_of_attendees.append(attendee_dict)
+            request_dict['attendees'] = list_of_attendees
+            request_dict['event'] = req.event
+            request_dict['created_by'] = req.created_by
+            list_of_requests.append(request_dict)
+        event_dict = model_to_dict(event)
+        event_dict['requests'] = list_of_requests
+        serialized_event = json.dumps(event_dict, indent=4, sort_keys=True, default=str, ensure_ascii=False)
+        return HttpResponse(serialized_event, content_type="application/json")
+    except Request.DoesNotExist:
+        return HttpResponse("Could not find event")
+    return render(request, 'event.html', context_dict)
+
+@user_passes_test(lambda u: u.is_superuser, login_url='/user_login/')
+def download_guests_json(request, event_id):
+    context_dict = {}
+    try:
+        event = Event.objects.get(pk=event_id)
+        request_set = Request.objects.filter(event=event, status='Sent')
+        list_of_attendees = []
+        for req in request_set:
+            request_dict = model_to_dict(req)
+            attendees = Attendee.objects.filter(request=req)
+            for attendee in attendees:
+                attendee_dict = model_to_dict(attendee)
+                list_of_attendees.append(attendee_dict)
+        event_dict = model_to_dict(event)
+        event_dict['attendees'] = list_of_attendees
+        serialized_event = json.dumps(event_dict, indent=4, sort_keys=True, default=str, ensure_ascii=False)
+        return HttpResponse(serialized_event, content_type="application/json")
+    except Request.DoesNotExist:
+        return HttpResponse("Could not find event")
+    return render(request, 'event.html', context_dict)
+
+@user_passes_test(lambda u: u.is_superuser, login_url='/user_login/')
+def download_request_json(request, request_id):
+    context_dict = {}
+    try:
+        req = Request.objects.get(id=request_id)
+        request_dict = model_to_dict(req)
+        attendees = Attendee.objects.filter(request=req)
+        list_of_attendees = []
+        for attendee in attendees:
+            attendee_dict = model_to_dict(attendee)
+            #attendee_dict['photo'] = attendee.photo.url
+            list_of_attendees.append(attendee_dict)
+        request_dict['attendees'] = list_of_attendees
+        request_dict['event'] = req.event
+        serialized_event = json.dumps(request_dict, indent=4, sort_keys=True, default=str, ensure_ascii=False)
+        return HttpResponse(serialized_event, content_type="application/json")
+    except Request.DoesNotExist:
+        return HttpResponse("Could not find event")
+    return render(request, 'event.html', context_dict)
+
+@user_passes_test(lambda u: u.is_superuser, login_url='/user_login/')
+def download_photos(request, event_id):
+    context_dict = {}
+    try:
+        dir_name = 'media/event_'+str(event_id)
+        if not os.path.isdir(dir_name):
+            return HttpResponse("No photos uploaded yet")
+        output_filename = "output/event_"+str(event_id)
+        shutil.make_archive(output_filename, 'zip', dir_name)
+        zip = open(output_filename+'.zip', 'rb')
+        response = FileResponse(zip)
+        return response
+    except Request.DoesNotExist:
+        return HttpResponse("Could not find event")
+    return render(request, 'event.html', context_dict)
 
 @login_required(login_url='/user_login/')
 def show_request(request, request_id):
@@ -461,7 +619,10 @@ def user_login(request):
         if user is not None:
             if user.is_active:
                 login(request, user)
-                return HttpResponseRedirect('/application/')
+                if user.is_superuser:
+                    return HttpResponseRedirect('/avmac/')
+                else:
+                    return HttpResponseRedirect('/application/')
             else:
                 return HttpResponse("Your account is suspended")
         else:
