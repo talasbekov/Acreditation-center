@@ -1,6 +1,7 @@
 {% extends 'kz/gov_base.html' %}
 {% load static %}
 {% block body_block %}
+    <script type="text/javascript" src="{% static 'js/jquery-3.6.0.min.js' %}"></script>
 
 <div class="container flex-column flex-sm-row align-items-sm-center ministry-header-top">
     <div class="row justify-content-between align-items-center">
@@ -96,7 +97,7 @@
                 <div data-tip="true"
                      class="form-control__input form-control__input--visible-first form-input-select pos_relative col-md-2 mb-2 ">
                     <label for="gosorgan">Азаматтығы </label>
-                    <div><select name="citizenship" type="select"
+                    <div><select name="citizenship" type="select" id="citizenship"
                                  class="color_white__bg form-input-select__input typography__variant-bodysubreg form-input-select__input--outlined"
                                  contenttype="">
                         {% for country in countries %}
@@ -123,7 +124,7 @@
                 <div data-tip="true"
                      class="form-control__input form-control__input--visible-first form-input-select pos_relative col-md-3 mb-2 ">
                     <label for="title">Құжат түрі </label>
-                    <div><select name="document_type" type="select"
+                    <div><select name="document_type" type="select" id="doctype"
                                  class="color_white__bg form-input-select__input typography__variant-bodysubreg form-input-select__input--outlined"
                                  contenttype="">
                         {% for dc in document_types %}
@@ -231,9 +232,62 @@
                         type="submit">Қатысушыны қосу
                 </button>
             </div>
+                        <select  type="select" id="qazdoctype"
+                                 class="color_white__bg form-input-select__input typography__variant-bodysubreg form-input-select__input--outlined"
+                                 contenttype="">
+                        {% for dc in document_types %}
+                            {% if dc.doc_code in '1000000001,1000000003' %}
+                                <option value="{{ dc.doc_code }}" {% if dc.doc_code == "1000000003" %} selected="selected" {% endif %}>
+                                {{ dc.name_kaz }}</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+            <select  type="select" id="fulldoctype"
+                                 class="color_white__bg form-input-select__input typography__variant-bodysubreg form-input-select__input--outlined"
+                                 contenttype="">
+                        {% for dc in document_types %}
+                        <option value="{{ dc.doc_code }}" {% if dc.doc_code == "1000000003" %} selected="selected" {% endif %}>
+                        {{ dc.name_kaz }}</option>
+                        {% endfor %}
+                    </select>
 
         </form>
 
     </div>
 </div>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+          $('#qazdoctype').hide()
+      $('#fulldoctype').hide()
+    var c = $( "#citizenship" ).val()
+     if( c == "1000000105"){
+            var res = $('#qazdoctype').html();
+            $("#doctype").html(res)
+        }else{
+            var res = $('#fulldoctype').html();
+            $("#doctype").html(res)
+        }
+    });
+  </script>
+
+
+  <script>
+
+
+
+    $("#citizenship").change(function () {
+          var c = $( "#citizenship" ).val()
+        if( c == "1000000105"){
+            var res = $('#qazdoctype').html();
+            $("#doctype").html(res)
+        }else{
+            var res = $('#fulldoctype').html();
+            $("#doctype").html(res)
+        }
+
+      $('#qazdoctype').hide()
+      $('#fulldoctype').hide()
+         });
+  </script>
+
 {% endblock %}

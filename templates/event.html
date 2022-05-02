@@ -138,6 +138,13 @@
                     <p><b>Event:&#160;</b>{{ event.name_eng }}</p>
                     <p><b>Начало:&#160;</b>{{ event.date_start|date:"d.m.Y" }}</p>
                     <p><b>Окончание:&#160;</b>{{ event.date_end|date:"d.m.Y" }}</p>
+                    <p><b>Город:&#160;</b>
+                    {% for city in cities %}
+                        {% if city.city_code == event.city_code %}
+                            {{ city.name_rus }}
+                        {% endif %}
+                    {% endfor %}
+                    </p>
                     <p><a href="/download_json/{{ event.id }}/">Скачать все заявки одним json файлом</a></p>
                     <p><a href="/download_guests_json/{{ event.id }}/">Скачать список участников одним json файлом</a></p>
                     <p><a href="/download_photos/{{ event.id }}/">Скачать фотографии и сканы документов</a></p>

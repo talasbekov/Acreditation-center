@@ -10,7 +10,7 @@ from django.template import RequestContext
 from django.contrib.auth.decorators import login_required
 from datetime import date, timedelta, datetime
 from django.contrib.auth import logout
-from directories.models import Sex, Country, DocumentType
+from directories.models import Sex, Country, DocumentType, City
 from django.forms.models import model_to_dict
 from django.contrib.auth.decorators import user_passes_test
 from django.http import JsonResponse
@@ -46,13 +46,14 @@ def application(request):
         return HttpResponse("You are logged in.")
     user = request.user
     operator = Operator.objects.get(user=user)
+    cities = City.objects.all()
     if not operator:
         return HttpResponse("You are logged in.")
     startdate = date.today()
     enddate = startdate + timedelta(days=600)
     events = operator.events.filter(date_start__range=[startdate, enddate])
     reqs = Request.objects.filter(created_by = operator).order_by('-date_created')
-    return render(request, 'kz/gov2.html', {'user': user, 'operator': operator, 'events': events, 'reqs':reqs})
+    return render(request, 'kz/gov2.html', {'user': user, 'operator': operator, 'events': events, 'reqs':reqs, 'cities':cities})
 
 @login_required(login_url='/kz/user_login/')
 def user_logout(request):
@@ -175,6 +176,27 @@ def add_attendee(request, request_id):
         attendee.request = req
         attendee.dateAdd = datetime.now()
         attendee.dateEnd = date.today()
+        doc_start = datetime.strptime(attendee.docBegin, '%Y-%m-%d').date()
+        doc_end = datetime.strptime(attendee.docEnd, '%Y-%m-%d').date()
+        dob = datetime.strptime(attendee.birthDate, '%Y-%m-%d').date()
+        if doc_start>date.today():
+            context_dict['delete_message'] = "Қатысушы қосылмады. Құжаттың берілген күні қате"
+            return render(request, 'request.html', context_dict)
+        if doc_end<date.today():
+            context_dict['delete_message'] = "Қатысушы қосылмады. Құжаттың мерзімі өтіп кетті"
+            return render(request, 'request.html', context_dict)
+        if dob>date.today():
+            context_dict['delete_message'] = "Қатысушы қосылмады. Туған күн қате еңгізілген"
+            return render(request, 'request.html', context_dict)
+        if attendee.photo.size > 9000000:
+            context_dict['delete_message'] = "Қатысушы қосылмады. Суреттің салмағы 7Mb артады"
+            return render(request, 'request.html', context_dict)
+        if attendee.docScan.size > 9000000:
+            context_dict['delete_message'] = "Қатысушы қосылмады. Құжаттың салмағы 7Mb артады"
+            return render(request, 'request.html', context_dict)
+        if attendee.countryId == "1000000105" and len(attendee.iin)<12:
+            context_dict['delete_message'] = "Қатысушы қосылмады. Қазақстан азаматтарына ЖСН міндетті"
+            return render(request, 'request.html', context_dict)
         attendee.save()
         context_dict['req'] = req
         attendees = Attendee.objects.filter(request=req)

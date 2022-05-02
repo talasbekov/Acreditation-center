@@ -19,7 +19,8 @@
     <div class="col-md-12 mt-4">
         <h5>Request({{ req.name }}) to the event {{ req.event.name_eng }}, there are {{ attendees|length }}
             participants</h5>
-        <h6 class="text-success">{{ delete_message }}</h6>
+        <h6 class="text-success">{{ success_message }}</h6>
+        <h6 class="text-danger">{{ delete_message }}</h6>
 
         <hr>
 

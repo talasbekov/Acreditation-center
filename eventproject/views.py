@@ -10,7 +10,7 @@ from django.template import RequestContext
 from django.contrib.auth.decorators import login_required
 from datetime import date, timedelta, datetime
 from django.contrib.auth import logout
-from directories.models import Sex, Country, DocumentType
+from directories.models import Sex, Country, DocumentType, City
 from django.forms.models import model_to_dict
 from django.contrib.auth.decorators import user_passes_test
 from django.http import JsonResponse
@@ -19,9 +19,10 @@ import json
 import secrets
 import os
 import shutil
+from distutils.dir_util import copy_tree
 
 
-# Create your views here.
+
 @user_passes_test(lambda u: u.is_superuser, login_url='/user_login/')
 def index(request):
     # Construct a dictionary to pass to the template engine as its context.
@@ -30,9 +31,10 @@ def index(request):
     enddate = startdate + timedelta(days=900)
     event_list = Event.objects.filter(date_end__range=[startdate, enddate]).order_by('date_start')
     operators = Operator.objects.all()
+    cities = City.objects.all()
     context_dict = {'events': event_list}
     context_dict['operators'] = operators
-
+    context_dict['cities'] = cities
     return render(request, 'index.html', context=context_dict)
 
 def show_admin(request, success_message):
@@ -42,9 +44,11 @@ def show_admin(request, success_message):
     enddate = startdate + timedelta(days=900)
     event_list = Event.objects.filter(date_end__range=[startdate, enddate]).order_by('date_start')
     operators = Operator.objects.all()
+    cities = City.objects.all()
     context_dict = {'events': event_list}
     context_dict['operators'] = operators
     context_dict['success_message'] = success_message
+    context_dict['cities'] = cities
     return render(request, 'index.html', context=context_dict)
 
 def show_admin_error(request, error_message):
@@ -54,9 +58,11 @@ def show_admin_error(request, error_message):
     enddate = startdate + timedelta(days=900)
     event_list = Event.objects.filter(date_end__range=[startdate, enddate]).order_by('date_start')
     operators = Operator.objects.all()
+    cities = City.objects.all()
     context_dict = {'events': event_list}
     context_dict['operators'] = operators
     context_dict['error_message'] = error_message
+    context_dict['cities'] = cities
     return render(request, 'index.html', context=context_dict)
 
 
@@ -69,6 +75,7 @@ def create_event(request):
         event_code = request.POST['event_code']
         date_start = request.POST['date_start']
         date_end = request.POST['date_end']
+        city = request.POST['city']
         today = date.today()
         sd = datetime.strptime(date_start, '%Y-%m-%d').date()
         ed = datetime.strptime(date_end, '%Y-%m-%d').date()
@@ -82,7 +89,7 @@ def create_event(request):
             error_message = "Не удалось создать мероприятие. Истек дата окончания"
             return show_admin_error(request, error_message)
         event = Event(name_kaz=name_kaz, name_rus=name_rus, name_eng=name_eng, event_code=event_code,
-                      date_start=date_start, date_end=date_end)
+                      date_start=date_start, date_end=date_end, city_code=city)
         event.save()
         success_message = "Мероприятие " + name_rus + " успешно создано"
         return show_admin(request, success_message)
@@ -176,13 +183,14 @@ def application(request):
         return HttpResponse("You are logged in.")
     user = request.user
     operator = Operator.objects.get(user=user)
+    cities = City.objects.all()
     if not operator:
         return HttpResponse("You are logged in.")
     startdate = date.today()
     enddate = startdate + timedelta(days=600)
     events = operator.events.filter(date_start__range=[startdate, enddate])
     reqs = Request.objects.filter(created_by = operator).order_by('-date_created')
-    return render(request, 'gov2.html', {'user': user, 'operator': operator, 'events': events, 'reqs':reqs})
+    return render(request, 'gov2.html', {'user': user, 'operator': operator, 'events': events, 'reqs':reqs, 'cities':cities})
 
 
 @login_required(login_url='/user_login/')
@@ -254,10 +262,12 @@ def show_event(request, event_id):
         event = Event.objects.get(pk=event_id)
         operators = Operator.objects.filter(events__in=[event])
         reqs = Request.objects.filter(event=event)
+        cities = City.objects.all()
         context_dict = {'events': [event]}
         context_dict['operators'] = operators
         context_dict['event'] = event
         context_dict['reqs'] = reqs
+        context_dict['cities'] = cities
     except Request.DoesNotExist:
         return HttpResponse("Could not find event")
     return render(request, 'event.html', context_dict)
@@ -338,9 +348,14 @@ def download_photos(request, event_id):
         dir_name = 'media/event_'+str(event_id)
         if not os.path.isdir(dir_name):
             return HttpResponse("No photos uploaded yet")
-        output_filename = "output/event_"+str(event_id)
-        shutil.make_archive(output_filename, 'zip', dir_name)
-        zip = open(output_filename+'.zip', 'rb')
+        output_filename = "output/event_"+str(event_id)+"/event_"+str(event_id)
+        copy_tree(dir_name, output_filename)
+        zip_address = "output/event_"+str(event_id)
+        file = open(zip_address+"/test.txt", "w")
+        file.close()
+        archieve = "event_"+str(event_id)
+        shutil.make_archive(archieve, 'zip', zip_address)
+        zip = open(archieve+'.zip', 'rb')
         response = FileResponse(zip)
         return response
     except Request.DoesNotExist:
@@ -529,11 +544,32 @@ def add_attendee(request, request_id):
         attendee.request = req
         attendee.dateAdd = datetime.now()
         attendee.dateEnd = date.today()
+        doc_start = datetime.strptime(attendee.docBegin, '%Y-%m-%d').date()
+        doc_end = datetime.strptime(attendee.docEnd, '%Y-%m-%d').date()
+        dob = datetime.strptime(attendee.birthDate, '%Y-%m-%d').date()
+        if doc_start>date.today():
+            context_dict['delete_message'] = "Не удалось добавить. Дата выдачи документа еще не наступил"
+            return render(request, 'request.html', context_dict)
+        if doc_end<date.today():
+            context_dict['delete_message'] = "Не удалось добавить. Истек срок документа"
+            return render(request, 'request.html', context_dict)
+        if dob>date.today():
+            context_dict['delete_message'] = "Не удалось добавить. Проверьте дату рождения"
+            return render(request, 'request.html', context_dict)
+        if attendee.photo.size > 9000000:
+            context_dict['delete_message'] = "Не удалось добавить. Размер фотографии превышает 7Mb"
+            return render(request, 'request.html', context_dict)
+        if attendee.docScan.size > 9000000:
+            context_dict['delete_message'] = "Не удалось добавить. Размер скана документа превышает 7Mb"
+            return render(request, 'request.html', context_dict)
+        if attendee.countryId == "1000000105" and len(attendee.iin)<12:
+            context_dict['delete_message'] = "Не удалось добавить. ИИН обязателен для граждан Казахстана"
+            return render(request, 'request.html', context_dict)
         attendee.save()
         context_dict['req'] = req
         attendees = Attendee.objects.filter(request=req)
         context_dict['attendees'] = attendees
-        context_dict['delete_message'] = "Участник " + attendee.surname + " " + attendee.firstname + " был успешно добавлен"
+        context_dict['success_message'] = "Участник " + attendee.surname + " " + attendee.firstname + " был успешно добавлен"
         return render(request, 'request.html', context_dict)
         #except Exception as e:
         #    return HttpResponse("Could not add a guest")

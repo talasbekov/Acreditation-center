@@ -150,18 +150,27 @@
                         </div>
                         <br>
                         <div class="row gy-3">
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label for="cc-name" class="form-label">Код мероприятия</label>
                                 <input type="text" class="form-control" name="event_code" placeholder="" required>
                             </div>
 
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label for="cc-number" class="form-label">Дата начала</label>
                                 <input type="date" class="form-control" name="date_start" placeholder="" required>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label for="cc-number" class="form-label">Дата окончания</label>
                                 <input type="date" class="form-control" name="date_end" placeholder="" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="city" class="form-label">Город</label>
+                                <select  type="select" class="form-select" name="city">
+                                    {% for city in cities %}
+                                            <option value="{{ city.city_code }}" {% if city.city_code == "1110106945" %} selected="selected" {% endif %}>
+                                            {{ city.name_rus }}</option>
+                                    {% endfor %}
+                                </select>
                             </div>
                         </div>
                         <br>

@@ -25,6 +25,14 @@
         <hr>
         {% for event in events %}
         <h5>Шара:&#160;{{ event.name_kaz }}</h5>
+        <h6>Қала:&#160;
+            {% for city in cities %}
+                {% if city.city_code == event.city_code %}
+                    {{ city.name_kaz }}
+                {% endif %}
+            {% endfor %}
+        </h6>
+        <h6>Күні:&#160;{{ event.date_start|date:"d.m.Y" }}-{{ event.date_end|date:"d.m.Y" }}</h6>
         <br>
             <a href="/kz/create/{{ event.id }}" class="btn btn-primary">+ Осы шараға қатысатын адамдардың тізімін даярлау</a><br><br>
         {% for req in reqs %}

@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.auth.models import User 
+from django.contrib.auth.models import User
 
 class Event(models.Model):
 	name_kaz = models.CharField(max_length=128)
@@ -8,6 +8,8 @@ class Event(models.Model):
 	event_code = models.CharField(max_length=20)
 	date_start = models.DateField()
 	date_end = models.DateField()
+	city_code = models.CharField(max_length=20)
+
 	def __str__(self):
 		return self.name_rus
 

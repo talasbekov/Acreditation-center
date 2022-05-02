@@ -25,6 +25,14 @@
         <hr>
         {% for event in events %}
         <h5>Мероприятие:&#160;{{ event.name_rus }}</h5>
+        <h6>Город:&#160;
+            {% for city in cities %}
+                {% if city.city_code == event.city_code %}
+                    {{ city.name_rus }}
+                {% endif %}
+            {% endfor %}
+        </h6>
+        <h6>Дата:&#160;{{ event.date_start|date:"d.m.Y" }}-{{ event.date_end|date:"d.m.Y" }}</h6>
         <br>
             <a href="/create/{{ event.id }}" class="btn btn-primary">+ Создать новый список участников(заявку) для этого мероприятия</a><br><br>
         {% for req in reqs %}

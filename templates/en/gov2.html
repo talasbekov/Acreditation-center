@@ -25,6 +25,14 @@
         <hr>
         {% for event in events %}
         <h5>Event:&#160;{{ event.name_eng }}</h5>
+        <h6>City:&#160;
+            {% for city in cities %}
+                {% if city.city_code == event.city_code %}
+                    {{ city.name_eng }}
+                {% endif %}
+            {% endfor %}
+        </h6>
+        <h6>Date:&#160;{{ event.date_start|date:"d.m.Y" }}-{{ event.date_end|date:"d.m.Y" }}</h6>
         <br>
             <a href="/en/create/{{ event.id }}" class="btn btn-primary">+ Create new request</a><br><br>
         {% for req in reqs %}
