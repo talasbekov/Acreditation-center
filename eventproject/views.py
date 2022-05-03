@@ -549,22 +549,20 @@ def add_attendee(request, request_id):
         dob = datetime.strptime(attendee.birthDate, '%Y-%m-%d').date()
         if doc_start>date.today():
             context_dict['delete_message'] = "Не удалось добавить. Дата выдачи документа еще не наступил"
-            #return render(request, 'request.html', context_dict)
         elif doc_end<date.today():
             context_dict['delete_message'] = "Не удалось добавить. Истек срок документа"
-            #return render(request, 'request.html', context_dict)
         elif dob>date.today():
             context_dict['delete_message'] = "Не удалось добавить. Проверьте дату рождения"
-            #return render(request, 'request.html', context_dict)
         elif attendee.photo.size > 9000000:
             context_dict['delete_message'] = "Не удалось добавить. Размер фотографии превышает 7Mb"
-            #return render(request, 'request.html', context_dict)
+        elif attendee.photo.size < 100000:
+            context_dict['delete_message'] = "Не удалось добавить. Размер фотографии меньше чем 100Kb"
         elif attendee.docScan.size > 9000000:
             context_dict['delete_message'] = "Не удалось добавить. Размер скана документа превышает 7Mb"
-            #return render(request, 'request.html', context_dict)
+        elif attendee.docScan.size < 100000:
+            context_dict['delete_message'] = "Не удалось добавить. Размер скана документа меньше чем 100Kb"
         elif attendee.countryId == "1000000105" and len(attendee.iin)<12:
             context_dict['delete_message'] = "Не удалось добавить. ИИН обязателен для граждан Казахстана"
-            #return render(request, 'request.html', context_dict)
         else:
             attendee.save()
             context_dict['success_message'] = "Участник " + attendee.surname + " " + attendee.firstname + " был успешно добавлен"

@@ -177,27 +177,32 @@ def add_attendee(request, request_id):
         attendee.dateEnd = date.today()
         if doc_start>date.today():
             context_dict['delete_message'] = "Wrong document issued date"
-            return render(request, 'request.html', context_dict)
-        if doc_end<date.today():
+            #return render(request, 'request.html', context_dict)
+        elif doc_end<date.today():
             context_dict['delete_message'] = "Wrong document expiry date"
-            return render(request, 'request.html', context_dict)
-        if dob>date.today():
+            #return render(request, 'request.html', context_dict)
+        elif dob>date.today():
             context_dict['delete_message'] = "Wrong date of birth"
-            return render(request, 'request.html', context_dict)
-        if attendee.photo.size > 9000000:
+            #return render(request, 'request.html', context_dict)
+        elif attendee.photo.size > 9000000:
             context_dict['delete_message'] = "Photo exceeds 7Mb"
-            return render(request, 'request.html', context_dict)
-        if attendee.docScan.size > 9000000:
+            #return render(request, 'request.html', context_dict)
+        elif attendee.docScan.size > 9000000:
             context_dict['delete_message'] = "Document scan exceeds 7Mb"
-            return render(request, 'request.html', context_dict)
-        if attendee.countryId == "1000000105" and len(attendee.iin)<12:
+            #return render(request, 'request.html', context_dict)
+        elif attendee.countryId == "1000000105" and len(attendee.iin)<12:
             context_dict['delete_message'] = "IIN is mandatory for Kazakhstan citizens"
-            return render(request, 'request.html', context_dict)
-        attendee.save()
+            #return render(request, 'request.html', context_dict)
+        elif attendee.photo.size < 100000:
+            context_dict['delete_message'] = "Size of the photo is required to be at least 100Kb"
+        elif attendee.docScan.size < 100000:
+            context_dict['delete_message'] = "Size of the document image is required to be at least 100Kb"
+        else:
+            attendee.save()
+            context_dict['success_message'] = "Attendee " + attendee.transcription + " is successfully added to the request"
         context_dict['req'] = req
         attendees = Attendee.objects.filter(request=req)
         context_dict['attendees'] = attendees
-        context_dict['delete_message'] = "Attendee " + attendee.transcription + " is successfully added to the request"
         return render(request, 'en/request.html', context_dict)
         #except Exception as e:
         #    return HttpResponse("Could not add a guest")
