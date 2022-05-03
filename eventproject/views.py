@@ -549,27 +549,28 @@ def add_attendee(request, request_id):
         dob = datetime.strptime(attendee.birthDate, '%Y-%m-%d').date()
         if doc_start>date.today():
             context_dict['delete_message'] = "Не удалось добавить. Дата выдачи документа еще не наступил"
-            return render(request, 'request.html', context_dict)
-        if doc_end<date.today():
+            #return render(request, 'request.html', context_dict)
+        elif doc_end<date.today():
             context_dict['delete_message'] = "Не удалось добавить. Истек срок документа"
-            return render(request, 'request.html', context_dict)
-        if dob>date.today():
+            #return render(request, 'request.html', context_dict)
+        elif dob>date.today():
             context_dict['delete_message'] = "Не удалось добавить. Проверьте дату рождения"
-            return render(request, 'request.html', context_dict)
-        if attendee.photo.size > 9000000:
+            #return render(request, 'request.html', context_dict)
+        elif attendee.photo.size > 9000000:
             context_dict['delete_message'] = "Не удалось добавить. Размер фотографии превышает 7Mb"
-            return render(request, 'request.html', context_dict)
-        if attendee.docScan.size > 9000000:
+            #return render(request, 'request.html', context_dict)
+        elif attendee.docScan.size > 9000000:
             context_dict['delete_message'] = "Не удалось добавить. Размер скана документа превышает 7Mb"
-            return render(request, 'request.html', context_dict)
-        if attendee.countryId == "1000000105" and len(attendee.iin)<12:
+            #return render(request, 'request.html', context_dict)
+        elif attendee.countryId == "1000000105" and len(attendee.iin)<12:
             context_dict['delete_message'] = "Не удалось добавить. ИИН обязателен для граждан Казахстана"
-            return render(request, 'request.html', context_dict)
-        attendee.save()
+            #return render(request, 'request.html', context_dict)
+        else:
+            attendee.save()
+            context_dict['success_message'] = "Участник " + attendee.surname + " " + attendee.firstname + " был успешно добавлен"
         context_dict['req'] = req
         attendees = Attendee.objects.filter(request=req)
         context_dict['attendees'] = attendees
-        context_dict['success_message'] = "Участник " + attendee.surname + " " + attendee.firstname + " был успешно добавлен"
         return render(request, 'request.html', context_dict)
         #except Exception as e:
         #    return HttpResponse("Could not add a guest")
