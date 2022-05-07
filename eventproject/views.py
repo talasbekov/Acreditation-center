@@ -261,13 +261,16 @@ def show_event(request, event_id):
     try:
         event = Event.objects.get(pk=event_id)
         operators = Operator.objects.filter(events__in=[event])
-        reqs = Request.objects.filter(event=event)
+        reqs = Request.objects.filter(event=event, status__in=['Sent', 'Exported'])
+        active_reqs = Request.objects.filter(event=event, status__in=['Active', 'Checking'])
         cities = City.objects.all()
         context_dict = {'events': [event]}
         context_dict['operators'] = operators
         context_dict['event'] = event
         context_dict['reqs'] = reqs
+        context_dict['active_reqs'] = active_reqs
         context_dict['cities'] = cities
+        context_dict['unexported'] = len(reqs.exclude(status="Exported"))
     except Request.DoesNotExist:
         return HttpResponse("Could not find event")
     return render(request, 'event.html', context_dict)
@@ -292,6 +295,8 @@ def download_json(request, event_id):
             request_dict['event'] = req.event
             request_dict['created_by'] = req.created_by
             list_of_requests.append(request_dict)
+            req.status = "Exported"
+            req.save()
         event_dict = model_to_dict(event)
         event_dict['requests'] = list_of_requests
         serialized_event = json.dumps(event_dict, indent=4, sort_keys=True, default=str, ensure_ascii=False)
@@ -313,6 +318,31 @@ def download_guests_json(request, event_id):
             for attendee in attendees:
                 attendee_dict = model_to_dict(attendee)
                 list_of_attendees.append(attendee_dict)
+            req.status = "Exported"
+            req.save()
+        event_dict = model_to_dict(event)
+        event_dict['attendees'] = list_of_attendees
+        serialized_event = json.dumps(event_dict, indent=4, sort_keys=True, default=str, ensure_ascii=False)
+        return HttpResponse(serialized_event, content_type="application/json")
+    except Request.DoesNotExist:
+        return HttpResponse("Could not find event")
+    return render(request, 'event.html', context_dict)
+
+@user_passes_test(lambda u: u.is_superuser, login_url='/user_login/')
+def download_all_guests_json(request, event_id):
+    context_dict = {}
+    try:
+        event = Event.objects.get(pk=event_id)
+        request_set = Request.objects.filter(event=event, status__in=['Sent', 'Exported'])
+        list_of_attendees = []
+        for req in request_set:
+            request_dict = model_to_dict(req)
+            attendees = Attendee.objects.filter(request=req)
+            for attendee in attendees:
+                attendee_dict = model_to_dict(attendee)
+                list_of_attendees.append(attendee_dict)
+            req.status = "Exported"
+            req.save()
         event_dict = model_to_dict(event)
         event_dict['attendees'] = list_of_attendees
         serialized_event = json.dumps(event_dict, indent=4, sort_keys=True, default=str, ensure_ascii=False)
@@ -336,6 +366,8 @@ def download_request_json(request, request_id):
         request_dict['attendees'] = list_of_attendees
         request_dict['event'] = req.event
         serialized_event = json.dumps(request_dict, indent=4, sort_keys=True, default=str, ensure_ascii=False)
+        req.status = "Exported"
+        req.save()
         return HttpResponse(serialized_event, content_type="application/json")
     except Request.DoesNotExist:
         return HttpResponse("Could not find event")
@@ -404,7 +436,7 @@ def preview(request, request_id):
         context_dict['document_types'] = document_types
         sexs = Sex.objects.all()
         context_dict['sexs'] = sexs
-        context_dict['delete_message'] = "Заявка готова к отправлению"
+        context_dict['success_message'] = "Заявка готова к отправлению"
     except Request.DoesNotExist:
         return HttpResponse("Could not find event")
     return render(request, 'request.html', context_dict)
@@ -452,7 +484,7 @@ def send(request, request_id):
         context_dict['document_types'] = document_types
         sexs = Sex.objects.all()
         context_dict['sexs'] = sexs
-        context_dict['delete_message'] = "Отправлено "+str(req.registration_time)
+        context_dict['success_message'] = "Отправлено "+str(req.registration_time)
     except Event.DoesNotExist:
         return HttpResponse("Could not find event")
     return render(request, 'request.html', context_dict)
@@ -495,6 +527,18 @@ def delete_attendee(request):
     except Attendee.DoesNotExist:
         return HttpResponse("Could not find event")
     return render(request, 'request.html', context_dict)
+
+def check_dublicate(attendee, req):
+    attendees = Attendee.objects.filter(request = req)
+    if attendee.countryId == "1000000105":
+        fa = attendees.filter(iin = attendee.iin)
+    else:
+        fa = attendees.filter(surname=attendee.surname, firstname=attendee.firstname, birthDate=attendee.birthDate)
+    if len(fa) > 0:
+        return True
+    else:
+        return False
+
 
 @login_required(login_url='/user_login/')
 def add_attendee(request, request_id):
@@ -555,21 +599,26 @@ def add_attendee(request, request_id):
             context_dict['delete_message'] = "Не удалось добавить. Проверьте дату рождения"
         elif attendee.photo.size > 9000000:
             context_dict['delete_message'] = "Не удалось добавить. Размер фотографии превышает 7Mb"
-        elif attendee.photo.size < 100000:
-            context_dict['delete_message'] = "Не удалось добавить. Размер фотографии меньше чем 100Kb"
+        elif attendee.photo.size < 50000:
+            context_dict['delete_message'] = "Не удалось добавить. Размер фотографии меньше чем 50Kb"
         elif attendee.docScan.size > 9000000:
             context_dict['delete_message'] = "Не удалось добавить. Размер скана документа превышает 7Mb"
-        elif attendee.docScan.size < 100000:
-            context_dict['delete_message'] = "Не удалось добавить. Размер скана документа меньше чем 100Kb"
+        elif attendee.docScan.size < 50000:
+            context_dict['delete_message'] = "Не удалось добавить. Размер скана документа меньше чем 50Kb"
         elif attendee.countryId == "1000000105" and len(attendee.iin)<12:
             context_dict['delete_message'] = "Не удалось добавить. ИИН обязателен для граждан Казахстана"
+        elif check_dublicate(attendee, req):
+            context_dict['delete_message'] = "Не удалось добавить. Уже ранее добавляли этого участника"
         else:
             attendee.save()
             context_dict['success_message'] = "Участник " + attendee.surname + " " + attendee.firstname + " был успешно добавлен"
         context_dict['req'] = req
-        attendees = Attendee.objects.filter(request=req)
+        attendees = Attendee.objects.filter(request=req).order_by('-dateAdd')
         context_dict['attendees'] = attendees
-        return render(request, 'request.html', context_dict)
+        if 'delete_message' in context_dict:
+            return render(request, 'gov3.html', context_dict)
+        else:
+            return render(request, 'request.html', context_dict)
         #except Exception as e:
         #    return HttpResponse("Could not add a guest")
     return render(request, 'gov3.html', context_dict)

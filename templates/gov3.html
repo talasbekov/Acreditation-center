@@ -15,6 +15,8 @@
         </div>
     </div>
     <div class="col-md-12 mt-4">
+        <h6 class="text-success">{{ success_message }}</h6>
+        <h6 class="text-danger">{{ delete_message }}</h6>
         <form data-tip="true" class=" form-control row flex-column flex-wrap " action="/add_attendee/{{ req.id }}/" method="post" enctype="multipart/form-data">
             {% csrf_token %}
             <div class="row">

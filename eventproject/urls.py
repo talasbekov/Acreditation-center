@@ -49,6 +49,7 @@ urlpatterns = [
     path('download_guests_json/<int:event_id>/', views.download_guests_json, name='download_json'),
     path('download_photos/<int:event_id>/', views.download_photos, name='download_photos'),
     path('download_request_json/<int:request_id>/', views.download_request_json, name='download_request_json'),
+    path('download_all_guests_json/<int:event_id>/', views.download_all_guests_json, name='download_all_guests_json'),
     path('', views.user_login, name='user_login'),
     path('kz/', kviews.user_login, name='user_login'),
     path('en/', eviews.user_login, name='user_login'),

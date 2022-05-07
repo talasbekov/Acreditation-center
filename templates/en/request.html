@@ -41,15 +41,17 @@
                 {% endif %}
             </div>
             <div class="col-lg-4">
-                {% if req.status == "Active" %}
-                <a href="/en/preview/{{ req.id }}/">
-                    <button class="w-100 btn btn-warning btn-lg" type="submit">Preview</button>
-                </a>
-                {% elif req.status == "Checking" %}
-                <a href="/en/send/{{ req.id }}/">
-                    <button class="w-100 btn btn-success btn-lg" type="submit">Send</button>
-                </a>
-                {% elif req.status == "Sent" %}
+                {% if attendees %}
+                    {% if req.status == "Active" %}
+                    <a href="/en/preview/{{ req.id }}/">
+                        <button class="w-100 btn btn-warning btn-lg" type="submit">Preview</button>
+                    </a>
+                    {% elif req.status == "Checking" %}
+                    <a href="/en/send/{{ req.id }}/">
+                        <button class="w-100 btn btn-success btn-lg" type="submit">Send</button>
+                    </a>
+                    {% elif req.status == "Sent" %}
+                    {% endif %}
                 {% endif %}
             </div>
         </div>

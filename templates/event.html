@@ -146,18 +146,44 @@
                     {% endfor %}
                     </p>
                     <p><a href="/download_json/{{ event.id }}/">Скачать все заявки одним json файлом</a></p>
-                    <p><a href="/download_guests_json/{{ event.id }}/">Скачать список участников одним json файлом</a></p>
+                    <p><a href="/download_all_guests_json/{{ event.id }}/">Скачать весь список участников одним json файлом</a></p>
+                    {% if unexported > 0  %}
+                        <p><a href="/download_guests_json/{{ event.id }}/">Скачать невыгруженных участников от {{ unexported }} новых заявок&#160;
+                    <span class="badge bg-danger ms-2 smaller">!</span></a></p>{% endif %}
                     <p><a href="/download_photos/{{ event.id }}/">Скачать фотографии и сканы документов</a></p>
                     <p><b>Количество отправленных заявок:&#160;</b>{{ reqs|length }}</p>
                     <ul>
                         {% if reqs %}
                             {% for req in reqs %}
-                                <li><a href="/show_request_to_admin/{{ req.id }}">{{ req.name }}</a> от
+                                <li>        <a href="/show_request_to_admin/{{ req.id }}" class="btn
+            {% if req.status == 'Active' %}     btn-secondary
+            {% elif req.status == 'Exported' %} btn-success
+            {% elif req.status == 'Sent' %} btn-warning
+            {% else %} btn-primary {% endif %}" role="button">{{ req.name }}</a> от
                                     {{ req.created_by.user.first_name }} {{ req.created_by.user.last_name }}
                                 <a href="/download_request_json/{{ req.id }}/">скачать json</a> </li>
+                        <br>
                             {% endfor %}
                         {% endif %}
                     </ul>
+                    {% if active_reqs %}
+                    <p><b>Количество неотправленных заявок:&#160;</b>{{ active_reqs|length }}</p>
+                    <ul>
+                            {% for req in active_reqs %}
+                                <li>        <a href="/show_request_to_admin/{{ req.id }}" class="btn
+            {% if req.status == 'Active' %}     btn-light
+            {% elif req.status == 'Checking' %} btn-secondary
+            {% elif req.status == 'Sent' %} btn-warning
+            {% else %} btn-primary {% endif %}" role="button">{{ req.name }}</a> от
+                                    {{ req.created_by.user.first_name }} {{ req.created_by.user.last_name }}
+                                    статус:
+            {% if req.status == 'Active' %}     создано
+            {% elif req.status == 'Checking' %} предпросмотр
+                                    {% endif %}
+                        <br>
+                            {% endfor %}
+                    </ul>
+                    {% endif %}
 
 
 

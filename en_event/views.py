@@ -127,6 +127,19 @@ def show_request(request, request_id):
         return HttpResponse("Could not find event")
     return render(request, 'en/request.html', context_dict)
 
+
+
+def check_dublicate(attendee, req):
+    attendees = Attendee.objects.filter(request = req)
+    if attendee.countryId == "1000000105":
+        fa = attendees.filter(iin = attendee.iin)
+    else:
+        fa = attendees.filter(surname=attendee.surname, firstname=attendee.firstname, birthDate=attendee.birthDate)
+    if len(fa) > 0:
+        return True
+    else:
+        return False
+
 @login_required(login_url='/en/user_login/')
 def add_attendee(request, request_id):
     context_dict = {}
@@ -193,17 +206,22 @@ def add_attendee(request, request_id):
         elif attendee.countryId == "1000000105" and len(attendee.iin)<12:
             context_dict['delete_message'] = "IIN is mandatory for Kazakhstan citizens"
             #return render(request, 'request.html', context_dict)
-        elif attendee.photo.size < 100000:
-            context_dict['delete_message'] = "Size of the photo is required to be at least 100Kb"
-        elif attendee.docScan.size < 100000:
-            context_dict['delete_message'] = "Size of the document image is required to be at least 100Kb"
+        elif attendee.photo.size < 50000:
+            context_dict['delete_message'] = "Size of the photo is required to be at least 50Kb"
+        elif attendee.docScan.size < 50000:
+            context_dict['delete_message'] = "Size of the document image is required to be at least 50Kb"
+        elif check_dublicate(attendee, req):
+            context_dict['delete_message'] = "Duplicate entry. You have already added this person"
         else:
             attendee.save()
             context_dict['success_message'] = "Attendee " + attendee.transcription + " is successfully added to the request"
         context_dict['req'] = req
-        attendees = Attendee.objects.filter(request=req)
+        attendees = Attendee.objects.filter(request=req).order_by('-dateAdd')
         context_dict['attendees'] = attendees
-        return render(request, 'en/request.html', context_dict)
+        if context_dict['delete_message']:
+            return render(request, 'gov3.html', context_dict)
+        else:
+            return render(request, 'request.html', context_dict)
         #except Exception as e:
         #    return HttpResponse("Could not add a guest")
     return render(request, 'en/gov3.html', context_dict)

@@ -41,8 +41,9 @@
             {% if req.status == 'Active' %}     btn-secondary
             {% elif req.status == 'Checking' %} btn-warning
             {% elif req.status == 'Sent' %} btn-success
+            {% elif req.status == 'Exported' %} btn-success
             {% else %} btn-primary {% endif %}" role="button">
-            {% if req.status == 'Active' %} Edit request {% else %} View request{% endif %}</a> Request number:&#160;{{ req.name }}. status: {% if req.status == "Active" %} Created <a href="/en/delete_request/{{ req.id }}" style="color:red">delete request</a>{% elif req.status == "Checking" %} Filled out {% elif req.status == "Sent" %} Sent {% else %} Unknown {% endif %}
+            {% if req.status == 'Active' %} Edit request {% else %} View request{% endif %}</a> Request number:&#160;{{ req.name }}. status: {% if req.status == "Active" %} Created <a href="/en/delete_request/{{ req.id }}" style="color:red">delete request</a>{% elif req.status == "Checking" %} Filled out {% elif req.status == "Sent" %} Sent {% elif req.status == "Exported" %} Accepted{% else %} Unknown {% endif %}
 
         <br><br>
             {% endif %}

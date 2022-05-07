@@ -41,8 +41,9 @@
             {% if req.status == 'Active' %}     btn-secondary
             {% elif req.status == 'Checking' %} btn-warning
             {% elif req.status == 'Sent' %} btn-success
+            {% elif req.status == 'Exported' %} btn-success
             {% else %} btn-primary {% endif %}" role="button">
-            {% if req.status == 'Active' %} Редактировать список участников {% else %} Посмотреть список участников &#160;&#160;&#160;&#160;&#160;{% endif %}</a> Номер заявки:&#160;{{ req.name }}. статус: {% if req.status == "Active" %} Создано <a href="/delete_request/{{ req.id }}" style="color:red">удалить список</a>{% elif req.status == "Checking" %} Предпросмотр {% elif req.status == "Sent" %} Отправлено {% else %} Неизвестен {% endif %}
+            {% if req.status == 'Active' %} Редактировать список участников {% else %} Посмотреть список участников &#160;&#160;&#160;&#160;&#160;{% endif %}</a> Номер заявки:&#160;{{ req.name }}. статус: {% if req.status == "Active" %} Создано <a href="/delete_request/{{ req.id }}" style="color:red">удалить список</a>{% elif req.status == "Checking" %} Предпросмотр {% elif req.status == "Sent" %} Отправлено {% elif req.status == "Exported" %} Принято {% else %} Неизвестен {% endif %}
 
         <br><br>
             {% endif %}

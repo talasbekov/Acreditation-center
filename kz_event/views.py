@@ -128,6 +128,17 @@ def show_request(request, request_id):
     return render(request, 'kz/request.html', context_dict)
 
 
+def check_dublicate(attendee, req):
+    attendees = Attendee.objects.filter(request = req)
+    if attendee.countryId == "1000000105":
+        fa = attendees.filter(iin = attendee.iin)
+    else:
+        fa = attendees.filter(surname=attendee.surname, firstname=attendee.firstname, birthDate=attendee.birthDate)
+    if len(fa) > 0:
+        return True
+    else:
+        return False
+
 @login_required(login_url='/kz/user_login/')
 def add_attendee(request, request_id):
     context_dict = {}
@@ -194,20 +205,24 @@ def add_attendee(request, request_id):
         elif attendee.docScan.size > 9000000:
             context_dict['delete_message'] = "Қатысушы қосылмады. Құжаттың салмағы 7Mb артады"
             #return render(request, 'request.html', context_dict)
-        elif attendee.photo.size < 100000:
-            context_dict['delete_message'] = "Қатысушы қосылмады. Суреттің салмағы кемінде 100Kb болуы қажет"
-        elif attendee.docScan.size < 100000:
-            context_dict['delete_message'] = "Қатысушы қосылмады. Құжаттың салмағы кемінде 100Kb болуы қажет"
+        elif attendee.photo.size < 50000:
+            context_dict['delete_message'] = "Қатысушы қосылмады. Суреттің салмағы кемінде 50Kb болуы қажет"
+        elif attendee.docScan.size < 50000:
+            context_dict['delete_message'] = "Қатысушы қосылмады. Құжаттың салмағы кемінде 50Kb болуы қажет"
         elif attendee.countryId == "1000000105" and len(attendee.iin)<12:
             context_dict['delete_message'] = "Қатысушы қосылмады. Қазақстан азаматтарына ЖСН міндетті"
-            #return render(request, 'request.html', context_dict)
+        elif check_dublicate(attendee, req):
+            context_dict['delete_message'] = "Қатысушы қосылмады. Қатысушыны қайтара қосып жатырсыз"
         else:
             attendee.save()
             context_dict['success_message'] = "Қатысушы " + attendee.surname + " " + attendee.firstname + " сәтті қосылды"
         context_dict['req'] = req
-        attendees = Attendee.objects.filter(request=req)
+        attendees = Attendee.objects.filter(request=req).order_by('-dateAdd')
         context_dict['attendees'] = attendees
-        return render(request, 'kz/request.html', context_dict)
+        if context_dict['delete_message']:
+            return render(request, 'gov3.html', context_dict)
+        else:
+            return render(request, 'request.html', context_dict)
         #except Exception as e:
         #    return HttpResponse("Could not add a guest")
     return render(request, 'kz/gov3.html', context_dict)
