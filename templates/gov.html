@@ -1,7 +1,7 @@
 
 
 {% extends 'hidden_gov_base.html' %}
-
+{% load static %}
 {% block body_block %}
 
 <div class="container flex-column flex-sm-row align-items-sm-center ministry-header-top">
@@ -10,6 +10,7 @@
             <br>
             <h2>Портал подачи заявок</h2>
             <hr>
+            <a href="{% static 'docs/instructions.pdf' %}"><em>Инструкция по заполнению данных для аккредитации</em></a>
         </div>
     </div>
     <div class="row justify-content-md-center">
