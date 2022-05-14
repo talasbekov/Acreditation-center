@@ -76,9 +76,9 @@
                     Date of birth </label>
                     <div class="d-flex align-items-center">
                         <div class="ant-picker ant-picker-range">
-                            <div class="ant-picker-input ant-picker-input-active"><input type="date" name="dob" required=""
-                                                                                         placeholder="Начальная дата"
-                                                                                         size="12" value=""></div>
+                            <div class="ant-picker-input ant-picker-input-active">
+                                 <input type="date" name="dob" id="dob" required=""placeholder="Начальная дата" max='2000-13-13' min='2000-13-13' onkeydown="return false" size="10"  value="">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -156,9 +156,9 @@
                     <label for="title"> Issued date </label>
                     <div class="d-flex align-items-center">
                         <div class="ant-picker ant-picker-range">
-                            <div class="ant-picker-input ant-picker-input-active"><input type="date" required=""
-                                                                                         name="doc_date_start"
-                                                                                         size="12" value=""></div>
+                            <div class="ant-picker-input ant-picker-input-active">
+                                <input type="date" required="" name="doc_date_start" id="doc_date_start" max='2000-13-13' min='2000-13-13' onkeydown="return false" size="10"  value="">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -167,7 +167,7 @@
                     <div class="d-flex align-items-center">
                         <div class="ant-picker ant-picker-range">
                             <div class="ant-picker-input ant-picker-input-active">
-                                <input type="date" name="doc_date_end" size="12" value="" required="">
+                                <input type="date"  id="doc_date_end" name="doc_date_end" max='2000-13-13' min='2000-13-13'  onkeydown="return false" size="10"  value="" required="">
                             </div>
                         </div>
                     </div>
@@ -221,7 +221,7 @@
                      class="form-control__input form-control__input--visible-first form-input-text col-md-4 mb-2 ">
                     <label for="title"> Visiting objects</label>
                     <div class="d-flex pos_relative">
-                        <textarea class="form-control" id="exampleFormControlTextarea3" rows="3" name="visit_objects"></textarea>
+                        <textarea class="form-control"  required="" id="exampleFormControlTextarea3" rows="3" name="visit_objects"></textarea>
                     </div>
                 </div>
             </div>
@@ -288,5 +288,24 @@
       $('#qazdoctype').hide()
       $('#fulldoctype').hide()
          });
+  </script>
+         <script>
+         var today = new Date();
+            var dd = today.getDate();
+            var mm = today.getMonth() + 1; //January is 0!
+            var yyyy = today.getFullYear();
+
+            if (dd < 10) {
+               dd = '0' + dd;
+            }
+
+            if (mm < 10) {
+               mm = '0' + mm;
+            }
+
+            today = yyyy + '-' + mm + '-' + dd;
+    $("#doc_date_start").attr("max", today);
+    $("#doc_date_end").attr("min", today);
+    $("#dob").attr("max", today);
   </script>
 {% endblock %}

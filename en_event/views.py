@@ -188,6 +188,9 @@ def add_attendee(request, request_id):
         attendee.request = req
         attendee.dateAdd = datetime.now()
         attendee.dateEnd = date.today()
+        doc_start = datetime.strptime(attendee.docBegin, '%Y-%m-%d').date()
+        doc_end = datetime.strptime(attendee.docEnd, '%Y-%m-%d').date()
+        dob = datetime.strptime(attendee.birthDate, '%Y-%m-%d').date()
         if doc_start>date.today():
             context_dict['delete_message'] = "Wrong document issued date"
             #return render(request, 'request.html', context_dict)
@@ -218,10 +221,10 @@ def add_attendee(request, request_id):
         context_dict['req'] = req
         attendees = Attendee.objects.filter(request=req).order_by('-dateAdd')
         context_dict['attendees'] = attendees
-        if context_dict['delete_message']:
-            return render(request, 'gov3.html', context_dict)
+        if 'delete_message' in context_dict:
+            return render(request, 'en/gov3.html', context_dict)
         else:
-            return render(request, 'request.html', context_dict)
+            return render(request, 'en/request.html', context_dict)
         #except Exception as e:
         #    return HttpResponse("Could not add a guest")
     return render(request, 'en/gov3.html', context_dict)
