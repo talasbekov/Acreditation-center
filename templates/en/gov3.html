@@ -241,12 +241,11 @@
                             {% endif %}
                         {% endfor %}
                     </select>
-            <select  type="select" id="fulldoctype"
-                                 class="color_white__bg form-input-select__input typography__variant-bodysubreg form-input-select__input--outlined"
-                                 contenttype="">
+            <select  type="select" id="fulldoctype" contenttype="">
                         {% for dc in document_types %}
-                        <option value="{{ dc.doc_code }}" {% if dc.doc_code == "1000000003" %} selected="selected" {% endif %}>
-                        {{ dc.name_eng }}</option>
+                            {% if dc.doc_code in '1000000002,1000000004,1000000005' %}
+                                <option value="{{ dc.doc_code }}" {% if dc.doc_code == "1000000002" %} selected="selected" {% endif %}>{{ dc.name_eng }}</option>
+                            {% endif %}
                         {% endfor %}
                     </select>
 

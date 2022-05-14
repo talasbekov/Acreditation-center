@@ -75,17 +75,24 @@
                     <hr class="my-4">
                     {% for event in events %}
                     <a href="/show_event/{{ event.id }}/"><h5>{{ event.name_rus }} </h5></a>
+
+                    <br>
                     <h6>{{ event.date_start|date:"d.m.Y" }}-{{ event.date_end|date:"d.m.Y" }}</h6>
                     {% for req in reqs %}
                         {% if req.event == event %}
-                    <a href="/show_request_to_admin/{{ req.id }}"> {{ req.name }}</a> статус: {% if req.status == "Active" %} <span class="text-primary">Создано</span> {% elif req.status == "Checking" %} <span class="text-warning">Предпросмотр </span>{% elif req.status == "Sent" %} <span class="text-success">Отправлено</span> {% else %} Неизвестен {% endif %}
+                    <a href="/show_request_to_admin/{{ req.id }}"> {{ req.name }}</a> статус: {% if req.status == "Active" %} <span class="text-primary">Создано</span> {% elif req.status == "Checking" %} <span class="text-warning">Предпросмотр </span>{% elif req.status == "Sent" %} <span class="text-success">Отправлено</span> {% elif req.status == "Exported" %} <span class="text-success">Выгружено</span>{% else %} Неизвестен {% endif %}
 
                     <br><br>
                         {% endif %}
                     {% endfor %}
+                    <a href="/unbind_event/{{ event.id }}/{{ operator.user.username }}/">
+                    <button class="w-100 btn btn-secondary btn-sm" type="submit">Открепить мероприятие от пользователя</button>
+                    </a>
 
                     <hr class="my-4">
                     {% endfor %}
+
+
 
 
                 </div>

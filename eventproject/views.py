@@ -176,6 +176,45 @@ def delete_operator(request, username):
         return HttpResponse("Could not find operator")
     return render(request, 'operator.html', context_dict)
 
+@user_passes_test(lambda u: u.is_superuser, login_url='/user_login/')
+def flush_outdated_events(request):
+    context_dict = {}
+    try:
+        enddate = date.today()
+        startdate = enddate - timedelta(days=900)
+        event_list = Event.objects.filter(date_end__range=[startdate, enddate])
+        count = len(event_list)
+        for event in event_list:
+            mydir = input("media/event_"+event.id)
+            try:
+                shutil.rmtree(mydir)
+            except OSError as e:
+                print("Error: %s - %s." % (e.filename, e.strerror))
+            event.delete()
+        try:
+            shutil.rmtree("output")
+        except OSError as e:
+            print("Error: %s - %s." % (e.filename, e.strerror))
+        success_message = str(count) + " мероприятии успешно удалены"
+        return show_admin(request, success_message)
+    except Exception as e:
+        return HttpResponse("Some error occured")
+    return render(request, 'operator.html', context_dict)
+
+@user_passes_test(lambda u: u.is_superuser, login_url='/user_login/')
+def unbind_event(request, event_id, username):
+    context_dict = {}
+    try:
+        user = User.objects.get(username=username)
+        operator = Operator.objects.get(user=user)
+        event = Event.objects.get(pk=event_id)
+        operator.events.remove(event)
+        success_message = event.name_rus + " успешно откреплен от пользователя " + user.last_name + " " + user.first_name
+        return show_admin(request, success_message)
+    except Exception as e:
+        return HttpResponse("Could not find operator")
+    return render(request, 'operator.html', context_dict)
+
 
 @login_required(login_url='/user_login/')
 def application(request):
