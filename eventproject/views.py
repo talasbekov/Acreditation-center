@@ -184,10 +184,14 @@ def flush_outdated_events(request):
         startdate = enddate - timedelta(days=900)
         event_list = Event.objects.filter(date_end__range=[startdate, enddate])
         count = len(event_list)
+        print(count)
         for event in event_list:
-            mydir = input("media/event_"+event.id)
+            print(event.id)
+            mydir = "media/event_"+str(event.id)
+            print(mydir)
             try:
                 shutil.rmtree(mydir)
+                print("perfect")
             except OSError as e:
                 print("Error: %s - %s." % (e.filename, e.strerror))
             event.delete()
@@ -313,6 +317,26 @@ def show_event(request, event_id):
     except Request.DoesNotExist:
         return HttpResponse("Could not find event")
     return render(request, 'event.html', context_dict)
+
+@user_passes_test(lambda u: u.is_superuser, login_url='/user_login/')
+def delete_event(request, event_id):
+    context_dict = {}
+    try:
+        event = Event.objects.get(pk=event_id)
+        mydir = "media/event_" + str(event.id)
+        print(mydir)
+        try:
+            shutil.rmtree(mydir)
+            print("perfect")
+        except OSError as e:
+            print("Error: %s - %s." % (e.filename, e.strerror))
+        success_message = "Мероприятие: " + event.name_rus + " успешно удалено"
+        event.delete()
+        return show_admin(request, success_message)
+    except Request.DoesNotExist:
+        return HttpResponse("Could not find event")
+    return render(request, 'event.html', context_dict)
+
 
 @user_passes_test(lambda u: u.is_superuser, login_url='/user_login/')
 def download_json(request, event_id):
@@ -583,7 +607,7 @@ def check_dublicate(attendee, req):
 def add_attendee(request, request_id):
     context_dict = {}
     countries = Country.objects.all()
-    context_dict['countries'] = countries
+    context_dict['countries'] = countries.order_by('name_rus')
     document_types = DocumentType.objects.all()
     context_dict['document_types'] = document_types
     sexs = Sex.objects.all()

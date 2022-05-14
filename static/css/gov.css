@@ -2972,7 +2972,7 @@ html {
   white-space: nowrap;
   -o-text-overflow: ellipsis;
      text-overflow: ellipsis;
-  opacity: 0.4; }
+  opacity: 0.2; }
 
 @media all and (-ms-high-contrast: none) {
   .ant-select-selection-placeholder *::-ms-backdrop,

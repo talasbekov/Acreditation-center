@@ -24,7 +24,7 @@
         {% endif %}
         <hr>
         {% for event in events %}
-        <h5>Мероприятие:&#160;{{ event.name_rus }}</h5>
+        <h5><b>Мероприятие:&#160;{{ event.name_rus }}</b></h5>
         <h6>Город:&#160;
             {% for city in cities %}
                 {% if city.city_code == event.city_code %}

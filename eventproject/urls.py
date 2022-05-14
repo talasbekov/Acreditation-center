@@ -47,6 +47,7 @@ urlpatterns = [
     path('delete_operator/<str:username>/', views.delete_operator, name='delete_operator'),
     path('unbind_event/<int:event_id>/<str:username>/', views.unbind_event, name='unbind_event'),
     path('show_event/<int:event_id>/', views.show_event, name='show_event'),
+    path('delete_event/<int:event_id>/', views.delete_event, name='delete_event'),
     path('download_json/<int:event_id>/', views.download_json, name='download_json'),
     path('download_guests_json/<int:event_id>/', views.download_guests_json, name='download_json'),
     path('download_photos/<int:event_id>/', views.download_photos, name='download_photos'),

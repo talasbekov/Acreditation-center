@@ -19,7 +19,7 @@
             <div class="row">
                 <div data-tip="true"
                      class="form-control__input form-control__input--visible-first form-input-text col-md-3 mb-2 ">
-                    <label for="" title> Surname </label>
+                    <label for=""   class="req"> Surname </label>
                     <div class="d-flex pos_relative">
                         <input placeholder="Алиев"
                                type="text" required=""
@@ -29,7 +29,7 @@
                 </div>
                 <div data-tip="true"
                      class="form-control__input form-control__input--visible-first form-input-text col-md-2 mb-2 ">
-                    <label for="title"> First name </label>
+                    <label for="title"  class="req"> First name </label>
                     <div class="d-flex pos_relative">
                         <input placeholder="Али"
                                type="text" required=""
@@ -64,15 +64,15 @@
             <div class="row">
                 <div data-tip="true"
                      class="form-control__input form-control__input--visible-first form-input-text col-md-2 mb-2 ">
-                    <label for="title"> IIN </label>
+                    <label for="title"  id="iin_label" class="req"> IIN </label>
                     <div class="d-flex pos_relative">
                         <input placeholder="781213351207"
-                               type="text"
+                               type="text"  required=""  id="iin"
                                class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
                                value="" name="iin">
                     </div>
                 </div>
-                <div class="form-control__input form-control__input--visible-first col-md-2 mb-2"><label for="title">
+                <div class="form-control__input form-control__input--visible-first col-md-2 mb-2"><label for="title"  class="req">
                     Date of birth </label>
                     <div class="d-flex align-items-center">
                         <div class="ant-picker ant-picker-range">
@@ -84,7 +84,7 @@
                 </div>
                 <div data-tip="true"
                      class="form-control__input form-control__input--visible-first form-input-select pos_relative col-md-2 mb-2 ">
-                    <label for="gosorgan">Sex </label>
+                    <label for="gosorgan"  class="req">Sex </label>
                     <div><select name="sex" type="select"
                                  class="color_white__bg form-input-select__input typography__variant-bodysubreg form-input-select__input--outlined"
                                  contenttype="projectdetails"  >
@@ -95,7 +95,7 @@
                 </div>
                 <div data-tip="true"
                      class="form-control__input form-control__input--visible-first form-input-select pos_relative col-md-2 mb-2 ">
-                    <label for="gosorgan">Citizenship </label>
+                    <label for="gosorgan"  class="req">Citizenship </label>
                     <div><select name="citizenship" type="select" id="citizenship"
                                  class="color_white__bg form-input-select__input typography__variant-bodysubreg form-input-select__input--outlined"
                                  contenttype="">
@@ -109,7 +109,7 @@
                      class="form-control__input form-control__input--visible-first form-input-text col-md-4 mb-2 ">
                     <label for="title"> Post </label>
                     <div class="d-flex pos_relative">
-                        <input placeholder="director"
+                        <input placeholder="Director"
                                type="text"
                                name="post"
                                class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined">
@@ -122,7 +122,7 @@
             <div class="row">
                 <div data-tip="true"
                      class="form-control__input form-control__input--visible-first form-input-select pos_relative col-md-3 mb-2 ">
-                    <label for="title">Document type </label>
+                    <label for="title"  class="req">Document type </label>
                     <div><select name="document_type" type="select"  id="doctype"
                                  class="color_white__bg form-input-select__input typography__variant-bodysubreg form-input-select__input--outlined"
                                  contenttype="">
@@ -144,7 +144,7 @@
                 </div>
                 <div data-tip="true"
                      class="form-control__input form-control__input--visible-first form-input-text col-md-2 mb-2 ">
-                    <label for="title"> Document number </label>
+                    <label for="title"  class="req"> Document number </label>
                     <div class="d-flex pos_relative">
                         <input
                                 type="text" required=""
@@ -153,7 +153,7 @@
                     </div>
                 </div>
                 <div class="form-control__input form-control__input--visible-first col-md-2 mb-2">
-                    <label for="title"> Issued date </label>
+                    <label for="title"  class="req"> Issued date </label>
                     <div class="d-flex align-items-center">
                         <div class="ant-picker ant-picker-range">
                             <div class="ant-picker-input ant-picker-input-active">
@@ -162,7 +162,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="form-control__input form-control__input--visible-first col-md-2 mb-2"><label for="title">
+                <div class="form-control__input form-control__input--visible-first col-md-2 mb-2"><label for="title"  class="req">
                     Expiry date </label>
                     <div class="d-flex align-items-center">
                         <div class="ant-picker ant-picker-range">
@@ -176,7 +176,7 @@
                      class="form-control__input form-control__input--visible-first form-input-text col-md-2 mb-2 ">
                     <label for="title"> Issued by </label>
                     <div class="d-flex pos_relative">
-                        <input placeholder="Алиев"
+                        <input placeholder="Ministry"
                                type="text"
                                class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
                                value="" name="doc_issuer">
@@ -194,9 +194,9 @@
                 </div>
                 <div data-tip="true"
                      class="form-control__input form-control__input--visible-first form-input-text col-md-3 mb-2 ">
-                    <label for="title"> Upload a photo of an attendee(.jpg, .png) </label>
+                    <label for="title"  class="req"> Upload a photo of an attendee(.jpg, .png, >50Kb, <7Mb) </label>
                     <div class="d-flex pos_relative">
-                        <input placeholder="Алиев"
+                        <input placeholder="Ministry"
                                type="file" required="" accept=".jpg,.jpeg,.png"
                                class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
                                value="" name="photo">
@@ -209,9 +209,9 @@
                 </div>
                 <div data-tip="true"
                      class="form-control__input form-control__input--visible-first form-input-text col-md-3 mb-2 ">
-                    <label for="title"> Upload scan of the document(jpg, .png)</label>
+                    <label for="title"  class="req"> Upload scan of the document(jpg, .png, >50Kb, <7Mb) </label>
                     <div class="d-flex pos_relative">
-                        <input placeholder="Алиев"
+                        <input placeholder="Ministry"
                                type="file" required="" accept=".jpg,.jpeg,.png"
                                class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
                                value="" name="doc_photo">
@@ -219,7 +219,7 @@
                 </div>
                 <div data-tip="true"
                      class="form-control__input form-control__input--visible-first form-input-text col-md-4 mb-2 ">
-                    <label for="title"> Visiting objects</label>
+                    <label for="title"  class="req"> Visiting objects </label>
                     <div class="d-flex pos_relative">
                         <textarea class="form-control"  required="" id="exampleFormControlTextarea3" rows="3" name="visit_objects"></textarea>
                     </div>
@@ -279,9 +279,13 @@
         if( c == "1000000105"){
             var res = $('#qazdoctype').html();
             $("#doctype").html(res)
+            $("#iin_label").attr("class", "req")
+            $("#iin").attr( "required", "" )
         }else{
             var res = $('#fulldoctype').html();
             $("#doctype").html(res)
+            $("#iin_label").attr("class", "")
+            $("#iin").removeAttr( "required" )
         }
 
       $('#qazdoctype').hide()

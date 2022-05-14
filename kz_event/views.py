@@ -143,7 +143,7 @@ def check_dublicate(attendee, req):
 def add_attendee(request, request_id):
     context_dict = {}
     countries = Country.objects.all()
-    context_dict['countries'] = countries
+    context_dict['countries'] = countries.order_by('name_kaz')
     document_types = DocumentType.objects.all()
     context_dict['document_types'] = document_types
     sexs = Sex.objects.all()
