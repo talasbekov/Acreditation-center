@@ -225,6 +225,8 @@ def application(request):
     if not request.user.is_authenticated:
         return HttpResponse("You are logged in.")
     user = request.user
+    if user.is_superuser:
+        return HttpResponseRedirect('/avmac/')
     operator = Operator.objects.get(user=user)
     cities = City.objects.all()
     if not operator:

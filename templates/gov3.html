@@ -71,7 +71,7 @@
                     <div class="d-flex pos_relative">
 
                         <input placeholder="781213351207"
-                               type="text"  required="" id="iin"
+                               type="number"  required="" id="iin" min="100000000000" max="999999999999"
                                class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
                                value="" name="iin">
                     </div>
@@ -81,7 +81,7 @@
                     <div class="d-flex align-items-center">
                         <div class="ant-picker ant-picker-range">
                             <div class="ant-picker-input ant-picker-input-active">
-                                <input type="date" name="dob" id="dob" required=""placeholder="Начальная дата" max='2000-13-13' min='2000-13-13' onkeydown="return false" size="10"  value="">
+                                <input type="date" name="dob" id="dob" required="" placeholder="Начальная дата" max='2000-13-13' min='2000-13-13' onkeydown="return false" size="10"  value="">
                             </div>
                         </div>
                     </div>
@@ -111,10 +111,10 @@
                 </div>
                 <div data-tip="true"
                      class="form-control__input form-control__input--visible-first form-input-text col-md-4 mb-2 ">
-                    <label for="title"> Должность </label>
+                    <label for="title" class="req"> Должность </label>
                     <div class="d-flex pos_relative">
                         <input placeholder="Директор"
-                               type="text"
+                               type="text"  required=""
                                name="post"
                                class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined">
                     </div>
