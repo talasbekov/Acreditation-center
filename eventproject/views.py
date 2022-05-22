@@ -10,7 +10,7 @@ from django.template import RequestContext
 from django.contrib.auth.decorators import login_required
 from datetime import date, timedelta, datetime
 from django.contrib.auth import logout
-from directories.models import Sex, Country, DocumentType, City
+from directories.models import Sex, Country, DocumentType, City, Category
 from django.forms.models import model_to_dict
 from django.contrib.auth.decorators import user_passes_test
 from django.http import JsonResponse
@@ -233,7 +233,7 @@ def application(request):
         return HttpResponse("You are logged in.")
     startdate = date.today()
     enddate = startdate + timedelta(days=600)
-    events = operator.events.filter(date_start__range=[startdate, enddate])
+    events = operator.events.filter(date_end__range=[startdate, enddate])
     reqs = Request.objects.filter(created_by = operator).order_by('-date_created')
     return render(request, 'gov2.html', {'user': user, 'operator': operator, 'events': events, 'reqs':reqs, 'cities':cities})
 
@@ -477,9 +477,12 @@ def show_request(request, request_id):
         sexs = Sex.objects.all()
         context_dict['sexs'] = sexs
         if req.status == "Sent":
-            context_dict['delete_message'] = "Отправлено " + str(req.registration_time)
+            context_dict['success_message'] = "Отправлено " + str(req.registration_time)
+        elif req.status == "Checking":
+            context_dict['success_message'] = "Заявка готова к отправлению"
+            context_dict['delete_message'] = "Внимание!!! Отправка заявки не гарантирует допуск участника в зону проведения охранного мероприятия в установленную дату"
     except Request.DoesNotExist:
-        return HttpResponse("Could not find event")
+            return HttpResponse("Could not find event")
     return render(request, 'request.html', context_dict)
 
 @login_required(login_url='/user_login/')
@@ -502,6 +505,7 @@ def preview(request, request_id):
         sexs = Sex.objects.all()
         context_dict['sexs'] = sexs
         context_dict['success_message'] = "Заявка готова к отправлению"
+        context_dict['delete_message'] = "Внимание!!! Отправка заявки не гарантирует допуск участника в зону проведения охранного мероприятия в установленную дату"
     except Request.DoesNotExist:
         return HttpResponse("Could not find event")
     return render(request, 'request.html', context_dict)
@@ -614,6 +618,8 @@ def add_attendee(request, request_id):
     context_dict['document_types'] = document_types
     sexs = Sex.objects.all()
     context_dict['sexs'] = sexs
+    categories = Category.objects.all()
+    context_dict['categories'] = categories
     if request.method == 'GET':
         try:
             req = Request.objects.get(id = request_id)
@@ -653,6 +659,8 @@ def add_attendee(request, request_id):
         attendee.request = req
         attendee.dateAdd = datetime.now()
         attendee.dateEnd = date.today()
+        if attendee.countryId != "1000000105":
+            attendee.stickId = request.POST['category']
         doc_start = datetime.strptime(attendee.docBegin, '%Y-%m-%d').date()
         doc_end = datetime.strptime(attendee.docEnd, '%Y-%m-%d').date()
         dob = datetime.strptime(attendee.birthDate, '%Y-%m-%d').date()

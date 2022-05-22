@@ -65,6 +65,7 @@ class Attendee(models.Model):
 	transcription = models.CharField(max_length=128)
 	request = models.ForeignKey(Request, on_delete=models.CASCADE)
 	dateEnd = models.DateField(null=True, blank=True)
+	stickId = models.CharField(max_length=20, default="")
 
 	def __str__(self):
 		return self.firstname

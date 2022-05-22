@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'eventproject',
     'directories',
+    'django_crontab',
 ]
 
 MIDDLEWARE = [
@@ -137,3 +138,7 @@ STATICFILES_DIRS = []
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+CRONJOBS = [
+    ('49 * * * *', 'cron.my_cron_job')
+]

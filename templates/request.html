@@ -45,7 +45,7 @@
                     </a>
                     {% elif req.status == "Checking" %}
                     <a href="/send/{{ req.id }}/">
-                        <button class="w-100 btn btn-success btn-lg" type="submit">Отправить</button>
+                        <button class="w-100 btn btn-success btn-lg"  type="submit">Отправить</button>
                     </a>
                     {% elif req.status == "Sent" %}
                     {% endif %}
@@ -117,4 +117,10 @@
 
     </div>
 </div>
+
+<script type="text/javascript">
+$('#warningModal').on('shown.bs.modal', function () {
+  $('#myInput').trigger('focus')
+})
+</script>
 {% endblock %}

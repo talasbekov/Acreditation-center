@@ -105,7 +105,19 @@
                         {% endfor %}
                     </select></div>
                 </div>
-                <div data-tip="true"
+                <div data-tip="true" id="category"
+                         class="form-control__input form-control__input--visible-first form-input-select pos_relative col-md-2 mb-2 ">
+                        <label class="req">Category</label>
+                        <div><select name="category" type="select"
+                                     class="color_white__bg form-input-select__input typography__variant-bodysubreg form-input-select__input--outlined"
+                                     contenttype="">
+                            {% for category in categories %}
+                            <option value="{{ category.category_code }}">
+                            {{ category.name_eng }}</option>
+                            {% endfor %}
+                        </select></div>
+                    </div>
+                <div data-tip="true" id="post"
                      class="form-control__input form-control__input--visible-first form-input-text col-md-4 mb-2 ">
                     <label for="title" class="req"> Post </label>
                     <div class="d-flex pos_relative">
@@ -226,6 +238,12 @@
                 </div>
             </div>
             <div class="my-3 col-md-12">
+                <hr>
+                <input class="form-check-input" type="checkbox" value="" id="flexCheckDefault" required>
+                  <label class="form-check-label" for="flexCheckDefault">
+By adding the person, you agree that their personal data is collected and stored in SSS RK servers                  </label>
+            </div>
+            <div class="my-3 col-md-12">
                 <input type="hidden" name="req_id" value="{{ req.id }}">
                 <button data-tip="true" class=" button button--transition button--color-blue mr-3 col-md-12 ripple"
                         type="submit">Add an attendee
@@ -281,11 +299,15 @@
             $("#doctype").html(res)
             $("#iin_label").attr("class", "req")
             $("#iin").attr( "required", "" )
+            $('#category').hide()
+            $('#post').removeClass("col-md-2").addClass("col-md-4")
         }else{
             var res = $('#fulldoctype').html();
             $("#doctype").html(res)
             $("#iin_label").attr("class", "")
             $("#iin").removeAttr( "required" )
+            $('#category').show()
+            $('#post').removeClass("col-md-4").addClass("col-md-2")
         }
 
       $('#qazdoctype').hide()
@@ -311,4 +333,9 @@
     $("#doc_date_end").attr("min", today);
     $("#dob").attr("max", today);
   </script>
+
+<script type="text/javascript">
+      $('#category').hide()
+
+</script>
 {% endblock %}

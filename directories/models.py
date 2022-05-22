@@ -36,3 +36,14 @@ class City(models.Model):
 
     def __str__(self):
         return self.name_rus
+
+class Category(models.Model):
+    category_code = models.CharField(max_length=20)
+    index = models.CharField(max_length=20)
+    name_kaz = models.CharField(max_length=128)
+    name_rus = models.CharField(max_length=128)
+    name_eng = models.CharField(max_length=128)
+
+    def __str__(self):
+        return self.name_rus
+
