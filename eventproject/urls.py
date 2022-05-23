@@ -80,7 +80,7 @@ urlpatterns = [
     path('en/delete_attendee/', eviews.delete_attendee, name="delete_attendee"),
     path('kz/delete_request/<int:request_id>/', kviews.delete_request, name='delete_request'),
     path('en/delete_request/<int:request_id>/', eviews.delete_request, name='delete_request'),
-    path('apvmac/', admin.site.urls),
+    path('embankment/', admin.site.urls),
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
