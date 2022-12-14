@@ -48,7 +48,7 @@ class Attendee(models.Model):
 	firstname = models.CharField(max_length=128)
 	patronymic = models.CharField(max_length=128)
 	birthDate = models.DateField(null=True, blank=True)
-	post = models.CharField(max_length=128)
+	post = models.CharField(max_length=1024)
 	countryId = models.CharField(max_length=30)
 	docTypeId = models.CharField(max_length=30)
 	docSeries = models.CharField(max_length=128)
@@ -56,18 +56,16 @@ class Attendee(models.Model):
 	docNumber = models.CharField(max_length=20)
 	docBegin = models.DateField(null=True, blank=True)
 	docEnd = models.DateField(null=True, blank=True)
-	docIssue = models.CharField(max_length=50)	
+	docIssue = models.CharField(max_length=50)
 	photo = models.ImageField(upload_to=event_photo_directory_path, blank=True)
 	docScan = models.ImageField(upload_to=event_document_directory_path, blank=True)
 	sexId = models.CharField(max_length=20)
 	dateAdd = models.DateTimeField()
-	visitObjects = models.CharField(max_length=200)
+	visitObjects = models.CharField(max_length=1024)
 	transcription = models.CharField(max_length=128)
 	request = models.ForeignKey(Request, on_delete=models.CASCADE)
 	dateEnd = models.DateField(null=True, blank=True)
 	stickId = models.CharField(max_length=20, default="")
 
 	def __str__(self):
-		return self.firstname
-
-
+		return self.firstname + " " + self.iin

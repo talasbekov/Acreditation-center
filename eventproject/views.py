@@ -20,6 +20,11 @@ import secrets
 import os
 import shutil
 from distutils.dir_util import copy_tree
+import mimetypes
+from django.http import StreamingHttpResponse
+from wsgiref.util import FileWrapper
+from multiprocessing import Process
+from manual import download_photos_async
 
 
 
@@ -316,6 +321,13 @@ def show_event(request, event_id):
         context_dict['active_reqs'] = active_reqs
         context_dict['cities'] = cities
         context_dict['unexported'] = len(reqs.exclude(status="Exported"))
+        zip_name = "event_"+str(event_id)+".zip"
+        if os.path.isfile(zip_name):
+            context_dict['file'] = zip_name
+            size = os.path.getsize(zip_name)
+            context_dict['file_size'] = str(size/1000000) + " MB"
+            ms = os.path.getmtime(zip_name)
+            context_dict['file_time'] = datetime.fromtimestamp(ms)
     except Request.DoesNotExist:
         return HttpResponse("Could not find event")
     return render(request, 'event.html', context_dict)
@@ -442,6 +454,11 @@ def download_request_json(request, request_id):
 def download_photos(request, event_id):
     context_dict = {}
     try:
+        if os.path.exists("event_"+str(event_id)+".zip"):
+            os.remove("event_"+str(event_id)+".zip")
+            print("The file has been deleted successfully")
+        else:
+            print("The file does not exist!")
         dir_name = 'media/event_'+str(event_id)
         if not os.path.isdir(dir_name):
             return HttpResponse("No photos uploaded yet")
@@ -458,6 +475,34 @@ def download_photos(request, event_id):
     except Request.DoesNotExist:
         return HttpResponse("Could not find event")
     return render(request, 'event.html', context_dict)
+
+@user_passes_test(lambda u: u.is_superuser, login_url='/user_login/')
+def download_file(request, event_id):
+    context_dict = {}
+    try:
+        the_file = 'event_'+str(event_id)+".zip"
+        filename = os.path.basename(the_file)
+        chunk_size = 8192
+        response = StreamingHttpResponse(FileWrapper(open(the_file, 'rb'), chunk_size),
+                                content_type=mimetypes.guess_type(the_file)[0])
+        response['Content-Length'] = os.path.getsize(the_file)
+        response['Content-Disposition'] = "attachment; filename=%s" % filename
+        return response
+    except Request.DoesNotExist:
+        return HttpResponse("Could not find event")
+    return render(request, 'event.html', context_dict)
+
+@user_passes_test(lambda u: u.is_superuser, login_url='/user_login/')
+def prepare_file(request, event_id):
+    context_dict = {}
+    try:
+        p = Process(target=download_photos_async, args=(event_id,))
+        p.start()
+        context_dict['success_message'] = "Архивируется файлы, через какое-то время обновите страницу"
+    except Request.DoesNotExist:
+        return HttpResponse("Could not find event")
+    return render(request, 'event.html', context_dict)
+
 
 @login_required(login_url='/user_login/')
 def show_request(request, request_id):
@@ -659,7 +704,7 @@ def add_attendee(request, request_id):
         attendee.request = req
         attendee.dateAdd = datetime.now()
         attendee.dateEnd = date.today()
-        if attendee.countryId != "1000000105":
+        if attendee.countryId != "1000000105aaaa":
             attendee.stickId = request.POST['category']
         doc_start = datetime.strptime(attendee.docBegin, '%Y-%m-%d').date()
         doc_end = datetime.strptime(attendee.docEnd, '%Y-%m-%d').date()
@@ -786,4 +831,3 @@ def user_login(request):
             return render(request, 'gov.html', context={'error_message': 'Неправильный логин или пароль'})
     return render(request, 'gov.html', context={})
 # return render_to_response('gov.html', , context)
-

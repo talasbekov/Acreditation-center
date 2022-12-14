@@ -194,7 +194,7 @@ def add_attendee(request, request_id):
         attendee.request = req
         attendee.dateAdd = datetime.now()
         attendee.dateEnd = date.today()
-        if attendee.countryId != "1000000105":
+        if attendee.countryId != "1000000105aaaaa":
             attendee.stickId = request.POST['category']
         doc_start = datetime.strptime(attendee.docBegin, '%Y-%m-%d').date()
         doc_end = datetime.strptime(attendee.docEnd, '%Y-%m-%d').date()
