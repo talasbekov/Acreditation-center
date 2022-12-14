@@ -82,6 +82,7 @@ urlpatterns = [
     path('en/delete_attendee/', eviews.delete_attendee, name="delete_attendee"),
     path('kz/delete_request/<int:request_id>/', kviews.delete_request, name='delete_request'),
     path('en/delete_request/<int:request_id>/', eviews.delete_request, name='delete_request'),
+    path('bind_operators/', views.bind_operators, name='bind_operators'),
     path('embankment/', admin.site.urls),
 ]
 if settings.DEBUG:

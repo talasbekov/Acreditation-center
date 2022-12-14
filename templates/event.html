@@ -200,7 +200,7 @@
                             <div class="col-md-12">
                                                     <select class="form-select" size="30" multiple name="operator">
                                                         {% for o in other_operators %}
-  <option value="{{ o.id }}">{{ o.user.last_name }} {{ o.user.first_name }} {{ o.patronymic }} {{ o.user.username }} </option>
+  <option value="{{ o.id }}">{{ o.user.last_name }} {{ o.user.first_name }} {{ o.patronymic }} {{ o.user.username }} {{ o.workplace }}</option>
   {% endfor %}
 
 </select>
