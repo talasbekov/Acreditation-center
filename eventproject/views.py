@@ -340,7 +340,7 @@ def show_event(request, event_id):
         cities = City.objects.all()
         context_dict = {'events': [event]}
         context_dict['operators'] = operators
-        all_operators = Operator.objects.all()
+        all_operators = Operator.objects.all().order_by('user__last_name')
         other_operators = []
         for a in all_operators:
             if a not in operators:
