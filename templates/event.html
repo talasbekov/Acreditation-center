@@ -114,6 +114,8 @@
                         </div>
                     </form>
                     <hr>
+
+
                     <ul class="list-group mb-3">
                         {% for operator in operators %}
 
@@ -191,6 +193,30 @@
                     <button class="w-100 btn btn-danger btn-md" type="submit">Удалить мероприятие
                                 </button>
                     </a>
+                    <br><br><hr><br><br>
+                                        <form class="needs-validation" method="post" action="/bind_operators/">
+                        {% csrf_token %}
+                        <div class="row gy-3">
+                            <div class="col-md-12">
+                                                    <select class="form-select" size="30" multiple name="operator">
+                                                        {% for o in other_operators %}
+  <option value="{{ o.id }}">{{ o.user.last_name }} {{ o.user.first_name }} {{ o.patronymic }} {{ o.user.username }} </option>
+  {% endfor %}
+
+</select>
+                                <input type="hidden" class="form-control" name="event_code" value="{{ event.id }}"
+                                       required>
+                            </div>
+                        </div>
+                        <br>
+                        <div class="row gy-3">
+                            <div class="col-md-12">
+                                <button class="w-100 btn btn-primary btn-md" type="submit">Добавить участников
+                                    аккредитации
+                                </button>
+                            </div>
+                        </div>
+                    </form>
                 </div>
             </div>
         </main>

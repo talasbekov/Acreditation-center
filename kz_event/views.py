@@ -134,7 +134,7 @@ def show_request(request, request_id):
 
 
 def check_dublicate(attendee, req):
-    attendees = Attendee.objects.filter(request = req)
+    attendees = Attendee.objects.filter(request__event = req.event)
     if attendee.countryId == "1000000105":
         fa = attendees.filter(iin = attendee.iin)
     else:

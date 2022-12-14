@@ -25,6 +25,8 @@ from django.http import StreamingHttpResponse
 from wsgiref.util import FileWrapper
 from multiprocessing import Process
 from manual import download_photos_async
+# from django.core.urlresolvers import reverse
+
 
 
 
@@ -135,6 +137,27 @@ def add_operator(request):
     return HttpResponseRedirect('/avmac/')
 
 @user_passes_test(lambda u: u.is_superuser, login_url='/user_login/')
+def bind_operators(request):
+    # try:
+    if request.method == 'POST':
+        operators = request.POST.getlist('operator')
+        event_code = request.POST['event_code']
+
+        event = Event.objects.get(id=event_code)
+        for o in operators:
+            operator = Operator.objects.get(id=o)
+            operator.events.add(event)
+            operator.save()
+        success_message = "Операторы успешно добавлены"
+        return HttpResponseRedirect('/show_event/%s/' % event.id)
+        # return HttpResponseRedirect('/show_event/', event.id)
+    # except Exception as e:
+    #     error_message = "Произошла ошибка"
+    #     return show_admin_error(request, error_message)
+
+    return HttpResponseRedirect('/avmac/')
+
+@user_passes_test(lambda u: u.is_superuser, login_url='/user_login/')
 def add_operator_to_event(request):
     try:
         if request.method == 'POST':
@@ -176,6 +199,7 @@ def delete_operator(request, username):
         operator = Operator.objects.get(user=user)
         success_message = user.first_name + " " + user.last_name + " успешно удален"
         operator.delete()
+        user.delete()
         return show_admin(request, success_message)
     except Exception as e:
         return HttpResponse("Could not find operator")
@@ -316,6 +340,12 @@ def show_event(request, event_id):
         cities = City.objects.all()
         context_dict = {'events': [event]}
         context_dict['operators'] = operators
+        all_operators = Operator.objects.all()
+        other_operators = []
+        for a in all_operators:
+            if a not in operators:
+                other_operators.append(a)
+        context_dict['other_operators'] = other_operators
         context_dict['event'] = event
         context_dict['reqs'] = reqs
         context_dict['active_reqs'] = active_reqs
@@ -643,7 +673,7 @@ def delete_attendee(request):
     return render(request, 'request.html', context_dict)
 
 def check_dublicate(attendee, req):
-    attendees = Attendee.objects.filter(request = req)
+    attendees = Attendee.objects.filter(request__event = req.event)
     if attendee.countryId == "1000000105":
         fa = attendees.filter(iin = attendee.iin)
     else:

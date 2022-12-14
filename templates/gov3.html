@@ -52,11 +52,11 @@
                 </div>
                 <div data-tip="true"
                      class="form-control__input form-control__input--visible-first form-input-text col-md-4 mb-2 ">
-                    <label for="title"> Транслитерация полного имени </label>
+                    <label for="title"  class="req"> Транслитерация полного имени </label>
                     <div class="d-flex pos_relative">
                         <input placeholder="Aliev Ali Alievich"
-                               type="text"
-                               class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
+                        type="text" required=""
+                            class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined latin_letters"
                                value="" name="latin_name">
                     </div>
                 </div>
@@ -81,7 +81,7 @@
                     <div class="d-flex align-items-center">
                         <div class="ant-picker ant-picker-range">
                             <div class="ant-picker-input ant-picker-input-active">
-                                <input type="date" name="dob" id="dob" required="" placeholder="Начальная дата" max='2000-13-13' min='2000-13-13' onkeydown="return false" size="10"  value="">
+                                <input type="date" name="dob" id="dob" required="" placeholder="Начальная дата" max='2000-13-13' min='2000-13-13'  size="10"  value="">
                             </div>
                         </div>
                     </div>
@@ -212,7 +212,7 @@
                     <label for="title"  class="req"> Загрузите фото участника(.jpg, .png, >50Kb, <7Mb) </label>
                     <div class="d-flex pos_relative">
                         <input placeholder="Алиев"
-                               type="file" required="" accept=".jpg,.jpeg,.png"
+                               type="file" required="" accept=".jpg,.jpeg"
                                class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
                                value="" name="photo">
                     </div>
@@ -227,7 +227,7 @@
                     <label for="title" class="req"> Загрузите фото документа(jpg, .png, >50Kb, <7Mb) </label>
                     <div class="d-flex pos_relative">
                         <input placeholder="Алиев"
-                               type="file" required="" accept=".jpg,.jpeg,.png"
+                               type="file" required="" accept=".jpg,.jpeg"
                                class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
                                value="" name="doc_photo">
                     </div>
@@ -344,6 +344,43 @@
 
 <script type="text/javascript">
       $('#category').hide()
+jQuery.fn.ForceNumericOnly =
+function()
+{
+    return this.each(function()
+    {
+        $(this).keydown(function(e)
+        {
+            var key = e.charCode || e.keyCode || 0;
+            // allow backspace, tab, delete, enter, arrows, numbers and keypad numbers ONLY
+            // home, end, period, and numpad decimal
+            return (
+                key == 8 || 
+                key == 9 ||
+                key == 13 ||
+                key == 46 ||
+                key == 110 ||
+                key == 190 ||
+                (key >= 35 && key <= 40) ||
+                (key >= 48 && key <= 57) ||
+                (key >= 96 && key <= 105));
+        });
+    });
+};
+        $("#iin").ForceNumericOnly();
+
+        $(".latin_letters").on("keypress", function(event) {
+        var englishAlphabetAndWhiteSpace = /^[-@./#&+\w\s]*$/;
+            var key = String.fromCharCode(event.which);
+            if (event.keyCode == 8 || event.keyCode == 37 || event.keyCode == 39 || englishAlphabetAndWhiteSpace.test(key)) {
+                return true;
+            }
+            return false;
+        });
+        $('.latin_letters').on("paste", function(e) {
+            e.preventDefault();
+        });
+
 
 </script>
 
