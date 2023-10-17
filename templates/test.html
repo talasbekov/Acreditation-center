@@ -1,0 +1,27 @@
+{% load static %}
+<!Doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Страница, к которой подключен jQuery</title>
+  <script type="text/javascript" src="{% static 'js/jquery-3.6.0.min.js' %}"></script>
+  <script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+
+</head>
+<body>
+  <h1>Моя страница, к которой подключён jQuery</h1>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      /* код на jQuery */
+      // установим body фон #bbb
+      $('body').css('background-color', '#bbb');
+      // выровняем h1 по центру
+      $('h1').css('text-align', 'center');
+      // добавим в конец страницы элемент div с контентом "Я люблю jQuery"
+      $('body').append('<div style="text-align: center; font-size: 20px;">Я люблю jQuery</div>');
+    });
+  </script>
+</body>
+</html>

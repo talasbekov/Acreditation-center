@@ -1,0 +1,14 @@
+db.sqlite3
+output/
+*.zip
+*.jpg
+*.jpeg
+*.pyc
+.idea/
+*.pdf
+*.png
+evenv/
+venv/
+*.PNG
+*.JPG
+*.JPEG
