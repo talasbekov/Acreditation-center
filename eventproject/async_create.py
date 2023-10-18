@@ -2,19 +2,18 @@ import os
 import shutil
 from distutils.dir_util import copy_tree
 
-
 def download_photos_async(event_id):
-    if os.path.exists("event_" + str(event_id) + ".zip"):
-        os.remove("event_" + str(event_id) + ".zip")
+    if os.path.exists("event_"+str(event_id)+".zip"):
+        os.remove("event_"+str(event_id)+".zip")
         print("The file has been deleted successfully")
     else:
         print("The file does not exist!")
-    dir_name = "media/event_" + str(event_id)
+    dir_name = 'media/event_'+str(event_id)
     print("event")
     if not os.path.isdir(dir_name):
         print("error! no dir")
         return HttpResponse("No photos uploaded yet")
-    output_filename = "output/event_" + str(event_id) + "/event_" + str(event_id)
+    output_filename = "output/event_"+str(event_id)+"/event_"+str(event_id)
     print("output")
     if os.path.exists(output_filename):
         # checking whether the folder is empty or not
@@ -29,10 +28,10 @@ def download_photos_async(event_id):
         print("File not found in the directory")
     copy_tree(dir_name, output_filename)
     print("copied")
-    zip_address = "output/event_" + str(event_id)
-    file = open(zip_address + "/test.txt", "w")
+    zip_address = "output/event_"+str(event_id)
+    file = open(zip_address+"/test.txt", "w")
     file.close()
-    archieve = "event_" + str(event_id)
+    archieve = "event_"+str(event_id)
     print("archieve name")
-    shutil.make_archive(archieve, "zip", zip_address)
+    shutil.make_archive(archieve, 'zip', zip_address)
     print("zip made")

@@ -2,7 +2,6 @@
 {% load static %}
 {% block body_block %}
     <script type="text/javascript" src="{% static 'js/jquery-3.6.0.min.js' %}"></script>
-    <script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
 <div class="container flex-column flex-sm-row align-items-sm-center ministry-header-top">
     <div class="row justify-content-between align-items-center">
@@ -18,10 +17,8 @@
     <div class="col-md-12 mt-4">
         <h6 class="text-success">{{ success_message }}</h6>
         <h6 class="text-danger">{{ delete_message }}</h6>
-
         <form data-tip="true" class=" form-control row flex-column flex-wrap " action="/add_attendee/{{ req.id }}/" method="post" enctype="multipart/form-data">
             {% csrf_token %}
-
             <div class="row">
                 <div data-tip="true"
                      class="form-control__input form-control__input--visible-first form-input-text col-md-3 mb-2 ">
@@ -185,7 +182,7 @@
                     <div class="d-flex align-items-center">
                         <div class="ant-picker ant-picker-range">
                             <div class="ant-picker-input ant-picker-input-active">
-                                <input type="date" id="doc_date_end" name="doc_date_end" max='2000-13-13' min='2000-13-13'  size="10"  value="" required="">
+                                <input type="date"  id="doc_date_end" name="doc_date_end" max='2000-13-13' min='2000-13-13'  size="10"  value="" required="">
                             </div>
                         </div>
                     </div>
@@ -252,9 +249,10 @@
                   </label>
             </div>
             <div class="my-3 col-md-12">
-                <input type="hidden" name="req_id" value="{{ attendee.request.id }}">
-                <!-- Добавьте остальные поля формы для обновления участника -->
-                <button type="submit">Сохранить изменения</button>
+                <input type="hidden" name="req_id" value="{{ req.id }}">
+                <button data-tip="true" class=" button button--transition button--color-blue mr-3 col-md-12 ripple"
+                        type="submit">Добавить участника
+                </button>
             </div>
             <select  type="select" id="qazdoctype" contenttype="">
                         {% for dc in document_types %}
@@ -274,6 +272,7 @@
 
 
         </form>
+
     </div>
 
 </div>

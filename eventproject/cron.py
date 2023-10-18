@@ -3,7 +3,6 @@ import shutil
 from datetime import date, timedelta, datetime
 from eventproject.models import Event, Operator, Request, Attendee
 
-
 def my_cron_job():
     try:
         enddate = date.today()
@@ -13,7 +12,7 @@ def my_cron_job():
         print(count)
         for event in event_list:
             print(event.id)
-            mydir = "media/event_" + str(event.id)
+            mydir = "media/event_"+str(event.id)
             print(mydir)
             try:
                 shutil.rmtree(mydir)
