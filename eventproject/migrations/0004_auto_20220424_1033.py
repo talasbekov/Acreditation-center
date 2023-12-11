@@ -5,40 +5,43 @@ import eventproject.models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('eventproject', '0003_alter_request_exported_by'),
+        ("eventproject", "0003_alter_request_exported_by"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='attendee',
-            name='birthDate',
+            model_name="attendee",
+            name="birthDate",
             field=models.DateField(blank=True, null=True),
         ),
         migrations.AlterField(
-            model_name='attendee',
-            name='dateEnd',
+            model_name="attendee",
+            name="dateEnd",
             field=models.DateField(blank=True, null=True),
         ),
         migrations.AlterField(
-            model_name='attendee',
-            name='docBegin',
+            model_name="attendee",
+            name="docBegin",
             field=models.DateField(blank=True, null=True),
         ),
         migrations.AlterField(
-            model_name='attendee',
-            name='docEnd',
+            model_name="attendee",
+            name="docEnd",
             field=models.DateField(blank=True, null=True),
         ),
         migrations.AlterField(
-            model_name='attendee',
-            name='docScan',
-            field=models.ImageField(blank=True, upload_to=eventproject.models.event_document_directory_path),
+            model_name="attendee",
+            name="docScan",
+            field=models.ImageField(
+                blank=True, upload_to=eventproject.models.event_document_directory_path
+            ),
         ),
         migrations.AlterField(
-            model_name='attendee',
-            name='photo',
-            field=models.ImageField(blank=True, upload_to=eventproject.models.event_photo_directory_path),
+            model_name="attendee",
+            name="photo",
+            field=models.ImageField(
+                blank=True, upload_to=eventproject.models.event_photo_directory_path
+            ),
         ),
     ]

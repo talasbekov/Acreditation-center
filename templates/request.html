@@ -76,6 +76,7 @@
                 <p><b>Отчество:</b>{{ attendee.patronymic }}</p>-->
             </div>
             <div class="col-lg-3">
+            	<p><b>Дата рождения:&#160;</b>{{ attendee.birthDate|date:"d.m.Y" }}</p>
                 <p><b>ИИН:&#160;</b>{{ attendee.iin }}</p>
                 <p>
                     {% for country in countries %}
@@ -88,6 +89,7 @@
                 <p><b>Должность:&#160;</b>{{ attendee.post }}</p>
 
                 <p><b>Объекты:&#160;</b>{{ attendee.visitObjects }}</p>
+                
             </div>
             <div class="col-lg-3">
                 <p>
@@ -103,18 +105,19 @@
                 <p><b>Кем выдан:</b> {{ attendee.docIssue }}</p>
             </div>
             <div class="col-lg-1">
-                {% if req.status == "Active" != "Active" %}
+
                 <form action="/delete_attendee/" method="POST">{% csrf_token %}
                     <input type="hidden" name="attendee_id" value="{{ attendee.id }}">
-                    <button type="submit" class="btn btn-danger">Удалить</button>
+                    <button type="submit"><img src="{% static 'img/korzina.jpg' %}"></button>
+                    <button type="submit">
+                    	<a href="{% url 'update_attendee' attendee.id %}"><img src="{% static 'img/pencil.png' %}" width="26px" height="26px"></a>
+		            </button>
                 </form>
-                {% endif %}
+
             </div>
         </div>
         {% endfor %}
         {% endif %}
-
-
     </div>
 </div>
 

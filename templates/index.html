@@ -20,7 +20,9 @@
                     <a href="/avmac/" class="d-flex align-items-center mb-2 mb-lg-0 text-white text-decoration-none">
                         Главная
                     </a>
+                    <a class="d-flex align-items-center mb-3 mb-lg-0 text-white text-decoration-none text-center mx-auto">
 
+                    </a>
                     <ul class="nav col-12 col-lg-auto me-lg-auto mb-2 justify-content-center mb-md-0">
                     </ul>
 
@@ -36,7 +38,7 @@
 
         <main>
             <div class="py-5 text-center">
-                <h2>Список мероприятий и пользователей</h2>
+                <h2>{{ user.first_name }} {{ user.last_name }}, это список мероприятий и пользователей</h2>
                 <p class="lead"></p>
                 {% if success_message %}
                     <div class="alert alert-success" role="alert">

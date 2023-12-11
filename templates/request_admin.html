@@ -44,6 +44,7 @@
                       {{ success_message }}
                     </div>
                 {% endif %}
+                <h6 class="text-danger">{{ delete_message }}</h6>
                 {% if error_message %}
                     <div class="alert alert-danger" role="alert">
                       {{ error_message }}
@@ -91,12 +92,19 @@
                             <p> {{ attendee.docIssue }}</p>
                         </div>
                         <div class="col-lg-1">
-                            {% if req.status == "Active" != "Active" %}
-                            <form action="/delete_attendee_admin/" method="POST">{% csrf_token %}
+
+                            <form action="/delete_attendee/" method="POST">{% csrf_token %}
+<!--                                <button type="submit">-->
+<!--			    		            <a href="{% url 'update_attendee' attendee.id %}">-->
+<!--                                        <img src="{% static '/img/pencil.png' %}" width="20px" height="17px">-->
+<!--                                    </a>-->
+<!--			    	            </button>-->
                                 <input type="hidden" name="attendee_id" value="{{ attendee.id }}">
-                                <button type="submit" class="btn btn-danger">Удалить</button>
+                                <button type="submit">
+                                    <img src="{% static '/img/korzina.jpg' %}" >
+                                </button>
                             </form>
-                            {% endif %}
+
                         </div>
                     </div>
                     {% endfor %}

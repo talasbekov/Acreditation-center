@@ -21,11 +21,8 @@
                     <a href="/avmac/" class="d-flex align-items-center mb-2 mb-lg-0 text-white text-decoration-none">
                         Главная
                     </a>
-
                     <ul class="nav col-12 col-lg-auto me-lg-auto mb-2 justify-content-center mb-md-0">
                     </ul>
-
-
                     <div class="text-end">
                         <a href="/logout/">
                         <button type="button" class="btn btn-outline-light me-2"> Выйти</button>
@@ -37,7 +34,7 @@
 
         <main>
             <div class="py-5 text-center">
-                <h2>Мероприятие:&#160; {{ event.name_rus }}</h2>
+                <h2>{{ user.first_name }} {{ user.last_name }}, это мероприятие:&#160; {{ event.name_rus }}</h2>
                 <p class="lead"></p>
                 {% if success_message %}
                     <div class="alert alert-success" role="alert">

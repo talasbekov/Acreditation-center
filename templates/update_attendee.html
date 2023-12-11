@@ -1,0 +1,400 @@
+{% extends 'gov_base.html' %}
+{% load static %}
+{% block body_block %}
+    <script type="text/javascript" src="{% static 'js/jquery-3.6.0.min.js' %}"></script>
+
+<div class="container flex-column flex-sm-row align-items-sm-center ministry-header-top">
+    <div class="row justify-content-between align-items-center">
+        <div class="col-lg-12">
+            <br>
+            <a href="/logout/" class="btn float-right">Выйти</a>
+            <h4>Редактировать участника для мероприятия&#160;"{{ req.event.name_rus }}"</h4>
+            <hr>
+        </div>
+    </div>
+    <div class="col-md-12 mt-4">
+        <h6 class="text-success">{{ success_message }}</h6>
+        <h6 class="text-danger">{{ delete_message }}</h6>
+        <form data-tip="true" class=" form-control row flex-column flex-wrap " action="/update_attendee/{{ attendee.id }}/" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="row">
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-3 mb-2 ">
+                    <label for="" title  class="req"> Фамилия </label>
+                    <div class="d-flex pos_relative">
+                        <input type="text" required=""
+                               class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
+                               value="{{ attendee.surname }}" name="last_name">
+                    </div>
+                </div>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-2 mb-2 ">
+                    <label for="title" class="req"> Имя </label>
+                    <div class="d-flex pos_relative">
+                        <input type="text" required=""
+                               class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
+                               value="{{ attendee.firstname }}" name="first_name">
+                    </div>
+                </div>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-3 mb-2 ">
+                    <label for="title"> Отчество </label>
+                    <div class="d-flex pos_relative">
+                        <input placeholder="Алиевич"
+                               type="text"
+                               class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
+                               value="{{ attendee.patronymic }}" name="patronymic">
+                    </div>
+                </div>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-4 mb-2 ">
+                    <label for="title"  class="req"> Транслитерация полного имени </label>
+                    <div class="d-flex pos_relative">
+                        <input placeholder="Aliev Ali Alievich"
+                        type="text" required=""
+                            class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
+                               value="{{ attendee.transcription }}" name="latin_name"  oninput="this.value=this.value.replace(/[^A-Za-z\s]/g,'');">
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-12">
+                <hr>
+            </div>
+            <div class="row">
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-2 mb-2 ">
+                    <label for="title" id="iin_label" class="req"> ИИН </label>
+                    <div class="d-flex pos_relative">
+
+                        <input type="text"  required="" id="iin"   minlength="12" maxlength="12"
+                               class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
+                               name="iin" value="{{ attendee.iin }}" oninput="process(this)">
+                    </div>
+                </div>
+                <div class="form-control__input form-control__input--visible-first col-md-2 mb-2"><label for="title" class="req">
+                    Дата рождения </label>
+                    <div class="d-flex align-items-center">
+                        <div class="ant-picker ant-picker-range">
+                            <div class="ant-picker-input ant-picker-input-active">
+                                <input type="date" name="dob" id="dob" required="" placeholder="Начальная дата" max='2000-13-13' min='2000-13-13'  size="10"  value="{{ attendee.birthDate }}">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-select pos_relative col-md-2 mb-2 ">
+                    <label for="gosorgan" class="req">Пол </label>
+                    <div><select name="sex" type="select"
+                                 class="color_white__bg form-input-select__input typography__variant-bodysubreg form-input-select__input--outlined"
+                                 contenttype="projectdetails"  >
+                        {% for sex in sexs %}
+                        <option value="{{ attendee.sexId }}">{{ sex.name_rus }}</option>
+                        {% endfor %}
+                    </select></div>
+                </div>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-select pos_relative col-md-2 mb-2 ">
+                    <label for="gosorgan" class="req">Гражданство </label>
+                    <div><select name="citizenship" type="select" id="citizenship"
+                                 class="color_white__bg form-input-select__input typography__variant-bodysubreg form-input-select__input--outlined"
+                                 contenttype="">
+                        {% for country in countries %}
+                        <option value="{{ country.country_code }}"  {% if country.country_code == "1000000105" %} selected="selected" {% endif %}>
+                        {{ country.name_rus }}</option>
+                        {% endfor %}
+                    </select></div>
+                </div>
+                    <div data-tip="true" id="category"
+                         class="form-control__input form-control__input--visible-first form-input-select pos_relative col-md-2 mb-2 ">
+                        <label class="req">Категория</label>
+                        <div><select name="category" type="select"
+                                     class="color_white__bg form-input-select__input typography__variant-bodysubreg form-input-select__input--outlined"
+                                     contenttype="">
+                            {% for category in categories %}
+                            <option value="{{ category.category_code }}">
+                            {{ category.name_rus }}</option>
+                            {% endfor %}
+                        </select></div>
+                    </div>
+                <div data-tip="true" id="post"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-2 mb-2 ">
+                    <label for="title" class="req"> Должность </label>
+                    <div class="d-flex pos_relative">
+                        <input placeholder="Директор"
+                               type="text" required=""
+                               name="post" value="{{ attendee.post }}"
+                               class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined">
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-12">
+                <hr>
+            </div>
+            <div class="row">
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-select pos_relative col-md-3 mb-2 ">
+                    <label for="title"  class="req">Тип документа </label>
+                    <div><select name="document_type" type="select" id="doctype"
+                                 class="color_white__bg form-input-select__input typography__variant-bodysubreg form-input-select__input--outlined"
+                                 contenttype="">
+                        {% for dc in document_types %}
+                        <option value="{{ dc.doc_code }}" {% if dc.doc_code == "1000000003" %} selected="selected" {% endif %}>
+                        {{ dc.name_rus }}</option>
+                        {% endfor %}
+                    </select></div>
+                </div>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-1 mb-2 ">
+                    <label for="title"> Серия </label>
+                    <div class="d-flex pos_relative">
+                        <input placeholder=""
+                               type="text"
+                               class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
+                               value="{{ attendee.docSeries }}" name="doc_series">
+                    </div>
+                </div>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-2 mb-2 ">
+                    <label for="title"  class="req"> Номер документа </label>
+                    <div class="d-flex pos_relative">
+                        <input
+                                type="text" required=""
+                                class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
+                                value="{{ attendee.docNumber }}" name="doc_number">
+                    </div>
+                </div>
+                <div class="form-control__input form-control__input--visible-first col-md-2 mb-2">
+                    <label for="title"  class="req"> Дата выдачи </label>
+                    <div class="d-flex align-items-center">
+                        <div class="ant-picker ant-picker-range">
+                            <div class="ant-picker-input ant-picker-input-active">
+                                <input type="date" required="" name="doc_date_start" id="doc_date_start" max='2000-13-13' min='2000-13-13' size="10" value="{{ attendee.docBegin|date:"d.m.Y" }}"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-control__input form-control__input--visible-first col-md-2 mb-2"><label for="title"  class="req">
+                    Действителен до </label>
+                    <div class="d-flex align-items-center">
+                        <div class="ant-picker ant-picker-range">
+                            <div class="ant-picker-input ant-picker-input-active">
+                                <input type="date"  id="doc_date_end" name="doc_date_end" max='2000-13-13' min='2000-13-13'  size="10"  value="{{ attendee.docEnd }}????" required="">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-2 mb-2 ">
+                    <label for="title"> Кем выдан </label>
+                    <div class="d-flex pos_relative">
+                        <input
+                               type="text" placeholder="Министерство"
+                               class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
+                               value="{{ attendee.docIssue }}" name="doc_issuer">
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-12">
+                <hr>
+            </div>
+            <div class="row">
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-1 mb-2 ">
+                    <img src="{% static 'img/upload_photo.png' %}" width="100%">
+
+                </div>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-3 mb-2 ">
+                    <label for="title"  class="req"> Загрузите фото участника(.jpg, .png, >50Kb, <7Mb) </label>
+                    <div class="d-flex pos_relative">
+                        <input placeholder="Алиев"
+                               type="file" required="" accept=".jpg,.jpeg"
+                               class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
+                               value="{{ attendee.photo.url }}" id="photo" name="photo" onchange="checkFileFormat('photo')">
+                    </div>
+                </div>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-1 mb-2 ">
+                    <img src="{% static 'img/id.png' %}" width="100%">
+
+                </div>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-3 mb-2 ">
+                    <label for="title" class="req"> Загрузите фото документа(jpg, .png, >50Kb, <7Mb) </label>
+                    <div class="d-flex pos_relative">
+                        <input placeholder="Алиев"
+                               type="file" required="" accept=".jpg,.jpeg"
+                               class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
+                               value="{% if attendee.docScan %}{{ attendee.docScan.url }}{% endif %}???" id="doc_photo" name="doc_photo" onchange="checkFileFormat('doc_photo')">
+                    </div>
+                </div>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-4 mb-2 ">
+                    <label for="title" class="req" id="plan"> Планируемые объекты посещения </label>
+                    <div class="d-flex pos_relative">
+                        <textarea class="form-control"  required="" id="exampleFormControlTextarea3" rows="3" name="visit_objects" value="{{ attendee.visitObjects }}">{{ attendee.visitObjects }}</textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="my-3 col-md-12">
+                <hr>
+                <input class="form-check-input" type="checkbox" value="" id="flexCheckDefault" required>
+                  <label class="form-check-label" for="flexCheckDefault">
+                    При добавлении участника Вы соглашаетесь на обработку и хранение персональных данных в информационных системах СГО РК
+                  </label>
+            </div>
+            <div class="my-3 col-md-12">
+                <input type="hidden" name="req_id" value="{{ attendee.request.id }}">
+                <!-- Добавьте остальные поля формы для обновления участника -->
+                <button type="submit">Сохранить изменения</button>
+            </div>
+            <select  type="select" id="qazdoctype" contenttype="">
+                        {% for dc in document_types %}
+                            {% if dc.doc_code in '1000000001,1000000003' %}
+                                <option value="{{ dc.doc_code }}" {% if dc.doc_code == "1000000003" %} selected="selected" {% endif %}>
+                                {{ dc.name_rus }}</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+            <select  type="select" id="fulldoctype" contenttype="">
+                        {% for dc in document_types %}
+                            {% if dc.doc_code in '1000000002,1000000004,1000000005' %}
+                                <option value="{{ dc.doc_code }}" {% if dc.doc_code == "1000000002" %} selected="selected" {% endif %}>{{ dc.name_rus }}</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+
+
+        </form>
+    </div>
+
+</div>
+
+<script>
+function checkFileFormat(inputId) {
+  const inputElement = document.getElementById(inputId);
+
+  if (inputElement.files.length > 0) {
+    const selectedFile = inputElement.files[0];
+    const validFormats = ['.jpg', '.jpeg', '.png'];
+    const isValidFormat = validFormats.some(format =>
+      selectedFile.name.toLowerCase().endsWith(format)
+    );
+
+    if (isValidFormat) {
+      console.log('Допустимый файл');
+    } else {
+      alert('Недопустимый файл. Выберите файл с расширением .jpg, .jpeg или .png.');
+      inputElement.value = ''; // Clear the input field
+    }
+  }
+}
+</script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+          $('#qazdoctype').hide()
+      $('#fulldoctype').hide()
+    var c = $( "#citizenship" ).val()
+     if( c == "1000000105"){
+            var res = $('#qazdoctype').html();
+            $("#doctype").html(res)
+            $("#plan").attr("class", "req")
+        }else{
+            var res = $('#fulldoctype').html();
+            $("#doctype").html(res)
+            $("#plan").attr("class", "")
+        }
+    });
+  </script>
+
+
+  <script>
+    $("#citizenship").change(function () {
+          var c = $( "#citizenship" ).val()
+
+        if( c == "1000000105"){
+            var res = $('#qazdoctype').html();
+            $("#doctype").html(res)
+            $("#iin_label").attr("class", "req")
+            $("#iin").attr( "required", "" )
+            // $('#category').hide()
+            // $('#post').removeClass("col-md-2").addClass("col-md-4")
+        }else{
+            var res = $('#fulldoctype').html();
+            $("#doctype").html(res)
+            $("#iin_label").attr("class", "")
+            $("#iin").removeAttr( "required" )
+            // $('#category').show()
+            // $('#post').removeClass("col-md-4").addClass("col-md-2")
+        }
+      $('#qazdoctype').hide()
+      $('#fulldoctype').hide()
+         });
+         </script>
+         <script>
+         var today = new Date();
+            var dd = today.getDate();
+            var mm = today.getMonth() + 1; //January is 0!
+            var yyyy = today.getFullYear();
+
+            if (dd < 10) {
+               dd = '0' + dd;
+            }
+
+            if (mm < 10) {
+               mm = '0' + mm;
+            }
+
+            today = yyyy + '-' + mm + '-' + dd;
+    $("#doc_date_start").attr("max", today);
+    $("#doc_date_end").attr("min", today);
+    $("#dob").attr("max", today);
+  </script>
+
+<script type="text/javascript">
+// $('#category').hide()
+// jQuery.fn.ForceNumericOnly =
+// function()
+// {
+//     return this.each(function()
+//     {
+//         $(this).keydown(function(e)
+//         {
+//             var key = e.charCode || e.keyCode || 0;
+//             // allow backspace, tab, delete, enter, arrows, numbers and keypad numbers ONLY
+//             // home, end, period, and numpad decimal
+//             return (
+//                 key == 8 ||
+//                 key == 9 ||
+//                 key == 13 ||
+//                 key == 46 ||
+//                 key == 110 ||
+//                 key == 190 ||
+//                 (key >= 35 && key <= 40) ||
+//                 (key >= 48 && key <= 57) ||
+//                 (key >= 96 && key <= 105));
+//         });
+//     });
+// };
+//         $("#iin").ForceNumericOnly();
+
+function process(input){
+  let value = input.value;
+  let numbers = value.replace(/[^0-9]/g, "");
+  input.value = numbers;
+}
+        $(".latin_letters").on("keypress", function(event) {
+        var englishAlphabetAndWhiteSpace = /^[-@./#&+\w\s]*$/;
+            var key = String.fromCharCode(event.which);
+            if (event.keyCode == 8 || event.keyCode == 37 || event.keyCode == 39 || englishAlphabetAndWhiteSpace.test(key)) {
+                return true;
+            }
+            return false;
+        });
+        $('.latin_letters').on("paste", function(e) {
+            e.preventDefault();
+        });
+</script>
+
+{% endblock %}

@@ -214,7 +214,7 @@
                         <input placeholder="Алиев"
                                type="file" required="" accept=".jpg,.jpeg"
                                class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
-                               value="" name="photo">
+                               value="" id="photo" name="photo" onchange="checkFileFormat('photo')">
                     </div>
                 </div>
                 <div data-tip="true"
@@ -229,7 +229,7 @@
                         <input placeholder="Алиев"
                                type="file" required="" accept=".jpg,.jpeg"
                                class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
-                               value="" name="doc_photo">
+                               value="" id="doc_photo" name="doc_photo" onchange="checkFileFormat('doc_photo')">
                     </div>
                 </div>
                 <div data-tip="true"
@@ -269,14 +269,30 @@
                             {% endif %}
                         {% endfor %}
                     </select>
-
-
         </form>
-
     </div>
-
 </div>
 
+<script>
+function checkFileFormat(inputId) {
+  const inputElement = document.getElementById(inputId);
+
+  if (inputElement.files.length > 0) {
+    const selectedFile = inputElement.files[0];
+    const validFormats = ['.jpg', '.jpeg', '.png'];
+    const isValidFormat = validFormats.some(format =>
+      selectedFile.name.toLowerCase().endsWith(format)
+    );
+
+    if (isValidFormat) {
+      console.log('Допустимый файл');
+    } else {
+      alert('Недопустимый файл. Выберите файл с расширением .jpg, .jpeg или .png.');
+      inputElement.value = ''; // Clear the input field
+    }
+  }
+}
+</script>
 
   <script>
     document.addEventListener('DOMContentLoaded', function () {
@@ -355,7 +371,7 @@
 //             // allow backspace, tab, delete, enter, arrows, numbers and keypad numbers ONLY
 //             // home, end, period, and numpad decimal
 //             return (
-//                 key == 8 || 
+//                 key == 8 ||
 //                 key == 9 ||
 //                 key == 13 ||
 //                 key == 46 ||
