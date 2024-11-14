@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+{% load static %}
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Аккредитационный центр</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'css/event.css' %}">
+    <link rel="stylesheet" type="text/css" href="{% static 'css/gov.css' %}">
+    <link rel="stylesheet" type="text/css" href="{% static 'css/gov2.css' %}">
+    <link rel="stylesheet" type="text/css" href="{% static 'css/gov3.css' %}">
+    <link rel="stylesheet" type="text/css" href="{% static 'css/bootstrap.min.css' %}" crossorigin="anonymous">
+    <link rel="icon" type="image/x-icon" href="{% static 'img/favicon_io/favicon.ico' %}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <script type="text/javascript" src="{% static 'js/jquery-3.6.0.min.js' %}"></script>
+    <script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+</head>
+<body>
+<div data-tip="true" class=" ministry-header-top-wrap  ">
+    <div class="container flex-column flex-sm-row align-items-sm-center ministry-header-top">
+        <div class="row justify-content-between align-items-center">
+            <div class="col-lg-6">
+                <div class="d-flex "><a data-tip="true"
+                                        class=" button button--flat button--flatter button--transition p-0 ministry-header-top__logo "
+                                        title="" tabindex="-1" href="/application/"><img
+                        src="{% static 'img/75990035312e271b60f34583fee5d878_original.332798.png' %}"
+                        alt="Служба государственной охраны РК" data-tip="true"
+                        class="ministry-header-top__logo-img image  " title="Служба государственной охраны РК"
+                        tabindex="-1"></a><a data-tip="true"
+                                             class=" button button--flat button--flatter button--transition p-0 ministry-header-top__title "
+                                             title="" tabindex="-1" href="/application/"><h2
+                        class="color_white typography typography__variant-h2  " data-tip="true">Аккредитационный центр<br> Службы государственной
+                    охраны Республики Казахстан</h2></a>
+                    <div class="d-flex d-lg-none ml-auto">
+                        <div class="hamburger d-flex">
+                            <button data-tip="true"
+                                    class="hamburger__btn button button--flat button--flatter button--transition  "
+                                    type="button"><i class="fas fa-bars"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-5 ministry-header-top__links d-none d-lg-block"></div>
+            <div class="col-md-1 ministry-header-top__links d-none d-lg-block">
+                <div class="navbar__links mt-4">
+
+                    <a class="color_grey" href="/kz/application/">KZ</a>&#160;
+                    <a class="color_white" href="/application/"><b>RU</b></a>&#160;
+                    <a class="color_grey" href="/en/application/">EN</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% block body_block %}{% endblock %}
+<script type="text/javascript" src="{% static 'js/main.5d94e38e.js' %}"></script>
+<script src="{% static 'js/jquery-3.6.0.min.js' %}"></script>
+
+</body>
+</html>

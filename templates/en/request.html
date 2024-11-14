@@ -1,0 +1,123 @@
+
+
+{% extends 'en/gov_base.html' %}
+
+{% block body_block %}
+
+<div class="container flex-column flex-sm-row align-items-sm-center ministry-header-top">
+    <div class="row justify-content-between align-items-center">
+        <div class="col-lg-12">
+            <br>
+            <a href="/en/logout/" class="btn float-right">Sign out</a>
+            <a href="/en/change_password/" class="btn float-right">Change password</a>
+            <a class="btn float-left">Welcome, {{ user.first_name }} {{ user.last_name }}&#160;</a>
+
+
+            <hr>
+        </div>
+    </div>
+    <div class="col-md-12 mt-4">
+        <h5>Request({{ req.name }}) to the event {{ req.event.name_eng }}, there are {{ attendees|length }}
+            participants</h5>
+        <h6 class="text-success">{{ success_message }}</h6>
+        <h6 class="text-danger">{{ delete_message }}</h6>
+
+        <hr>
+
+
+        <div class="row">
+            <div class="col-lg-4">
+                <a href="/en/add_attendee/{{ req.id }}/">
+                    {% if req.status == "Active" %}
+                    <button class="w-100 btn btn-primary btn-lg" type="submit">Add an attendee</button>
+                    {% endif %}
+                </a>
+            </div>
+            <div class="col-lg-4">
+                {% if req.status == "Checking" %}
+                <a href="/en/back_to_change/{{ req.id }}/">
+                    <button class="w-100 btn btn-secondary btn-lg" type="submit">Back to edit</button>
+                </a>
+                {% endif %}
+            </div>
+            <div class="col-lg-4">
+                {% if attendees %}
+                    {% if req.status == "Active" %}
+                    <a href="/en/preview/{{ req.id }}/">
+                        <button class="w-100 btn btn-warning btn-lg" type="submit">Preview</button>
+                    </a>
+                    {% elif req.status == "Checking" %}
+                    <a href="/en/send/{{ req.id }}/">
+                        <button class="w-100 btn btn-success btn-lg" type="submit">Send</button>
+                    </a>
+                    {% elif req.status == "Sent" %}
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+
+        {% if attendees %}
+        {% for attendee in attendees %}
+        <hr>
+        <div class="row">
+            <div class="col-lg-1">
+                {% if attendee.photo %}
+                    <img src="{{ attendee.photo.url }}" width="100%">
+                {% endif %}
+            </div>
+            <div class="col-lg-1">
+                {% if attendee.docScan %}
+                    <img src="{{ attendee.docScan.url }}" width="100%">
+                {% endif %}
+            </div>
+            <div class="col-lg-3">
+
+                <p>{{ attendee.surname }}&#160; {{ attendee.firstname }}&#160; {{ attendee.patronymic }}</p>
+                <p>{{ attendee.transcription }}</p>
+                <!--<p><b>Имя:</b>{{ attendee.firstname }}</p>
+                <p><b>Фамилия:</b>{{ attendee.surname }}</p>
+                <p><b>Отчество:</b>{{ attendee.patronymic }}</p>-->
+            </div>
+            <div class="col-lg-3">
+                <p><b>IIN:&#160;</b>{{ attendee.iin }}</p>
+                <p>
+                    {% for country in countries %}
+                    {% if country.country_code == attendee.countryId %} <b>Citizenship:&#160;</b>{{ country.name_eng }}&#160; {% endif %}
+                    {% endfor %}</p>
+                <p>
+                    {% for sex in sexs %}
+                    {% if sex.sex_code == attendee.sexId %} <b>Sex:&#160;</b>{{ sex.name_eng }} {% endif %}
+                    {% endfor %}</p>
+                <p><b>Post:&#160;</b>{{ attendee.post }}</p>
+
+                <p><b>Visiting places:&#160;</b>{{ attendee.visitObjects }}</p>
+            </div>
+            <div class="col-lg-3">
+                <p>
+                    {% for dc in document_types %}
+                    {% if dc.doc_code == attendee.docTypeId %} <b>Type:&#160;</b>{{ dc.name_eng }}&#160; {% endif %}
+                    {% endfor %}</p>
+                {% if attendee.docSeries %}
+                <p><b>Series:</b>{{ attendee.docSeries }}</p>
+                {% endif %}
+                <p><b>Document number:</b>{{ attendee.docNumber }}</p>
+                <p><b>Issued date:</b> {{ attendee.docBegin|date:"d.m.Y" }} </p>
+                <p><b>Expiring date:</b> {{ attendee.docEnd|date:"d.m.Y" }} </p>
+                <p><b>Issued by:</b> {{ attendee.docIssue }}</p>
+            </div>
+            <div class="col-lg-1">
+                {% if req.status == "Active" %}
+                <form action="/en/delete_attendee/" method="POST">{% csrf_token %}
+                    <input type="hidden" name="attendee_id" value="{{ attendee.id }}">
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+
+
+    </div>
+</div>
+{% endblock %}

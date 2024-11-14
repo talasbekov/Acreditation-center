@@ -1,0 +1,48 @@
+
+
+{% extends 'en/gov_base.html' %}
+{% load static %}
+{% block body_block %}
+
+<div class="container flex-column flex-sm-row align-items-sm-center ministry-header-top">
+    <div class="row justify-content-between align-items-center">
+        <div class="col-lg-12">
+            <br>
+            <a href="{% static 'docs/instructions.pdf' %}"><em>Instructions for accreditation</em></a>
+            <hr>
+
+        </div>
+    </div>
+    <div class="row justify-content-md-center">
+        <div class="col-lg-4">
+            <form data-tip="true" class=" form-control row flex-column flex-wrap" method="post" action="/en/user_login/">
+                {% csrf_token %}
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-12 mb-2 ">
+                    <label for="title" class="color_red">{{ error_message }} </label>
+                </div>
+                <input type="hidden"  autocomplete="false"/>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-12 mb-2 ">
+                    <label for="title">Username </label>
+                    <div class="d-flex pos_relative"><input type="text"
+                                                            class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
+                                                            name="username" autocomplete="off" ></div>
+                </div>
+                <div data-tip="true"
+                     class="form-control__input form-control__input--visible-first form-input-text col-md-12 mb-2 ">
+                    <label for="title">Password </label>
+                    <div class="d-flex pos_relative"><input type="password"
+                                                            class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
+                                                            name="password" autocomplete="off" ></div>
+                </div>
+                <div class="my-3 col-md-12">
+                    <button data-tip="true" class=" button button--transition button--color-blue mr-3 col-md-12 ripple"
+                            type="submit">Sign in
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

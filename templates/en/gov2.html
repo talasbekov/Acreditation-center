@@ -1,0 +1,55 @@
+
+
+{% extends 'en/gov_base.html' %}
+
+{% block body_block %}
+
+<div class="container flex-column flex-sm-row align-items-sm-center ministry-header-top">
+    <div class="row justify-content-between align-items-center">
+        <div class="col-lg-12">
+            <br>
+            <a href="/en/logout/" class="btn float-right">Sign out</a>
+            <a href="/en/change_password/" class="btn float-right">Change password</a>
+            <a class="btn float-left">Welcome, {{ user.first_name }} {{ user.last_name }}&#160;</a>
+
+
+            <hr>
+        </div>
+    </div>
+    <div class="col-md-12 mt-4">
+        {% if events %}
+            <h4>List of the authorised events </h4>
+        {% else %}
+            <h4>No events available</h4>
+        {% endif %}
+        <hr>
+        {% for event in events %}
+        <h5>Event:&#160;{{ event.name_eng }}</h5>
+        <h6>City:&#160;
+            {% for city in cities %}
+                {% if city.city_code == event.city_code %}
+                    {{ city.name_eng }}
+                {% endif %}
+            {% endfor %}
+        </h6>
+        <h6>Date:&#160;{{ event.date_start|date:"d.m.Y" }}-{{ event.date_end|date:"d.m.Y" }}</h6>
+        <br>
+            <a href="/en/create/{{ event.id }}" class="btn btn-primary">+ Create new request</a><br><br>
+        {% for req in reqs %}
+            {% if req.event == event %}
+        <a href="/en/show/{{ req.id }}" class="btn
+            {% if req.status == 'Active' %}     btn-secondary
+            {% elif req.status == 'Checking' %} btn-warning
+            {% elif req.status == 'Sent' %} btn-success
+            {% elif req.status == 'Exported' %} btn-success
+            {% else %} btn-primary {% endif %}" role="button">
+            {% if req.status == 'Active' %} Edit request {% else %} View request{% endif %}</a> Request number:&#160;{{ req.name }}. status: {% if req.status == "Active" %} Created <a href="/en/delete_request/{{ req.id }}" style="color:red">delete request</a>{% elif req.status == "Checking" %} Filled out {% elif req.status == "Sent" %} Sent {% elif req.status == "Exported" %} Accepted{% else %} Unknown {% endif %}
+
+        <br><br>
+            {% endif %}
+        {% endfor %}
+        <hr>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

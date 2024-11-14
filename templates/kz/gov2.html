@@ -1,0 +1,55 @@
+
+
+{% extends 'kz/gov_base.html' %}
+
+{% block body_block %}
+
+<div class="container flex-column flex-sm-row align-items-sm-center ministry-header-top">
+    <div class="row justify-content-between align-items-center">
+        <div class="col-lg-12">
+            <br>
+            <a href="/kz/logout/" class="btn float-right">Шығу</a>
+            <a href="/kz/change_password/" class="btn float-right">Құпиясөзді өзгерту</a>
+            <a class="btn float-left">{{ user.first_name }} {{ user.last_name }}, қош келдіңіз!&#160;</a>
+
+
+            <hr>
+        </div>
+    </div>
+    <div class="col-md-12 mt-4">
+        {% if events %}
+            <h4>Сізге қолжетімді шаралардың тізімі</h4>
+        {% else %}
+            <h4>Сізге бекітілген белсенді шаралар жоқ</h4>
+        {% endif %}
+        <hr>
+        {% for event in events %}
+        <h5>Шара:&#160;{{ event.name_kaz }}</h5>
+        <h6>Қала:&#160;
+            {% for city in cities %}
+                {% if city.city_code == event.city_code %}
+                    {{ city.name_kaz }}
+                {% endif %}
+            {% endfor %}
+        </h6>
+        <h6>Күні:&#160;{{ event.date_start|date:"d.m.Y" }}-{{ event.date_end|date:"d.m.Y" }}</h6>
+        <br>
+            <a href="/kz/create/{{ event.id }}" class="btn btn-primary">+ Осы шараға қатысатын адамдардың тізімін даярлау</a><br><br>
+        {% for req in reqs %}
+            {% if req.event == event %}
+        <a href="/kz/show/{{ req.id }}" class="btn
+            {% if req.status == 'Active' %}     btn-secondary
+            {% elif req.status == 'Checking' %} btn-warning
+            {% elif req.status == 'Sent' %} btn-success
+            {% elif req.status == 'Exported' %} btn-success
+            {% else %} btn-primary {% endif %}" role="button">
+            {% if req.status == 'Active' %} Тізімді өзгерту {% else %} Тізімді қарау &#160;&#160;&#160;{% endif %}</a> Өтініш нөмірі:&#160;{{ req.name }}. статусы: {% if req.status == "Active" %} Тізім дайындалуда <a href="/kz/delete_request/{{ req.id }}" style="color:red">тізімді жою</a>{% elif req.status == "Checking" %} Алдын-ала тексеру {% elif req.status == "Sent" %} Жіберілді {% elif req.status == "Exported" %} Қабылданды {% else %} Белгісіз {% endif %}
+
+        <br><br>
+            {% endif %}
+        {% endfor %}
+        <hr>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

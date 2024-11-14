@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+
+{% load static %}
+<html>
+<head>
+    <title>Accrediation</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'css/all.min.css' %}">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+
+</head>
+<body>
+
+<main>
+
+    <div class="container">
+        <header class="p-3 bg-dark text-white">
+            <div class="container">
+                <div class="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start">
+                    <a href="/avmac/" class="d-flex align-items-center mb-2 mb-lg-0 text-white text-decoration-none">
+                        Главная
+                    </a>
+                    <a class="d-flex align-items-center mb-3 mb-lg-0 text-white text-decoration-none text-center mx-auto">
+
+                    </a>
+                    <ul class="nav col-12 col-lg-auto me-lg-auto mb-2 justify-content-center mb-md-0">
+                    </ul>
+
+
+                    <div class="text-end">
+                        <a href="/logout/">
+                        <button type="button" class="btn btn-outline-light me-2"> Выйти</button>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div class="py-5 text-center">
+                <h2>{{ user.first_name }} {{ user.last_name }}, это список мероприятий и пользователей</h2>
+                <p class="lead"></p>
+                {% if success_message %}
+                    <div class="alert alert-success" role="alert">
+                      {{ success_message }}
+                    </div>
+                {% endif %}
+                {% if error_message %}
+                    <div class="alert alert-danger" role="alert">
+                      {{ error_message }}
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="row g-5">
+                <div class="col-md-6 col-lg-6">
+                    <h4 class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="text">Пользователи</span>
+                        <span class="badge bg-primary rounded-pill">{{ operators|length }}</span>
+                    </h4>
+                    <hr>
+                    <form class="needs-validation" method="post" action="/add_operator/">
+                        {% csrf_token %}
+                        <div class="row gy-3">
+                            <div class="col-md-4">
+                                <label for="cc-name" class="form-label">Фамилия</label>
+                                <input type="text" class="form-control" name="last_name" placeholder="" required>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label for="cc-number" class="form-label">Имя</label>
+                                <input type="text" class="form-control" name="first_name" placeholder="" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="cc-number" class="form-label">Отчество</label>
+                                <input type="text" class="form-control" name="patronymic" placeholder="" required>
+                            </div>
+                        </div>
+                        <br>
+                        <div class="row gy-3">
+                            <div class="col-md-6">
+                                <label for="cc-name" class="form-label">Логин</label>
+                                <input type="text" class="form-control" name="login" placeholder="" required>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="cc-number" class="form-label">Место работы</label>
+                                <input type="text" class="form-control" name="workplace" placeholder="" required>
+                            </div>
+                        </div>
+                        <br>
+                        <div class="row gy-3">
+                            <div class="col-md-6">
+                                <label for="cc-number" class="form-label">Контактные данные</label>
+                                <input type="text" class="form-control" name="phone_number" placeholder="" required>
+                                <input type="hidden" class="form-control" name="event_code" value="{{ event.id }}"
+                                       required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="cc-number" class="form-label">Мероприятие</label>
+
+                                    <select class="form-select" aria-label="Default select example" name="event_code">
+                                        {% for event in events %}
+                                            <option value="{{ event.id }}">{{ event.name_rus}}</option>
+                                        {% endfor %}
+                                    </select>
+
+                            </div>
+                        </div>
+                        <br>
+                        <div class="row gy-3">
+                            <div class="col-md-12">
+                                <button class="w-100 btn btn-primary btn-md" type="submit">Добавить участника
+                                    аккредитации
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                    <hr>
+                    <ul class="list-group mb-3">
+                        {% for operator in operators %}
+
+                        <li class="list-group-item d-flex justify-content-between lh-sm">
+                            <div>
+                                <a href="/show_operator/{{ operator.id }}/"><h6 class="my-0">{{ operator.user.last_name }} {{ operator.user.first_name }} {{ operator.patronymic }}</h6></a>
+                                <small class="text-muted">{{ operator.user.username }}, {{ operator.workplace }}</small>
+                            </div>
+                            <span class="text-muted">{{ operator.phone_number }}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+
+
+                </div>
+                <div class="col-md-6 col-lg-6 order-md-last">
+                    <h4 class="mb-3">Мероприятия</h4>
+                    <form class="needs-validation" method="post" action="/create_event/">
+                        {% csrf_token %}
+                        <hr class="my-4">
+                        <h5>Добавить мероприятие</h5>
+                        <div class="col-md-12">
+                            <label for="cc-name" class="form-label">Название мероприятия</label>
+                            <input name="name_rus" type="text" class="form-control" placeholder="" required>
+                            <small class="text-muted">Название мероприятия на русском</small>
+                        </div>
+                        <div class="col-md-12">
+                            <input name="name_kaz" type="text" class="form-control" placeholder="" required>
+                            <small class="text-muted">Жиынның атын қазақша жазыңыз</small>
+                        </div>
+                        <div class="col-md-12">
+                            <input name="name_eng" type="text" class="form-control" placeholder="" required>
+                            <small class="text-muted">Write event name in English</small>
+                        </div>
+                        <br>
+                        <div class="row gy-3">
+                            <div class="col-md-3">
+                                <label for="cc-name" class="form-label">Код мероприятия</label>
+                                <input type="text" class="form-control" name="event_code" placeholder="" required>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label for="cc-number" class="form-label">Дата начала</label>
+                                <input type="date" class="form-control" name="date_start" placeholder="" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="cc-number" class="form-label">Дата окончания</label>
+                                <input type="date" class="form-control" name="date_end" placeholder="" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label for="city" class="form-label">Город</label>
+                                <select  type="select" class="form-select" name="city">
+                                    {% for city in cities %}
+                                            <option value="{{ city.city_code }}" {% if city.city_code == "1110106945" %} selected="selected" {% endif %}>
+                                            {{ city.name_rus }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        <br>
+                        <button class="w-100 btn btn-primary btn-md" type="submit">Добавить мероприятие</button>
+                    </form>
+
+                    <hr class="my-4">
+                    {% for event in events %}
+                    <a href="/show_event/{{ event.id }}/"><h5>{{ event.name_rus }} </h5></a>
+                    <h6>{{ event.date_start|date:"d.m.Y" }}-{{ event.date_end|date:"d.m.Y" }}</h6>
+                    <form class="needs-validation" method="post" action="/add_operator_to_event/">
+                        {% csrf_token %}
+                        <div class="row gy-3">
+                            <div class="col-md-7">
+                                <label for="cc-name" class="form-label">Пользователь</label>
+                                 <select class="form-select" name="operator_id">
+                                    {% for operator in operators %}
+                                        {% if event not in operator.events.all %}
+                                            <option value="{{ operator.id }}">{{ operator.user.last_name }} {{ operator.user.first_name }} {{ operator.patronymic }}</option>
+                                        {% endif %}
+                                    {% endfor %}
+                                 </select>
+                            </div>
+
+                            <div class="col-md-5">
+                                <label for="cc-number" class="form-label">&#160;</label>
+                                <input type="hidden" class="form-control" name="event_id" placeholder="" value="{{ event.id }}">
+                                <button class="w-100 btn btn-primary btn-md" type="submit">Прикрепить</button>
+                            </div>
+                        </div>
+
+                    </form>
+
+                    <hr class="my-4">
+                    {% endfor %}
+                    <a href="/flush_outdated_events/">
+
+                    <button class="w-100 btn btn-danger btn-md" type="submit">Удалить истекшие мероприятия и фотографии</button>
+                    </a>
+
+
+                    <hr class="my-4">
+                </div>
+            </div>
+        </main>
+
+        <footer class="my-5 pt-5 text-muted text-center text-small">
+            <p class="mb-1">&copy; 2017–2021 Quantum bit</p>
+        </footer>
+
+
+
+</div>
+    </main>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+</body>
+</html>

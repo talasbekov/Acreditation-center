@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+
+{% load static %}
+<html>
+<head>
+    <title>Accrediation </title>
+    <link rel="stylesheet" type="text/css" href="{% static 'css/all.min.css' %}">
+    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet"
+          integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+</head>
+<body>
+
+<main>
+
+    <div class="container">
+        <header class="p-3 bg-dark text-white">
+            <div class="container">
+                <div class="d-flex flex-wrap align-items-center justify-content-center justify-content-lg-start">
+                    <a href="/avmac/" class="d-flex align-items-center mb-2 mb-lg-0 text-white text-decoration-none">
+                        Главная
+                    </a>
+
+                    <ul class="nav col-12 col-lg-auto me-lg-auto mb-2 justify-content-center mb-md-0">
+                    </ul>
+
+
+                    <div class="text-end">
+                        <a href="/logout/">
+                        <button type="button" class="btn btn-outline-light me-2"> Выйти</button>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <div class="py-5 text-center">
+                <h2>Профиль пользователя</h2>
+                <p class="lead"></p>
+                {% if success_message %}
+                    <div class="alert alert-success" role="alert">
+                      {{ success_message }}
+                    </div>
+                {% endif %}
+                {% if error_message %}
+                    <div class="alert alert-danger" role="alert">
+                      {{ error_message }}
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="row g-5">
+                <div class="col-md-6 col-lg-6">
+                    <h4 class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="text">Пользователь</span>
+                    </h4>
+                    <hr>
+                    <b>Имя:</b> {{ operator.user.last_name }}<br>
+                    <b>Фамиилия:</b> {{ operator.user.first_name }}<br>
+                    <b>Отчество:</b> {{ operator.patronymic }}<br>
+                    <b>Логин:</b> {{ operator.user.username }}<br>
+                    <b>Пароль:</b> <a href="/new_password/{{ operator.user.username }}/">Сгенерировать новый пароль для пользователя</a><br>
+                    <b>Контактные данные:</b> {{ operator.phone_number }}<br>
+                    <b>Место работы:</b> {{ operator.workplace }}<br>
+                    <br><br>
+                    <a href="/delete_operator/{{ operator.user.username }}/">
+                    <button class="w-100 btn btn-danger btn-md" type="submit">Удалить пользователя
+                                </button>
+                    </a>
+                </div>
+                <div class="col-md-6 col-lg-6 order-md-last">
+                    <h4 class="mb-3">Мероприятия</h4>
+
+
+                    <hr class="my-4">
+                    {% for event in events %}
+                    <a href="/show_event/{{ event.id }}/"><h5>{{ event.name_rus }} </h5></a>
+
+                    <br>
+                    <h6>{{ event.date_start|date:"d.m.Y" }}-{{ event.date_end|date:"d.m.Y" }}</h6>
+                    {% for req in reqs %}
+                        {% if req.event == event %}
+                    <a href="/show_request_to_admin/{{ req.id }}"> {{ req.name }}</a> статус: {% if req.status == "Active" %} <span class="text-primary">Создано</span> {% elif req.status == "Checking" %} <span class="text-warning">Предпросмотр </span>{% elif req.status == "Sent" %} <span class="text-success">Отправлено</span> {% elif req.status == "Exported" %} <span class="text-success">Выгружено</span>{% else %} Неизвестен {% endif %}
+
+                    <br><br>
+                        {% endif %}
+                    {% endfor %}
+                    <a href="/unbind_event/{{ event.id }}/{{ operator.user.username }}/">
+                    <button class="w-100 btn btn-secondary btn-sm" type="submit">Открепить мероприятие от пользователя</button>
+                    </a>
+
+                    <hr class="my-4">
+                    {% endfor %}
+
+
+
+
+                </div>
+            </div>
+        </main>
+
+        <footer class="my-5 pt-5 text-muted text-center text-small">
+            <p class="mb-1">&copy; 2017–2021 Quantum bit</p>
+        </footer>
+
+
+</body>
+</html>
