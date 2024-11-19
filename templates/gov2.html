@@ -1,55 +1,79 @@
-
-
 {% extends 'gov_base.html' %}
 
 {% block body_block %}
 
-<div class="container flex-column flex-sm-row align-items-sm-center ministry-header-top">
+<div class="container mt-4">
     <div class="row justify-content-between align-items-center">
-        <div class="col-lg-12">
-            <br>
-            <a href="/logout/" class="btn float-right">Выйти</a>
-            <a href="/change_password/" class="btn float-right">Изменить пароль</a>
-            <a class="btn float-left">Добро пожаловать, {{ user.first_name }} {{ user.last_name }}&#160;</a>
-
-
+        <div class="col-12">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center">
+                <a class="btn btn-light mb-2 mb-md-0">Добро пожаловать, {{ user.first_name }} {{ user.last_name }}&#160;</a>
+                <div class="d-flex flex-column flex-md-row gap-2">
+                    <a href="/change_password/" class="btn btn-secondary">Изменить пароль</a>
+                    <a href="/logout/" class="btn btn-danger">Выйти</a>
+                </div>
+            </div>
             <hr>
         </div>
     </div>
-    <div class="col-md-12 mt-4">
+
+    <div class="col-12 mt-4">
         {% if events %}
             <h4>Список мероприятий, на которые Вам был предоставлен доступ</h4>
         {% else %}
             <h4>Нет предстоящих активных мероприятий</h4>
         {% endif %}
         <hr>
+
         {% for event in events %}
-        <h5><b>Мероприятие:&#160;{{ event.name_rus }}</b></h5>
-        <h6>Город:&#160;
-            {% for city in cities %}
-                {% if city.city_code == event.city_code %}
-                    {{ city.name_rus }}
+        <div class="mb-4">
+            <h5><b>Мероприятие:&#160;{{ event.name_rus }}</b></h5>
+            <h6>Город:&#160;
+                {% for city in cities %}
+                    {% if city.city_code == event.city_code %}
+                        {{ city.name_rus }}
+                    {% endif %}
+                {% endfor %}
+            </h6>
+            <h6>Дата:&#160;{{ event.date_start|date:"d.m.Y" }} - {{ event.date_end|date:"d.m.Y" }}</h6>
+            <div class="mt-3">
+                <a href="/create/{{ event.id }}" class="btn btn-primary mb-2">+ Создать новый список участников (заявку) для этого мероприятия</a>
+            </div>
+
+            {% for req in reqs %}
+                {% if req.event == event %}
+                <div class="mt-3">
+                    <a href="/show/{{ req.id }}" class="btn
+                        {% if req.status == 'Active' %} btn-secondary
+                        {% elif req.status == 'Checking' %} btn-warning
+                        {% elif req.status == 'Sent' %} btn-success
+                        {% elif req.status == 'Exported' %} btn-success
+                        {% else %} btn-primary {% endif %}">
+                        {% if req.status == 'Active' %}
+                            Редактировать список участников
+                        {% else %}
+                            Посмотреть список участников
+                        {% endif %}
+                    </a>
+                    <small>Номер заявки:&#160;{{ req.name }}. Статус:
+                        {% if req.status == "Active" %}
+                            Создано <a href="/delete_request/{{ req.id }}" class="text-danger">удалить список</a>
+                        {% elif req.status == "Checking" %}
+                            Предпросмотр
+                        {% elif req.status == "Sent" %}
+                            Отправлено
+                        {% elif req.status == "Exported" %}
+                            Принято
+                        {% else %}
+                            Неизвестен
+                        {% endif %}
+                    </small>
+                </div>
                 {% endif %}
             {% endfor %}
-        </h6>
-        <h6>Дата:&#160;{{ event.date_start|date:"d.m.Y" }}-{{ event.date_end|date:"d.m.Y" }}</h6>
-        <br>
-            <a href="/create/{{ event.id }}" class="btn btn-primary">+ Создать новый список участников(заявку) для этого мероприятия</a><br><br>
-        {% for req in reqs %}
-            {% if req.event == event %}
-        <a href="/show/{{ req.id }}" class="btn
-            {% if req.status == 'Active' %}     btn-secondary
-            {% elif req.status == 'Checking' %} btn-warning
-            {% elif req.status == 'Sent' %} btn-success
-            {% elif req.status == 'Exported' %} btn-success
-            {% else %} btn-primary {% endif %}" role="button">
-            {% if req.status == 'Active' %} Редактировать список участников {% else %} Посмотреть список участников &#160;&#160;&#160;&#160;&#160;{% endif %}</a> Номер заявки:&#160;{{ req.name }}. статус: {% if req.status == "Active" %} Создано <a href="/delete_request/{{ req.id }}" style="color:red">удалить список</a>{% elif req.status == "Checking" %} Предпросмотр {% elif req.status == "Sent" %} Отправлено {% elif req.status == "Exported" %} Принято {% else %} Неизвестен {% endif %}
-
-        <br><br>
-            {% endif %}
-        {% endfor %}
+        </div>
         <hr>
         {% endfor %}
     </div>
 </div>
+
 {% endblock %}

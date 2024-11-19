@@ -1,5 +1,5 @@
-import datetime
-from datetime import date
+
+from datetime import date, datetime
 
 from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
@@ -208,17 +208,17 @@ def add_attendee(request, request_id):
             context_dict["delete_message"] = (
                 "Не удалось добавить. Размер фотографии превышает 7Mb"
             )
-        elif attendee.photo.size < 50000:
+        elif attendee.photo.size < 1000:
             context_dict["delete_message"] = (
-                "Не удалось добавить. Размер фотографии меньше чем 50Kb"
+                "Не удалось добавить. Размер фотографии меньше чем 1Kb"
             )
         elif attendee.docScan.size > 9000000:
             context_dict["delete_message"] = (
                 "Не удалось добавить. Размер скана документа превышает 7Mb"
             )
-        elif attendee.docScan.size < 50000:
+        elif attendee.docScan.size < 1000:
             context_dict["delete_message"] = (
-                "Не удалось добавить. Размер скана документа меньше чем 50Kb"
+                "Не удалось добавить. Размер скана документа меньше чем 1Kb"
             )
         elif attendee.countryId == "1000000105" and len(attendee.iin) < 12:
             context_dict["delete_message"] = (
@@ -267,11 +267,12 @@ def update_attendee(request, attendee_id):
             print(attendee.docBegin)
             print(attendee.docEnd)
             print(attendee.birthDate)
-            docBegin = request.POST.get("attendee.docBegin")
-            print(docBegin, "qqq")
-            attendee.docBegin = docBegin
-            print(docBegin, "aaa")
+            # docBegin = request.POST.get("attendee.docBegin")
+            # print(docBegin, "qqq")
+            # attendee.docBegin = docBegin
+            # print(docBegin, "aaa")
             countries = Country.objects.all()
+            countries = sorted(countries, key=lambda x: x.name_rus)
             context_dict["countries"] = countries
             document_types = DocumentType.objects.all()
             context_dict["document_types"] = document_types
@@ -290,7 +291,7 @@ def update_attendee(request, attendee_id):
             attendee.iin = request.POST["iin"]
             attendee.birthDate = request.POST["dob"]
             attendee.sexId = request.POST["sex"]
-            attendee.countryId = request.POST["citizenship"]
+            attendee.countryId = request.POST.get("citizenship")
             attendee.post = request.POST["post"]
             attendee.docTypeId = request.POST["document_type"]
             attendee.docSeries = request.POST["doc_series"]

@@ -25,14 +25,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = "django-insecure-6sl-*ire%_p+en7)xv&6w)x5m3q8-9yzx0c+#)jy$i4)$xxck*"
+# SECURE_HSTS_SECONDS = 3600
+# SECURE_SSL_REDIRECT = True
+# SESSION_COOKIE_SECURE = True
+# CSRF_COOKIE_SECURE = True
+
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ["localhost", "portal2022.pythonanywhere.com", "*"]
 
-
 # Application definition
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -43,7 +48,6 @@ INSTALLED_APPS = [
     "eventproject",
     "directories",
     "django_crontab",
-    "easy_thumbnails",
 ]
 
 MIDDLEWARE = [
@@ -69,14 +73,13 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                #'django.template.context_processors.media',
+                "django.template.context_processors.media",
             ],
         },
     },
 ]
 
 WSGI_APPLICATION = "eventproject.wsgi.application"
-
 
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
@@ -85,13 +88,16 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": "eventdb",
-        "USER": "postgres",
-        "PASSWORD": "123",
-        "HOST": "postgres",
-        "PORT": "5432",
+        "USER": "event",
+        "PASSWORD": "aktobe",
+        "HOST": "localhost",
+        "PORT": "",
     }
 }
 
+GUNICORN_CONFIG = {
+    "timeout": 300,
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/3.2/ref/settings/#auth-password-validators
@@ -111,7 +117,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/3.2/topics/i18n/
 
@@ -125,7 +130,6 @@ USE_L10N = True
 
 USE_TZ = True
 
-
 TEMPLATE_DIR = os.path.join(BASE_DIR, "templates")
 STATIC_DIR = os.path.join(BASE_DIR, "static")
 MEDIA_DIR = os.path.join(BASE_DIR, "media")
@@ -136,8 +140,8 @@ MEDIA_URL = "/media/"
 # https://docs.djangoproject.com/en/3.2/howto/static-files/
 
 STATIC_URL = "/static/"
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
-STATICFILES_DIRS = [STATIC_DIR]
+STATIC_ROOT = STATIC_DIR
+STATICFILES_DIRS = []
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field

@@ -2,42 +2,42 @@
 {% load static %}
 {% block body_block %}
 
-<div class="container flex-column flex-sm-row align-items-sm-center ministry-header-top">
+<div class="container mt-4">
     <div class="row justify-content-between align-items-center">
-        <div class="col-lg-12">
-            <br>
-            <a href="/logout/" class="btn float-right">Выйти</a>
-            <h2>Добро пожаловать, {{ user.first_name }} {{ user.last_name }}&#160;</h2>
-
-
+        <div class="col-12">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center">
+                <h2>Добро пожаловать, {{ user.first_name }} {{ user.last_name }}&#160;</h2>
+                <a href="/logout/" class="btn btn-danger mt-3 mt-md-0">Выйти</a>
+            </div>
             <hr>
         </div>
     </div>
-    <div class="col-md-12 mt-4">
-        <h5>Заявка({{ req.name }}) на мероприятие {{ req.event.name_rus }}, в заявке {{ attendees|length }}
-            участников</h5>
+    <div class="col-12 mt-4">
+        <h5>Заявка ({{ req.name }}) на мероприятие {{ req.event.name_rus }}, в заявке {{ attendees|length }} участников</h5>
+        {% if success_message %}
         <h6 class="text-success">{{ success_message }}</h6>
+        {% endif %}
+        {% if delete_message %}
         <h6 class="text-danger">{{ delete_message }}</h6>
-
+        {% endif %}
         <hr>
 
-
-        <div class="row">
-            <div class="col-lg-4">
+        <div class="row gy-3">
+            <div class="col-12 col-md-4">
                 <a href="/add_attendee/{{ req.id }}/">
                     {% if req.status == "Active" %}
                     <button class="w-100 btn btn-primary btn-lg" type="submit">Добавить участника</button>
                     {% endif %}
                 </a>
             </div>
-            <div class="col-lg-4">
+            <div class="col-12 col-md-4">
                 {% if req.status == "Checking" %}
                 <a href="/back_to_change/{{ req.id }}/">
                     <button class="w-100 btn btn-secondary btn-lg" type="submit">Вернуться к редактированию</button>
                 </a>
                 {% endif %}
             </div>
-            <div class="col-lg-4">
+            <div class="col-12 col-md-4">
                 {% if attendees %}
                     {% if req.status == "Active" %}
                     <a href="/preview/{{ req.id }}/">
@@ -45,7 +45,7 @@
                     </a>
                     {% elif req.status == "Checking" %}
                     <a href="/send/{{ req.id }}/">
-                        <button class="w-100 btn btn-success btn-lg"  type="submit">Отправить</button>
+                        <button class="w-100 btn btn-success btn-lg" type="submit">Отправить</button>
                     </a>
                     {% elif req.status == "Sent" %}
                     {% endif %}
@@ -56,64 +56,67 @@
         {% if attendees %}
         {% for attendee in attendees %}
         <hr>
-        <div class="row">
-            <div class="col-lg-1">
+        <div class="row gy-3">
+            <div class="col-12 col-md-2 col-lg-1">
                 {% if attendee.photo %}
-                    <img src="{{ attendee.photo.url }}" width="100%">
+                    <img src="{{ attendee.photo.url }}" class="img-fluid">
                 {% endif %}
             </div>
-            <div class="col-lg-1">
+            <div class="col-12 col-md-2 col-lg-1">
                 {% if attendee.docScan %}
-                    <img src="{{ attendee.docScan.url }}" width="100%">
+                    <img src="{{ attendee.docScan.url }}" class="img-fluid">
                 {% endif %}
             </div>
-            <div class="col-lg-3">
-
-                <p>{{ attendee.surname }}&#160; {{ attendee.firstname }}&#160; {{ attendee.patronymic }}</p>
+            <div class="col-12 col-md-6 col-lg-3">
+                <p><b>{{ attendee.surname }} {{ attendee.firstname }} {{ attendee.patronymic }}</b></p>
                 <p>{{ attendee.transcription }}</p>
-                <!--<p><b>Имя:</b>{{ attendee.firstname }}</p>
-                <p><b>Фамилия:</b>{{ attendee.surname }}</p>
-                <p><b>Отчество:</b>{{ attendee.patronymic }}</p>-->
             </div>
-            <div class="col-lg-3">
-            	<p><b>Дата рождения:&#160;</b>{{ attendee.birthDate|date:"d.m.Y" }}</p>
-                <p><b>ИИН:&#160;</b>{{ attendee.iin }}</p>
+            <div class="col-12 col-md-6 col-lg-3">
+                <p><b>Дата рождения:</b> {{ attendee.birthDate|date:"d.m.Y" }}</p>
+                <p><b>ИИН:</b> {{ attendee.iin }}</p>
                 <p>
                     {% for country in countries %}
-                    {% if country.country_code == attendee.countryId %} <b>Гражданство:&#160;</b>{{ country.name_rus }}&#160; {% endif %}
-                    {% endfor %}</p>
+                    {% if country.country_code == attendee.countryId %}
+                        <b>Гражданство:</b> {{ country.name_rus }}
+                    {% endif %}
+                    {% endfor %}
+                </p>
                 <p>
                     {% for sex in sexs %}
-                    {% if sex.sex_code == attendee.sexId %} <b>Пол:&#160;</b>{{ sex.name_rus }} {% endif %}
-                    {% endfor %}</p>
-                <p><b>Должность:&#160;</b>{{ attendee.post }}</p>
-
-                <p><b>Объекты:&#160;</b>{{ attendee.visitObjects }}</p>
-                
+                    {% if sex.sex_code == attendee.sexId %}
+                        <b>Пол:</b> {{ sex.name_rus }}
+                    {% endif %}
+                    {% endfor %}
+                </p>
+                <p><b>Должность:</b> {{ attendee.post }}</p>
+                <p><b>Объекты:</b> {{ attendee.visitObjects }}</p>
             </div>
-            <div class="col-lg-3">
+            <div class="col-12 col-md-6 col-lg-3">
                 <p>
                     {% for dc in document_types %}
-                    {% if dc.doc_code == attendee.docTypeId %} <b>Тип:&#160;</b>{{ dc.name_rus }}&#160; {% endif %}
-                    {% endfor %}</p>
+                    {% if dc.doc_code == attendee.docTypeId %}
+                        <b>Тип документа:</b> {{ dc.name_rus }}
+                    {% endif %}
+                    {% endfor %}
+                </p>
                 {% if attendee.docSeries %}
-                <p><b>Серия:</b>{{ attendee.docSeries }}</p>
+                <p><b>Серия:</b> {{ attendee.docSeries }}</p>
                 {% endif %}
-                <p><b>Номер документа:</b>{{ attendee.docNumber }}</p>
-                <p><b>Дата выдачи:</b> {{ attendee.docBegin|date:"d.m.Y" }} </p>
-                <p><b>Действителен до:</b> {{ attendee.docEnd|date:"d.m.Y" }} </p>
+                <p><b>Номер документа:</b> {{ attendee.docNumber }}</p>
+                <p><b>Дата выдачи:</b> {{ attendee.docBegin|date:"d.m.Y" }}</p>
+                <p><b>Действителен до:</b> {{ attendee.docEnd|date:"d.m.Y" }}</p>
                 <p><b>Кем выдан:</b> {{ attendee.docIssue }}</p>
             </div>
-            <div class="col-lg-1">
-
+            <div class="col-12 col-md-2 col-lg-1 text-center">
                 <form action="/delete_attendee/" method="POST">{% csrf_token %}
                     <input type="hidden" name="attendee_id" value="{{ attendee.id }}">
-                    <button type="submit"><img src="{% static 'img/korzina.jpg' %}"></button>
-                    <button type="submit">
-                    	<a href="{% url 'update_attendee' attendee.id %}"><img src="{% static 'img/pencil.png' %}" width="26px" height="26px"></a>
-		            </button>
+                    <button type="submit" class="btn btn-link p-0">
+                        <img src="{% static 'img/korzina.jpg' %}" class="img-fluid">
+                    </button>
+                    <a href="{% url 'update_attendee' attendee.id %}" class="btn btn-link p-0">
+                        <img src="{% static 'img/pencil.png' %}" class="img-fluid" width="30px" height="30px">
+                    </a>
                 </form>
-
             </div>
         </div>
         {% endfor %}
@@ -121,9 +124,4 @@
     </div>
 </div>
 
-<script type="text/javascript">
-$('#warningModal').on('shown.bs.modal', function () {
-  $('#myInput').trigger('focus')
-})
-</script>
 {% endblock %}

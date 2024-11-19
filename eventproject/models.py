@@ -69,7 +69,7 @@ class Attendee(models.Model):
     countryId = models.CharField(max_length=30)
     docTypeId = models.CharField(max_length=30)
     docSeries = models.CharField(max_length=128)
-    iin = models.CharField(max_length=12)
+    iin = models.CharField(max_length=12, null=True, blank=True)
     docNumber = models.CharField(max_length=20)
     docBegin = models.DateField(null=True, blank=True)
     docEnd = models.DateField(null=True, blank=True)
