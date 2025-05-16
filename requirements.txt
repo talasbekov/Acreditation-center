@@ -11,3 +11,7 @@ platformdirs==4.3.6
 sqlparse==0.5.1
 django-crontab
 psycopg2-binary
+
+graphene-django~=3.2.3
+requests~=2.32.3
+httpx~=0.28.1

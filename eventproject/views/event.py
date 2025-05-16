@@ -2,7 +2,7 @@ import os
 import shutil
 import datetime
 
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 
 from django.http import HttpResponse
 from django.http import HttpResponseRedirect
@@ -74,7 +74,7 @@ def add_operator_to_event(request):
                 + event.name_rus
             )
             return show_admin(request, success_message)
-    except Exception:
+    except Exception as e:
         error_message = "Не удалось добавить пользователя."
         return show_admin_error(request, error_message)
 
@@ -106,7 +106,7 @@ def flush_outdated_events(request):
             print("Error: %s - %s." % (e.filename, e.strerror))
         success_message = str(count) + " мероприятии успешно удалены"
         return show_admin(request, success_message)
-    except Exception:
+    except Exception as e:
         return HttpResponse("Some error occured")
     return render(request, "operator.html", context_dict)
 
@@ -127,7 +127,7 @@ def unbind_event(request, event_id, username):
             + user.first_name
         )
         return show_admin(request, success_message)
-    except Exception:
+    except Exception as e:
         return HttpResponse("Could not find operator")
     return render(request, "operator.html", context_dict)
 
@@ -168,7 +168,6 @@ def show_event(request, event_id):
     return render(request, "event.html", context_dict)
 
 
-# Удаление архивов и лищних копий фотографии и json файлов.
 @user_passes_test(lambda u: u.is_superuser, login_url="/user_login/")
 def delete_event(request, event_id):
     context_dict = {}
@@ -177,22 +176,13 @@ def delete_event(request, event_id):
         mydir = "media/event_" + str(event.id)
         print(mydir)
         try:
-            # Удаляем .zip файл, если он существует
-            zip_name = "event_" + str(event_id) + ".zip"
-            if os.path.isfile(zip_name):
-                os.remove(zip_name)
-                print("The .zip file has been deleted successfully")
-
-            # Удаляем директорию с фотографиями и документами
             shutil.rmtree(mydir)
-            print("The directory has been deleted successfully")
-
-            # Удаление мероприятия
-            success_message = "Мероприятие: " + event.name_rus + " успешно удалено"
-            event.delete()
-            return show_admin(request, success_message)
+            print("perfect")
         except OSError as e:
             print("Error: %s - %s." % (e.filename, e.strerror))
+        success_message = "Мероприятие: " + event.name_rus + " успешно удалено"
+        event.delete()
+        return show_admin(request, success_message)
     except Request.DoesNotExist:
         return HttpResponse("Could not find event")
     return render(request, "event.html", context_dict)

@@ -1,35 +1,42 @@
-from django.urls import path
-from django.conf import settings
-from django.conf.urls.static import static
-from django.contrib import admin
-from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+"""eventproject URL Configuration
 
+The `urlpatterns` list routes URLs to views. For more information please see:
+    https://docs.djangoproject.com/en/3.2/topics/http/urls/
+Examples:
+Function views
+    1. Add an import:  from my_app import views
+    2. Add a URL to urlpatterns:  path('', views.home, name='home')
+Class-based views
+    1. Add an import:  from other_app.views import Home
+    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
+Including another URLconf
+    1. Import the include() function: from django.urls import include, path
+    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
+"""
+from django.contrib import admin
+from django.urls import path
 from .views import *
 from kz_event import views as kviews
 from en_event import views as eviews
+from eventproject.views.integration.integrate import kazexpo_receive
 
 urlpatterns = [
     path("create_event/", create_event, name="create_event"),
     path("add_operator/", add_operator, name="add_operator"),
-    path(
-        "add_operator_to_event/",
-        add_operator_to_event,
-        name="add_operator_to_event",
-    ),
+    path("add_operator_to_event/", add_operator_to_event, name="add_operator_to_event"),
     path("user_login/", user_login, name="user_login"),
     path("application/", application, name="application"),
     path("logout/", user_logout, name="logout"),
     path("show_operator/<int:operator_id>/", show_operator, name="show_operator"),
     path("create/<int:event_id>/", create_request, name="create_request"),
     path("show/<int:request_id>/", show_request, name="show_request"),
+    path("delete_attendee/", delete_attendee, name="delete_attendee"),
     path("add_attendee/<int:request_id>/", add_attendee, name="add_attendee"),
     path(
         "update_attendee/<int:attendee_id>/",
         update_attendee,
         name="update_attendee",
     ),
-    path("delete_attendee/", delete_attendee, name="delete_attendee"),
-    # path('delete_attendee_admin/', delete_attendee_admin, name="delete_attendee_admin"),
     path("delete_request/<int:request_id>/", delete_request, name="delete_request"),
     path("preview/<int:request_id>/", preview, name="preview"),
     path("back_to_change/<int:request_id>/", back_to_change, name="back_to_change"),
@@ -41,17 +48,11 @@ urlpatterns = [
         name="show_request_to_admin",
     ),
     path("avmac/", index, name="index"),
-    path(
-        "flush_outdated_events/",
-        flush_outdated_events,
-        name="flush_outdated_events",
-    ),
+    path("flush_outdated_events/", flush_outdated_events, name="flush_outdated_events"),
     path("new_password/<str:username>/", new_password, name="new_password"),
     path("delete_operator/<str:username>/", delete_operator, name="delete_operator"),
     path(
-        "unbind_event/<int:event_id>/<str:username>/",
-        unbind_event,
-        name="unbind_event",
+        "unbind_event/<int:event_id>/<str:username>/", unbind_event, name="unbind_event"
     ),
     path("show_event/<int:event_id>/", show_event, name="show_event"),
     path("delete_event/<int:event_id>/", delete_event, name="delete_event"),
@@ -63,7 +64,7 @@ urlpatterns = [
     ),
     path("download_photos/<int:event_id>/", download_photos, name="download_photos"),
     path("download_file/<int:event_id>/", download_file, name="download_file"),
-    # path("prepare_file/<int:event_id>/", prepare_file, name="prepare_file"),
+    # path('prepare_file/<int:event_id>/', prepare_file, name='prepare_file'),
     path(
         "download_request_json/<int:request_id>/",
         download_request_json,
@@ -74,6 +75,7 @@ urlpatterns = [
         download_all_guests_json,
         name="download_all_guests_json",
     ),
+    path("auth_check/", auth_check, name="auth_check"),
     path("", user_login, name="user_login"),
     path("kz/", kviews.user_login, name="user_login"),
     path("en/", eviews.user_login, name="user_login"),
@@ -118,11 +120,7 @@ urlpatterns = [
         name="delete_request",
     ),
     path("bind_operators/", bind_operators, name="bind_operators"),
+    path("kazexpo/receive/", kazexpo_receive, name="kazexpo_receive"),
     path("embankment/", admin.site.urls),
+    path("<path:file_path>/", protected_media, name="media"),
 ]
-
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-else:
-    urlpatterns += staticfiles_urlpatterns()

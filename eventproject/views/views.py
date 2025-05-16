@@ -1,18 +1,42 @@
+import os
 import datetime
 import secrets
+import mimetypes
 
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 
-from django.http import HttpResponse
-from django.http import HttpResponseRedirect
+from django.http import HttpResponse, Http404, HttpResponseRedirect, FileResponse
 from django.template import RequestContext
 from django.shortcuts import render
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required, user_passes_test
 
+from django.conf import settings
 from directories.models import Sex, Country, DocumentType, City
 from eventproject.models import Event, Operator, Request, Attendee
+
+
+@login_required
+def auth_check(request):
+    # Это представление всегда возвращает HTTP 200 для авторизованных пользователей,
+    # что сигнализирует Nginx о том, что доступ разрешен.
+    return HttpResponse()
+
+
+@login_required(login_url="/user_login/")
+def protected_media(request, file_path):
+    full_path = os.path.join(settings.MEDIA_ROOT, file_path)
+
+    if os.path.exists(full_path):
+        content_type, _ = mimetypes.guess_type(full_path)
+        if content_type is None:
+            content_type = "application/octet-stream"
+
+        with open(full_path, "rb") as file:
+            return FileResponse(file, content_type=content_type)
+    else:
+        raise Http404
 
 
 @user_passes_test(lambda u: u.is_superuser, login_url="/user_login/")
@@ -138,10 +162,9 @@ def preview(request, request_id):
         sexs = Sex.objects.all()
         context_dict["sexs"] = sexs
         context_dict["success_message"] = "Заявка готова к отправлению"
-        context_dict["delete_message"] = (
-            "Внимание!!! Отправка заявки не гарантирует допуск участника в зону проведения "
-            "охранного мероприятия в установленную дату"
-        )
+        context_dict[
+            "delete_message"
+        ] = "Внимание!!! Отправка заявки не гарантирует допуск участника в зону проведения охранного мероприятия в установленную дату"
     except Request.DoesNotExist:
         return HttpResponse("Could not find event")
     return render(request, "request.html", context_dict)
@@ -222,7 +245,7 @@ def change_password(request):
             else:
                 context_dict["error_message"] = "Не удалось подтвердить данные"
                 return render(request, "change_password_result.html", context_dict)
-    except Exception:
+    except Exception as e:
         print("unknown")
     return render(request, "change_password.html", context_dict)
 

@@ -11,7 +11,6 @@ https://docs.djangoproject.com/en/3.2/ref/settings/
 """
 
 from pathlib import Path
-import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -19,20 +18,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
 
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = "django-insecure-6sl-*ire%_p+en7)xv&6w)x5m3q8-9yzx0c+#)jy$i4)$xxck*"
+AVALON_API_KEY = "Fe6dv1LkLMpY0pqwSuocznfwyGo77upgHYfobtPDM98REHKMWXmW3KW6WKbYZ2t5Q2Fd515wPhIVpYaYt1zRghD3mDB6EQ04XzSD6meoAWVdvZT5vrfM6vCPumCzr55hh"
 # SECURE_HSTS_SECONDS = 3600
 # SECURE_SSL_REDIRECT = True
 # SESSION_COOKIE_SECURE = True
 # CSRF_COOKIE_SECURE = True
-
-
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
+APPEND_SLASH=True
 
 ALLOWED_HOSTS = ["localhost", "portal2022.pythonanywhere.com", "*"]
 
@@ -130,22 +128,55 @@ USE_L10N = True
 
 USE_TZ = True
 
-TEMPLATE_DIR = os.path.join(BASE_DIR, "templates")
-STATIC_DIR = os.path.join(BASE_DIR, "static")
-MEDIA_DIR = os.path.join(BASE_DIR, "media")
+# TEMPLATE_DIR = os.path.join(BASE_DIR, "templates")
+# STATIC_DIR = os.path.join(BASE_DIR, "static")
+# MEDIA_DIR = os.path.join(BASE_DIR, "media")
+# MEDIA_ROOT = MEDIA_DIR
+# MEDIA_URL = "/media/"
+#
+# # Static files (CSS, JavaScript, Images)
+# # https://docs.djangoproject.com/en/3.2/howto/static-files/
+#
+# STATIC_URL = "/static/"
+# STATIC_ROOT = STATIC_DIR
+# STATICFILES_DIRS = []
+
+TEMPLATE_DIR = BASE_DIR / "templates"
+STATIC_DIR   = BASE_DIR / "static"
+MEDIA_DIR    = BASE_DIR / "media"
+
 MEDIA_ROOT = MEDIA_DIR
-MEDIA_URL = "/media/"
+MEDIA_URL  = "/media/"
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/3.2/howto/static-files/
-
-STATIC_URL = "/static/"
-STATIC_ROOT = STATIC_DIR
-STATICFILES_DIRS = []
+# статика
+STATIC_URL        = "/static/"
+STATICFILES_DIRS  = [ STATIC_DIR ]                     # ищем здесь
+STATIC_ROOT       = BASE_DIR / "staticfiles"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
+LOGGING = {
+    'version': 1,
+    'handlers': {
+        'file': {
+            'level': 'INFO',
+            'class': 'logging.FileHandler',
+            'filename': '/home/erda/cron.log',
+        },
+    },
+    'loggers': {
+        '': {
+            'handlers': ['file'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+    },
+}
 
+CRONJOBS_LOGGING = True
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-CRONJOBS = [("49 * * * *", "cron.my_cron_job")]
+CRONJOBS = [
+    ('28 * * * *', 'eventproject.cron.kazexpo_import_job', '>> /home/erda/cron.log 2>&1'),
+]
+

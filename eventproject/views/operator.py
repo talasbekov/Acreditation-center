@@ -47,7 +47,7 @@ def add_operator(request):
                 "Пользователь " + login + " успешно создан! Пароль: " + password
             )
             return show_admin(request, success_message)
-    except Exception:
+    except Exception as e:
         error_message = "Не удалось создать пользователя. Возможно повторояется логин с другим пользователем"
         return show_admin_error(request, error_message)
 
@@ -68,7 +68,7 @@ def bind_operators(request):
             operator.save()
         success_message = "Операторы успешно добавлены"
         return HttpResponseRedirect("/show_event/%s/" % event.id)
-    # return HttpResponseRedirect('/show_event/', event.id)
+        # return HttpResponseRedirect('/show_event/', event.id)
     # except Exception as e:
     #     error_message = "Произошла ошибка"
     #     return show_admin_error(request, error_message)
@@ -90,7 +90,7 @@ def show_operator(request, operator_id):
         context_dict["events"] = event_list
         context_dict["operator"] = operator
         context_dict["reqs"] = reqs
-    except Exception:
+    except Exception as e:
         return HttpResponse("Could not find operator")
     return render(request, "operator.html", context_dict)
 
@@ -105,6 +105,6 @@ def delete_operator(request, username):
         operator.delete()
         user.delete()
         return show_admin(request, success_message)
-    except Exception:
+    except Exception as e:
         return HttpResponse("Could not find operator")
     return render(request, "operator.html", context_dict)

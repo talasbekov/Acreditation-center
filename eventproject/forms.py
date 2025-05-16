@@ -1,5 +1,5 @@
 from django import forms
-from eventproject.models import Event
+from eventproject.models import Event, Operator, Request, Attendee
 
 
 class EventForm(forms.ModelForm):

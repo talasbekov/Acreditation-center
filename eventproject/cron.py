@@ -1,58 +1,49 @@
-import shutil
-from django.utils import timezone
-from datetime import timedelta
-from eventproject.models import Event
+import asyncio
+import logging
+import json
+from datetime import date, timedelta
 
-"""
-def my_cron_job():
+from asgiref.sync import async_to_sync
+from django.test import RequestFactory
+
+from eventproject.models import Event, Operator
+from eventproject.views.integration.integrate import kazexpo_receive
+
+logger = logging.getLogger(__name__)
+
+
+def kazexpo_import_job():
+    """Ежеминутный импорт из Avalon, вызывается через django‑crontab."""
+
+    # 1. Получаем тестовый GET-запрос
+    rf = RequestFactory()
+    request = rf.get('/')
+
+    # 2. Выбираем Event и Operator (здесь можно параметризовать)
     try:
-        enddate = date.today()
-        startdate = enddate - timedelta(days=900)
-        event_list = Event.objects.filter(date_end__range=[startdate, enddate])
-        count = len(event_list)
-        print(count)
-        for event in event_list:
-            print(event.id)
-            mydir = "media/event_"+str(event.id)
-            print(mydir)
-            try:
-                shutil.rmtree(mydir)
-                print("perfect")
-            except OSError as e:
-                print("Error: %s - %s." % (e.filename, e.strerror))
-            event.delete()
-        try:
-            shutil.rmtree("output")
-        except OSError as e:
-            print("Error: %s - %s." % (e.filename, e.strerror))
-    except Exception as e:
-        return HttpResponse("Some error occured")
-    # your functionality goes here
-    """
+        event = Event.objects.get(pk=2)
+        operator = Operator.objects.get(pk=1)
+    except (Event.DoesNotExist, Operator.DoesNotExist) as exc:
+        logger.error("Cron job aborted: %s", exc)
+        return
 
+    logger.info("Starting kazexpo_import_job: event=%s operator=%s", event.id, operator.id)
 
-def my_cron_job():
+    # 3. Вызываем view для импорта
     try:
-        # Измените количество минут здесь
-        minutes = 3
-        enddate = timezone.now()
-        startdate = enddate - timedelta(minutes=minutes)
-        event_list = Event.objects.filter(date_end__range=[startdate, enddate])
-        count = len(event_list)
-        print(count)
-        for event in event_list:
-            print(event.id)
-            mydir = "media/event_" + str(event.id)
-            print(mydir)
-            try:
-                shutil.rmtree(mydir)
-                print("perfect")
-            except OSError as e:
-                print("Error: %s - %s." % (e.filename, e.strerror))
-            event.delete()
+        response = async_to_sync(kazexpo_receive)(request, event.id, operator.id)
+        status = getattr(response, 'status_code', None)
+        content = getattr(response, 'content', b'').decode('utf-8', errors='ignore')
+        logger.info("kazexpo_receive response: status=%s, body=%s", status, content)
+
+        # 4. Пытаемся парсить JSON, чтобы получить список созданных ID
         try:
-            shutil.rmtree("output")
-        except OSError as e:
-            print("Error: %s - %s." % (e.filename, e.strerror))
-    except Exception:
-        return HttpResponse("Some error occurred")
+            data = json.loads(content)
+            created = data.get('created_ids')
+            pages = data.get('pages_fetched')
+            logger.info("Import result: created_ids=%s, pages_fetched=%s", created, pages)
+        except json.JSONDecodeError:
+            logger.warning("Response is not valid JSON, skipping parse")
+
+    except Exception as exc:
+        logger.exception("KazExpo cron import failed: %s", exc)

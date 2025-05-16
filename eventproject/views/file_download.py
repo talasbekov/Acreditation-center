@@ -13,12 +13,12 @@ from wsgiref.util import FileWrapper
 from eventproject.models import Event, Request, Attendee
 
 
-@user_passes_test(lambda u: u.is_superuser, login_url="/user_login/")
+@user_passes_test(lambda u: u.is_superuser, login_url='/user_login/')
 def download_json(request, event_id):
     context_dict = {}
     try:
         event = Event.objects.get(pk=event_id)
-        request_set = Request.objects.filter(event=event, status="Sent")
+        request_set = Request.objects.filter(event=event, status='Sent')
         list_of_attendees = []
         for req in request_set:
             request_dict = model_to_dict(req)
@@ -29,14 +29,12 @@ def download_json(request, event_id):
             req.status = "Exported"
             req.save()
         event_dict = model_to_dict(event)
-        event_dict["attendees"] = list_of_attendees
-        serialized_event = json.dumps(
-            event_dict, indent=4, sort_keys=True, default=str, ensure_ascii=False
-        )
+        event_dict['attendees'] = list_of_attendees
+        serialized_event = json.dumps(event_dict, indent=4, sort_keys=True, default=str, ensure_ascii=False)
         return HttpResponse(serialized_event, content_type="application/json")
     except Request.DoesNotExist:
         return HttpResponse("Could not find event")
-    return render(request, "event.html", context_dict)
+    return render(request, 'event.html', context_dict)
 
 
 @user_passes_test(lambda u: u.is_superuser, login_url="/user_login/")
@@ -135,9 +133,7 @@ def download_photos(request, event_id):
         file.close()
 
         # Архивируем директорию, указывая корень архива как родительскую директорию
-        shutil.make_archive(
-            f"media/event_{event_id}", "zip", "media", f"event_{event_id}"
-        )
+        shutil.make_archive(f"media/event_{event_id}", "zip", "media", f"event_{event_id}")
 
         # Открываем и отправляем созданный архив
         zip = open(dir_name + ".zip", "rb")

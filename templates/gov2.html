@@ -64,7 +64,7 @@
                         {% elif req.status == "Exported" %}
                             Принято
                         {% else %}
-                            Неизвестен
+                            Неизвестен <a href="/delete_request/{{ req.id }}" class="text-danger">удалить список</a>
                         {% endif %}
                     </small>
                 </div>

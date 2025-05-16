@@ -1,6 +1,7 @@
 import datetime
 import json
 
+from datetime import datetime
 
 from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
@@ -76,10 +77,9 @@ def show_request(request, request_id):
             context_dict["success_message"] = "Отправлено " + str(req.registration_time)
         elif req.status == "Checking":
             context_dict["success_message"] = "Заявка готова к отправлению"
-            context_dict["delete_message"] = (
-                "Внимание!!! Отправка заявки не гарантирует допуск участника в зону проведения "
-                "охранного мероприятия в установленную дату"
-            )
+            context_dict[
+                "delete_message"
+            ] = "Внимание!!! Отправка заявки не гарантирует допуск участника в зону проведения охранного мероприятия в установленную дату"
     except Request.DoesNotExist:
         return HttpResponse("Could not find event")
     return render(request, "request.html", context_dict)

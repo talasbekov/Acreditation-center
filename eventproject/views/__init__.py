@@ -10,6 +10,8 @@ from .views import (
     user_login,
     preview,
     user_logout,
+    protected_media,
+    auth_check,
 )
 from .event import (
     create_event,
