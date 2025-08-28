@@ -4,11 +4,9 @@
 <html>
 <head>
     <title>Accreditation </title>
-    <link rel="stylesheet" type="text/css" href="{% static './css/all.min.css' %}">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
-          integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
-    <script type="text/javascript" src="{% static 'js/jquery-3.6.0.min.js' %}"></script>
-    <script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="{% static 'css/all.min.css' %}">
+    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet"
+          integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
 </head>
 <body>
 
@@ -38,6 +36,9 @@
         <main>
             <div class="py-5 text-center">
                 <h2>Заявка</h2>
+                {% if attendees %}
+                    <h4>Количество участников: {{ attendees|length }}</h4>
+                {% endif %}
                 <p class="lead"></p>
                 {% if success_message %}
                     <div class="alert alert-success" role="alert">
@@ -92,19 +93,12 @@
                             <p> {{ attendee.docIssue }}</p>
                         </div>
                         <div class="col-lg-1">
-
+                           
                             <form action="/delete_attendee/" method="POST">{% csrf_token %}
-<!--                                <button type="submit">-->
-<!--			    		            <a href="{% url 'update_attendee' attendee.id %}">-->
-<!--                                        <img src="{% static '/img/pencil.png' %}" width="20px" height="17px">-->
-<!--                                    </a>-->
-<!--			    	            </button>-->
                                 <input type="hidden" name="attendee_id" value="{{ attendee.id }}">
-                                <button type="submit">
-                                    <img src="{% static '/img/korzina.jpg' %}" >
-                                </button>
+                                <button type="submit" class="btn btn-danger">Удалить</button>
                             </form>
-
+                           
                         </div>
                     </div>
                     {% endfor %}

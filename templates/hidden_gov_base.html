@@ -3,42 +3,49 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Портал подачи заявок</title>
     <link rel="stylesheet" type="text/css" href="{% static 'css/gov.css' %}">
     <link rel="stylesheet" type="text/css" href="{% static 'css/gov2.css' %}">
     <link rel="stylesheet" type="text/css" href="{% static 'css/gov3.css' %}">
-    <link rel="stylesheet" type="text/css" href="{% static 'css/bootstrap.min.css' %}" crossorigin="anonymous">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
-          integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
 </head>
 <body>
-<div data-tip="true" class=" ministry-header-top-wrap  ">
-    <div class="container flex-column flex-sm-row align-items-sm-center ministry-header-top">
-        <div class="row justify-content-between align-items-center">
-            <div class="col-lg-7">
-                <div class="d-flex ">
-                    <div class="d-flex d-lg-none ml-auto">
-                        <div class="hamburger d-flex">
-                            <button data-tip="true"
-                                    class="hamburger__btn button button--flat button--flatter button--transition  "
-                                    type="button"><i class="fas fa-bars"></i></button>
-                        </div>
-                    </div>
-                </div>
+<div class="bg-dark text-white py-3">
+    <div class="container">
+        <div class="row align-items-center">
+            <!-- Логотип и меню -->
+            <div class="col-12 col-md-6 d-flex align-items-center">
+                <h1 class="h4 mb-0">Портал подачи заявок</h1>
+                <button class="btn btn-outline-light ms-auto d-md-none" type="button" data-bs-toggle="collapse" data-bs-target="#mobileMenu" aria-expanded="false">
+                    <i class="fas fa-bars"></i>
+                </button>
             </div>
-            <div class="col-md-4 ministry-header-top__links d-none d-lg-block"></div>
-            <div class="col-md-1 ministry-header-top__links d-none d-lg-block">
-                <div class="navbar__links mt-4">
-
-                    <a class="color_grey" href="/kz/application/">KZ</a>&#160;
-                    <a class="color_white" href="/application/"><b>RU</b></a>&#160;
-                    <a class="color_grey" href="/en/application/">EN</a>
-                </div>
+            <!-- Языковые ссылки -->
+            <div class="col-12 col-md-6 text-md-end d-none d-md-block">
+                <a class="text-secondary me-2" href="/kz/application/">KZ</a>
+                <a class="text-white fw-bold me-2" href="/application/">RU</a>
+                <a class="text-secondary" href="/en/application/">EN</a>
             </div>
         </div>
     </div>
 </div>
-{% block body_block %}{% endblock %}
+
+<!-- Гамбургер меню -->
+<div class="collapse" id="mobileMenu">
+    <div class="bg-dark p-3 text-center">
+        <a class="text-white d-block mb-2" href="/kz/application/">KZ</a>
+        <a class="text-white d-block mb-2" href="/application/">RU</a>
+        <a class="text-white d-block" href="/en/application/">EN</a>
+    </div>
+</div>
+
+{% block body_block %}
+<!-- Контент страницы -->
+{% endblock %}
+
+<!-- Подключение JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-HoA7uvk6bFdpTTz6gRfawHCOyBkoPMRm9HAGRNzv9FHcZjGgD8TgzUMAsesAgLJ" crossorigin="anonymous"></script>
 <script type="text/javascript" src="{% static 'js/main.5d94e38e.js' %}"></script>
 </body>
 </html>

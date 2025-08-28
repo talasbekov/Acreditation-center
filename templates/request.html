@@ -90,6 +90,13 @@
                 </p>
                 <p><b>Должность:</b> {{ attendee.post }}</p>
                 <p><b>Объекты:</b> {{ attendee.visitObjects }}</p>
+                <p>
+                    {% for category in  categories %}
+                    {% if category.category_code == attendee.stickId %}
+                        <b>Категория:</b> {{ category.name_rus }}
+                    {% endif %}
+                    {% endfor %}
+                </p>
             </div>
             <div class="col-12 col-md-6 col-lg-3">
                 <p>

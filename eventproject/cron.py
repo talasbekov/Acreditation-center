@@ -1,7 +1,5 @@
-import asyncio
 import logging
 import json
-from datetime import date, timedelta
 
 from asgiref.sync import async_to_sync
 from django.test import RequestFactory
@@ -21,8 +19,8 @@ def kazexpo_import_job():
 
     # 2. Выбираем Event и Operator (здесь можно параметризовать)
     try:
-        event = Event.objects.get(pk=2)
-        operator = Operator.objects.get(pk=1)
+        event = Event.objects.get(pk=656)
+        operator = Operator.objects.get(pk=1405)
     except (Event.DoesNotExist, Operator.DoesNotExist) as exc:
         logger.error("Cron job aborted: %s", exc)
         return

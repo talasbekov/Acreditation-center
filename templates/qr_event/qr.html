@@ -1,0 +1,80 @@
+{% extends "qr_event/base.html" %}
+{% load static %}
+
+{% block title %}Форма ввода ИИН - Система регистрации{% endblock %}
+
+{% block content %}
+<div class="form-card">
+    <!-- Header -->
+    <div class="form-header text-center">
+        <div class="logo-container">
+            <img src="{% static 'img/favicon_io/logo_sgo.png' %}" alt="SGO Logo" class="logo" >
+        </div>
+<!--        <div class="form-icon">-->
+<!--            <i class="fas fa-id-card"></i>-->
+<!--        </div>-->
+        <h1 class="form-title">Введите ИИН</h1>
+        <p class="form-subtitle">Индивидуальный идентификационный номер</p>
+    </div>
+
+    <!-- Django messages -->
+    {% if messages %}
+        <div class="flash-messages">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show custom-alert" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- Form -->
+    <form method="post" class="iin-form" novalidate>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+            <div class="invalid-feedback d-block">
+                {% for error in form.non_field_errors %}
+                    {{ error }}{% if not forloop.last %}<br>{% endif %}
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <div class="form-group">
+            <div class="input-group">
+                <span class="input-group-text">
+                    <i class="fas fa-user-tag"></i>
+                </span>
+                {{ form.iin }}
+            </div>
+
+            {% if form.iin.errors %}
+                <div class="invalid-feedback d-block">
+                    {% for error in form.iin.errors %}
+                        <i class="fas fa-exclamation-circle"></i> {{ error }}
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <div class="form-help">
+                <small class="text-muted">
+                    <i class="fas fa-info-circle"></i>
+                    ИИН состоит из 12 цифр (YYMMDDXXXXXX)
+                </small>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-lg w-100" id="submitBtn">Сохранить</button>
+        </div>
+    </form>
+
+    <div class="form-footer">
+        <div class="info-card">
+            <h6><i class="fas fa-shield-alt"></i> Безопасность данных</h6>
+            <p class="small text-muted mb-0">Ваши персональные данные защищены и обрабатываются в соответствии с требованиями законодательства</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

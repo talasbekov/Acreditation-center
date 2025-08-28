@@ -9,7 +9,7 @@ from django.forms.models import model_to_dict
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.decorators import login_required
 
-from directories.models import Sex, Country, DocumentType
+from directories.models import Sex, Country, DocumentType, Category
 from eventproject.models import Event, Operator, Request, Attendee
 
 
@@ -69,6 +69,8 @@ def show_request(request, request_id):
         context_dict["attendees"] = attendees
         countries = Country.objects.all()
         context_dict["countries"] = countries
+        categories = Category.objects.all()
+        context_dict["categories"] = categories
         document_types = DocumentType.objects.all()
         context_dict["document_types"] = document_types
         sexs = Sex.objects.all()

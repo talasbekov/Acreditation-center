@@ -18,6 +18,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
 
+LOG_DIR = BASE_DIR / "logs"
+LOG_DIR.mkdir(exist_ok=True)
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
 
@@ -32,7 +35,7 @@ AVALON_API_KEY = "Fe6dv1LkLMpY0pqwSuocznfwyGo77upgHYfobtPDM98REHKMWXmW3KW6WKbYZ2
 DEBUG = True
 APPEND_SLASH=True
 
-ALLOWED_HOSTS = ["localhost", "portal2022.pythonanywhere.com", "*"]
+ALLOWED_HOSTS = ["localhost", "*"]
 
 # Application definition
 
@@ -46,6 +49,7 @@ INSTALLED_APPS = [
     "eventproject",
     "directories",
     "django_crontab",
+    "qr_event"
 ]
 
 MIDDLEWARE = [
@@ -56,6 +60,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "django.middleware.timezone.TimezoneMiddleware",
 ]
 
 ROOT_URLCONF = "eventproject.urls"
@@ -156,27 +161,43 @@ STATIC_ROOT       = BASE_DIR / "staticfiles"
 # Default primary key field type
 # https://docs.djangoproject.com/en/3.2/ref/settings/#default-auto-field
 LOGGING = {
-    'version': 1,
-    'handlers': {
-        'file': {
-            'level': 'INFO',
-            'class': 'logging.FileHandler',
-            'filename': '/home/erda/cron.log',
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "[{levelname}] {asctime} {name}: {message}",
+            "style": "{",
+        },
+        "simple": {"format": "[{levelname}] {message}", "style": "{"},
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "simple",
+        },
+        "file": {
+            "class": "logging.handlers.RotatingFileHandler",
+            "filename": str(LOG_DIR / "app.log"),
+            "maxBytes": 5 * 1024 * 1024,   # 5 MB
+            "backupCount": 3,
+            "formatter": "verbose",
         },
     },
-    'loggers': {
-        '': {
-            'handlers': ['file'],
-            'level': 'INFO',
-            'propagate': True,
-        },
+    "root": {  # корневой логгер, чтобы всё писалось и в консоль, и в файл
+        "handlers": ["console", "file"],
+        "level": "INFO",
+    },
+    "loggers": {
+        "django": {"handlers": ["console", "file"], "level": "INFO", "propagate": False},
     },
 }
+
 
 CRONJOBS_LOGGING = True
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-CRONJOBS = [
-    ('28 * * * *', 'eventproject.cron.kazexpo_import_job', '>> /home/erda/cron.log 2>&1'),
-]
+# CRONJOBS = [
+#     ('*/30 * * * *', 'eventproject.cron.kazexpo_import_job'),
+# ]
+
 

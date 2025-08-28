@@ -54,7 +54,15 @@
                 </div>
                 <div class="form-group col-md-2 mb-2">
                     <label for="dob" class="req">Дата рождения</label>
-                    <input placeholder="Начальная дата" type="date" required class="form-control" name="dob">
+                    <input
+                        placeholder="Начальная дата"
+                        type="date"
+                        required
+                        class="form-control"
+                        name="dob"
+                        id="dob"
+                        min="1945-01-01"
+                    >
                 </div>
                 <div class="form-group col-md-2 mb-2">
                     <label for="sex" class="req">Пол</label>
@@ -252,6 +260,19 @@ $("#doc_date_start").attr("max", today);
 $("#doc_date_end").attr("min", today);
 $("#dob").attr("max", today);
 </script>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        let today = new Date();
+        let minDate = new Date(today.getFullYear() - 60, today.getMonth(), today.getDate()).toISOString().split("T")[0];
+        let maxDate = new Date(today.getFullYear() - 0, today.getMonth(), today.getDate()).toISOString().split("T")[0];
+
+        let dobInput = document.getElementById("dob");
+        dobInput.setAttribute("min", minDate);
+        dobInput.setAttribute("max", maxDate);
+    });
+</script>
+
 
 <script type="text/javascript">
       // $('#category').hide()

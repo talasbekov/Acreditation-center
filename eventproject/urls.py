@@ -14,13 +14,15 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 from .views import *
 from kz_event import views as kviews
 from en_event import views as eviews
-from eventproject.views.integration.integrate import kazexpo_receive
+
 
 urlpatterns = [
+    path('qr/', include('qr_event.urls')),
+
     path("create_event/", create_event, name="create_event"),
     path("add_operator/", add_operator, name="add_operator"),
     path("add_operator_to_event/", add_operator_to_event, name="add_operator_to_event"),
@@ -120,7 +122,6 @@ urlpatterns = [
         name="delete_request",
     ),
     path("bind_operators/", bind_operators, name="bind_operators"),
-    path("kazexpo/receive/", kazexpo_receive, name="kazexpo_receive"),
     path("embankment/", admin.site.urls),
-    path("<path:file_path>/", protected_media, name="media"),
+    path("media/<path:file_path>/", protected_media, name="media"),
 ]

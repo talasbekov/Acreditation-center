@@ -1,7 +1,6 @@
 from django.shortcuts import render
 from django.http import HttpResponse
 from eventproject.models import Event, Operator, Request, Attendee
-from eventproject.forms import EventForm
 import datetime
 from django.http import HttpResponseRedirect
 from django.contrib.auth.models import User
@@ -13,7 +12,6 @@ from django.contrib.auth import logout
 from directories.models import Sex, Country, DocumentType, City, Category
 from django.forms.models import model_to_dict
 from django.contrib.auth.decorators import user_passes_test
-from django.http import JsonResponse
 from django.http import FileResponse
 import json
 import secrets
