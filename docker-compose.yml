@@ -1,19 +1,23 @@
 services:
-
   accreditation-center:
-    platform: linux/amd64
-    build: .
+    image: accr-django:latest
     container_name: accr-django
-    command: bash -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8004"
-    restart: always
-    ports:
-      - "8004:8004"
+    restart: unless-stopped
+    network_mode: "host"
+    platform: linux/amd64
     volumes:
-      - .:/app
-    networks:
-      - shared_network
-
-networks:
-  shared_network:
-    external: true
-
+      - ./:/app
+      - ./media:/app/media
+      - ./static:/app/static
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    command: >
+      bash -c "python manage.py migrate &&
+               python manage.py collectstatic --noinput &&
+               gunicorn eventproject.wsgi:application
+               --bind 0.0.0.0:8000
+               --workers 4
+               --timeout 120"

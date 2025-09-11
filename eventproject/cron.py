@@ -6,6 +6,7 @@ from django.test import RequestFactory
 
 from eventproject.models import Event, Operator
 from eventproject.views.integration.integrate import kazexpo_receive
+from eventproject.views.integration.integrate_kazenergy import kazenergy_receive
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +20,8 @@ def kazexpo_import_job():
 
     # 2. Выбираем Event и Operator (здесь можно параметризовать)
     try:
-        event = Event.objects.get(pk=656)
-        operator = Operator.objects.get(pk=1405)
+        event = Event.objects.get(pk=3)
+        operator = Operator.objects.get(pk=1)
     except (Event.DoesNotExist, Operator.DoesNotExist) as exc:
         logger.error("Cron job aborted: %s", exc)
         return
@@ -29,7 +30,8 @@ def kazexpo_import_job():
 
     # 3. Вызываем view для импорта
     try:
-        response = async_to_sync(kazexpo_receive)(request, event.id, operator.id)
+        # response = async_to_sync(kazexpo_receive)(request, event.id, operator.id)
+        response = async_to_sync(kazenergy_receive)(request, event.id, operator.id)
         status = getattr(response, 'status_code', None)
         content = getattr(response, 'content', b'').decode('utf-8', errors='ignore')
         logger.info("kazexpo_receive response: status=%s, body=%s", status, content)

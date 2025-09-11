@@ -78,8 +78,9 @@ def iin_kz_validator(value: str):
 class QrIin(models.Model):
     id = models.AutoField(primary_key=True)
     iin = models.CharField(max_length=12, validators=[iin_validator, iin_kz_validator], null=False, blank=False)
+    qr_code = models.ImageField(upload_to='qr_codes/', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.id}   |   {self.iin}   |   {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+        return f"{self.id} | {self.iin} | {self.created_at.strftime('%Y-%m-%d %H:%M')}"

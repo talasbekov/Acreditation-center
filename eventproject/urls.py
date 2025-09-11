@@ -15,12 +15,20 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.http import JsonResponse
+
+from django.conf import settings
+from django.conf.urls.static import static
 from .views import *
 from kz_event import views as kviews
 from en_event import views as eviews
 
+def health_ok(_request):
+    return JsonResponse({"status": "ok"})
 
 urlpatterns = [
+    path("health/", health_ok, name="health"),
+    path("healthz/", health_ok, name="healthz"),
     path('qr/', include('qr_event.urls')),
 
     path("create_event/", create_event, name="create_event"),
@@ -123,5 +131,11 @@ urlpatterns = [
     ),
     path("bind_operators/", bind_operators, name="bind_operators"),
     path("embankment/", admin.site.urls),
-    path("media/<path:file_path>/", protected_media, name="media"),
+    # path("media/<path:file_path>/", protected_media, name="media"),
 ]
+
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+    urlpatterns += [path("graphql", lambda r: JsonResponse({"detail": "GraphQL not enabled"}, status=404))]
+

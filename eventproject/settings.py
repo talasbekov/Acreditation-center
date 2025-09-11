@@ -38,7 +38,6 @@ APPEND_SLASH=True
 ALLOWED_HOSTS = ["localhost", "*"]
 
 # Application definition
-
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -60,7 +59,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "django.middleware.timezone.TimezoneMiddleware",
+    # "django.middleware.timezone.TimezoneMiddleware",
 ]
 
 ROOT_URLCONF = "eventproject.urls"
@@ -93,8 +92,8 @@ DATABASES = {
         "NAME": "eventdb",
         "USER": "event",
         "PASSWORD": "aktobe",
-        "HOST": "localhost",
-        "PORT": "",
+        "HOST": "127.0.0.1",
+        "PORT": "5432",
     }
 }
 
@@ -196,8 +195,8 @@ LOGGING = {
 CRONJOBS_LOGGING = True
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# CRONJOBS = [
-#     ('*/30 * * * *', 'eventproject.cron.kazexpo_import_job'),
-# ]
+CRONJOBS = [
+    ('*/2 * * * *', 'eventproject.cron.kazexpo_import_job'),
+]
 
 

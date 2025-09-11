@@ -1,21 +1,36 @@
-FROM python:3.10-slim-buster
+# syntax=docker/dockerfile:1
+FROM python:3.10-slim
 
-# Install dependencies
-RUN pip install --upgrade pip
-RUN pip install pipenv
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
 
-# Set working directory
 WORKDIR /app
 
-# Install wget
-RUN apt-get update && apt-get install libssl-dev wkhtmltopdf -y
+# Системные зависимости
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    gcc \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
-# Copy Pipfile and Pipfile.lock
+# Копируем только requirements сначала (для кеширования слоев)
 COPY requirements.txt .
+RUN pip install --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
 
-# Install dependencies
-RUN pip install -r requirements.txt
-#COPY ./api/v1/docs/cities.csv /app/docs/cities.csv
+# Создаем пользователя для безопасности
+RUN useradd --create-home --shell /bin/bash app \
+    && chown -R app:app /app
+USER app
 
-# Copy project
-COPY . .
+# Собираем статику (опционально, может делаться через volume)
+RUN python manage.py collectstatic --noinput || true
+
+# Открываем порт
+EXPOSE 8000
+
+# Команда по умолчанию (может быть переопределена в docker-compose)
+CMD ["gunicorn", "eventproject.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "4", "--timeout", "120"]
