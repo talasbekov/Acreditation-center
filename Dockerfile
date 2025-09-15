@@ -16,21 +16,28 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# Копируем только requirements сначала (для кеширования слоев)
-COPY requirements.txt .
+# Копируем requirements.txt в рабочую директорию
+COPY requirements.txt /app/
+
+# Устанавливаем Python зависимости
 RUN pip install --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
+
+# Копируем весь проект
+COPY . /app/
+
+# Создаем директории
+RUN mkdir -p /app/logs /app/media /app/staticfiles
 
 # Создаем пользователя для безопасности
 RUN useradd --create-home --shell /bin/bash app \
     && chown -R app:app /app
-USER app
 
-# Собираем статику (опционально, может делаться через volume)
-RUN python manage.py collectstatic --noinput || true
+# Переключаемся на пользователя app
+USER app
 
 # Открываем порт
 EXPOSE 8000
 
-# Команда по умолчанию (может быть переопределена в docker-compose)
-CMD ["gunicorn", "eventproject.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "4", "--timeout", "120"]
+# Команда по умолчанию
+CMD ["gunicorn", "eventproject.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "120"]

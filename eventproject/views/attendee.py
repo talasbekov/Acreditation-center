@@ -2,6 +2,7 @@
 from datetime import date, datetime
 
 from django.http import HttpResponse
+from django.utils import timezone
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 
@@ -187,7 +188,7 @@ def add_attendee(request, request_id):
         attendee.docScan = request.FILES["doc_photo"]
         attendee.visitObjects = request.POST["visit_objects"]
         attendee.request = req
-        attendee.dateAdd = datetime.now()
+        attendee.dateAdd = timezone.now()
         attendee.dateEnd = date.today()
         if attendee.countryId != "1000000105aaaa":
             attendee.stickId = request.POST["category"]

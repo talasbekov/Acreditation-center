@@ -2,6 +2,7 @@ from django.shortcuts import render
 from django.http import HttpResponse
 from eventproject.models import Event, Operator, Request, Attendee
 import datetime
+from django.utils import timezone
 from django.http import HttpResponseRedirect
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login
@@ -283,7 +284,7 @@ def create_request(request, event_id):
         context_dict['event'] = event
         operator = Operator.objects.get(user=request.user)
         req = Request()
-        now = datetime.now()
+        now = timezone.now()
         req.name = now.strftime("%d%m%Y%H%M%S")
         req.event = event
         req.status = "Active"
@@ -641,7 +642,7 @@ def send(request, request_id):
         if req.created_by != operator:
             return HttpResponse("You are not authorised to see this page")
         req.status = "Sent"
-        req.registration_time = datetime.now()
+        req.registration_time = timezone.now()
         req.save()
         attendees = Attendee.objects.filter(request=req)
         context_dict['attendees'] = attendees
@@ -787,7 +788,7 @@ def add_attendee(request, request_id):
         attendee.docScan = request.FILES['doc_photo']
         attendee.visitObjects = request.POST['visit_objects']
         attendee.request = req
-        attendee.dateAdd = datetime.now()
+        attendee.dateAdd = timezone.now()
         attendee.dateEnd = date.today()
         if attendee.countryId != "1000000105aaaa":
             attendee.stickId = request.POST['category']

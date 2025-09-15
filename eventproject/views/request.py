@@ -4,6 +4,7 @@ import json
 from datetime import datetime
 
 from django.http import HttpResponse, HttpResponseRedirect
+from django.utils import timezone
 from django.shortcuts import render
 from django.forms.models import model_to_dict
 from django.contrib.auth.decorators import user_passes_test
@@ -21,7 +22,7 @@ def create_request(request, event_id):
         context_dict["event"] = event
         operator = Operator.objects.get(user=request.user)
         req = Request()
-        now = datetime.now()
+        now = timezone.now()
         req.name = now.strftime("%d%m%Y%H%M%S")
         req.event = event
         req.status = "Active"

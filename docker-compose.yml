@@ -1,23 +1,59 @@
+version: '3.8'
+
 services:
+  redis:
+    image: redis:7.4
+    container_name: accr-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
   accreditation-center:
+    build: .
     image: accr-django:latest
     container_name: accr-django
     restart: unless-stopped
-    network_mode: "host"
+    network_mode: host
     platform: linux/amd64
     volumes:
       - ./:/app
       - ./media:/app/media
       - ./static:/app/static
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - ./logs:/app/logs
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DJANGO_SETTINGS_MODULE=eventproject.settings
     command: >
-      bash -c "python manage.py migrate &&
-               python manage.py collectstatic --noinput &&
-               gunicorn eventproject.wsgi:application
-               --bind 0.0.0.0:8000
-               --workers 4
-               --timeout 120"
+      bash -c "
+      echo 'Starting application...' &&
+      sleep 15 &&
+      python manage.py migrate --run-syncdb &&
+      python manage.py migrate django_celery_beat --fake-initial &&
+      python manage.py collectstatic --noinput &&
+      gunicorn eventproject.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 600
+      "
+    depends_on:
+      - redis
+
+  celery-worker:
+    build: .
+    image: accr-django:latest
+    container_name: accr-celery-worker
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./:/app
+      - ./media:/app/media
+      - ./logs:/app/logs
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DJANGO_SETTINGS_MODULE=eventproject.settings
+    command: >
+      bash -c "
+      echo 'Waiting for Django...' &&
+      sleep 30 &&
+      celery -A eventproject worker --loglevel=INFO --concurrency=2
+      "
+    depends_on:
+      - redis
+      - accreditation-center

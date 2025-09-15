@@ -1,24 +1,17 @@
 from django.shortcuts import render
 from django.http import HttpResponse
 from eventproject.models import Event, Operator, Request, Attendee
-from eventproject.forms import EventForm
+from django.utils import timezone
 import datetime
 from django.http import HttpResponseRedirect
-from django.contrib.auth.models import User
+
 from django.contrib.auth import authenticate, login
 from django.template import RequestContext
 from django.contrib.auth.decorators import login_required
 from datetime import date, timedelta, datetime
 from django.contrib.auth import logout
 from directories.models import Sex, Country, DocumentType, City, Category
-from django.forms.models import model_to_dict
-from django.contrib.auth.decorators import user_passes_test
-from django.http import JsonResponse
-from django.http import FileResponse
-import json
-import secrets
-import os
-import shutil
+
 
 # Create your views here.
 def user_login(request):
@@ -93,7 +86,7 @@ def create_request(request, event_id):
         context_dict['event'] = event
         operator = Operator.objects.get(user=request.user)
         req = Request()
-        now = datetime.now()
+        now = timezone.now()
         req.name = now.strftime("%d%m%Y%H%M%S")
         req.event = event
         req.status = "Active"
@@ -192,7 +185,7 @@ def add_attendee(request, request_id):
         attendee.docScan = request.FILES['doc_photo']
         attendee.visitObjects = request.POST['visit_objects']
         attendee.request = req
-        attendee.dateAdd = datetime.now()
+        attendee.dateAdd = timezone.now()
         attendee.dateEnd = date.today()
         if attendee.countryId != "1000000105aaaaa":
             attendee.stickId = request.POST['category']
@@ -294,7 +287,7 @@ def send(request, request_id):
         if req.created_by != operator:
             return HttpResponse("You are not authorised to see this page")
         req.status = "Sent"
-        req.registration_time = datetime.now()
+        req.registration_time = timezone.now()
         req.save()
         attendees = Attendee.objects.filter(request = req)
         context_dict['attendees'] = attendees

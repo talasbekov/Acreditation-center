@@ -4,7 +4,7 @@ import secrets
 import mimetypes
 
 from datetime import date, timedelta, datetime
-
+from django.utils import timezone
 from django.http import HttpResponse, Http404, HttpResponseRedirect, FileResponse
 from django.template import RequestContext
 from django.shortcuts import render
@@ -204,7 +204,7 @@ def send(request, request_id):
         if req.created_by != operator:
             return HttpResponse("You are not authorised to see this page")
         req.status = "Sent"
-        req.registration_time = datetime.now()
+        req.registration_time = timezone.now()
         req.save()
         attendees = Attendee.objects.filter(request=req)
         context_dict["attendees"] = attendees
