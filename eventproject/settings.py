@@ -78,31 +78,40 @@ GUNICORN_CONFIG = {
     "timeout": 300,
 }
 
-# Кеширование - используем Redis для синхронизации между контейнерами
-try:
-    import django_redis  # проверяем есть ли библиотека
-    CACHES = {
-        "default": {
-            "BACKEND": "django_redis.cache.RedisCache",
-            "LOCATION": "redis://127.0.0.1:6379/1",
-            "KEY_PREFIX": "eventproject",
-            "TIMEOUT": 3600,
-            "OPTIONS": {
-                "CLIENT_CLASS": "django_redis.client.DefaultClient",
-                "CONNECTION_POOL_KWARGS": {"max_connections": 20},
-            }
-        }
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
+        "LOCATION": BASE_DIR / "django_cache",
+        "TIMEOUT": 1,
     }
-except ImportError:
-    # fallback на стандартный RedisCache Django
-    CACHES = {
-        "default": {
-            "BACKEND": "django.core.cache.backends.redis.RedisCache",
-            "LOCATION": "redis://127.0.0.1:6379/1",
-            "KEY_PREFIX": "eventproject",
-            "TIMEOUT": 3600,
-        }
-    }
+}
+
+
+# # Кеширование - используем Redis для синхронизации между контейнерами
+# try:
+#     import django_redis  # проверяем есть ли библиотека
+#     CACHES = {
+#         "default": {
+#             "BACKEND": "django_redis.cache.RedisCache",
+#             "LOCATION": "redis://127.0.0.1:6379/1",
+#             "KEY_PREFIX": "eventproject",
+#             "TIMEOUT": 120,
+#             "OPTIONS": {
+#                 "CLIENT_CLASS": "django_redis.client.DefaultClient",
+#                 "CONNECTION_POOL_KWARGS": {"max_connections": 20},
+#             }
+#         }
+#     }
+# except ImportError:
+#     # fallback на стандартный RedisCache Django
+#     CACHES = {
+#         "default": {
+#             "BACKEND": "django.core.cache.backends.redis.RedisCache",
+#             "LOCATION": "redis://127.0.0.1:6379/1",
+#             "KEY_PREFIX": "eventproject",
+#             "TIMEOUT": 120,
+#         }
+#     }
 
 
 # Celery настройки
@@ -207,5 +216,5 @@ CRONJOBS_LOGGING = True
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CRONJOBS = [
-    ('*/2 * * * *', 'eventproject.cron.kazexpo_import_job'),
+    ('*/2 * * * *', 'eventproject.cron.kazenergy_receive'),
 ]

@@ -23,7 +23,7 @@ from django.core.cache import cache
 from django.views import View
 from pathlib import Path
 
-from eventproject.tasks import create_event_archive, logger
+from eventproject.tasks import create_event_archive, logger, cleanup_old_archives
 
 
 class EventArchiveView(UserPassesTestMixin, View):
@@ -74,7 +74,7 @@ class EventArchiveView(UserPassesTestMixin, View):
             response = FileResponse(
                 open(archive_path, 'rb'),
                 as_attachment=True,
-                filename=f"event_{event_id}_photos.zip",
+                filename=f"event_{event_id}.zip",
                 content_type='application/zip'
             )
             return response
@@ -117,7 +117,7 @@ def download_photos(request, event_id):
                 return FileResponse(
                     open(archive_path, 'rb'),
                     as_attachment=True,
-                    filename=f"event_{event_id}_photos.zip",
+                    filename=f"event_{event_id}.zip",
                     content_type='application/zip'
                 )
 
@@ -134,8 +134,8 @@ def download_photos(request, event_id):
 
         # Архива нет - пробуем создать через Celery
         try:
+            cleanup_old_archives()
             task = create_event_archive.delay(event_id, request.user.id)
-
             context = {
                 'event_id': event_id,
                 'task_id': task.id,
@@ -184,7 +184,7 @@ def _create_archive_sync(event_id):
             # Создаем архив
             with zipfile.ZipFile(tmp_path, 'w', zipfile.ZIP_DEFLATED, compresslevel=1) as zipf:
                 for file_path in files:
-                    arcname = file_path.relative_to(event_dir)
+                    arcname = file_path.relative_to(event_dir.parent)
                     zipf.write(file_path, arcname)
 
             # Проверяем размер архива
@@ -196,7 +196,7 @@ def _create_archive_sync(event_id):
             response = FileResponse(
                 open(tmp_path, 'rb'),
                 as_attachment=True,
-                filename=f"event_{event_id}_photos.zip",
+                filename=f"event_{event_id}.zip",
                 content_type='application/zip'
             )
 
@@ -233,7 +233,7 @@ def _create_archive_sync(event_id):
 #             return HttpResponse("Фотографии для данного события не найдены", status=404)
 #
 #         # Создаем временный архив
-#         archive_path = Path(settings.MEDIA_ROOT) / "temp" / f"event_{event_id}_{int(timezone.now().timestamp())}.zip"
+#         archive_path = Path(settings.MEDIA_ROOT) / "temp" / f"event_{event_id}.zip"
 #         archive_path.parent.mkdir(exist_ok=True)
 #
 #         # Создаем архив

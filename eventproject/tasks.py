@@ -22,7 +22,7 @@ def create_event_archive(self, event_id, user_id=None):
         archive_dir = Path(settings.MEDIA_ROOT) / "archives"
         archive_dir.mkdir(exist_ok=True)
 
-        archive_path = archive_dir / f"event_{event_id}_{int(timezone.now().timestamp())}.zip"
+        archive_path = archive_dir / f"event_{event_id}.zip"
 
         # Проверяем существование директории с фото
         if not event_dir.exists() or not any(event_dir.rglob('*.*')):
@@ -79,10 +79,10 @@ def create_event_archive(self, event_id, user_id=None):
             'archive_path': str(archive_path),
             'archive_size': archive_size,
             'created_at': timezone.now().isoformat(),
-            'expires_at': (timezone.now() + timedelta(hours=24)).isoformat()
+            'expires_at': (timezone.now() + timedelta(minutes=1)).isoformat()
         }
 
-        cache.set(f"archive_status_{event_id}", archive_info, timeout=86400)  # 24 часа
+        cache.set(f"archive_status_{event_id}", archive_info, timeout=60)
 
         logger.info(f"Archive created for event {event_id}: {archive_path}")
         return archive_info
@@ -112,7 +112,7 @@ def cleanup_old_archives():
     if not archive_dir.exists():
         return
 
-    cutoff_time = timezone.now() - timedelta(hours=24)
+    cutoff_time = timezone.now() - timedelta(hours=2)
     deleted_count = 0
 
     for archive_file in archive_dir.glob("*.zip"):
