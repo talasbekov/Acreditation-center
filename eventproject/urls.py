@@ -25,7 +25,7 @@ from graphene_django.views import GraphQLView
 from eventproject.views import *
 from kz_event import views as kviews
 from en_event import views as eviews
-from eventproject.views.file_download import EventArchiveView, check_archive_status
+from eventproject.views.file_download import check_archive_status
 
 
 def health_ok(_request):
@@ -80,7 +80,7 @@ urlpatterns = [
     path("download_photos/<int:event_id>/", download_photos, name="download_photos"),
     path("download_file/<int:event_id>/", download_file, name="download_file"),
     path('check_archive_status/<int:event_id>/', check_archive_status, name='check_archive_status'),
-    path('archive/<int:event_id>/', EventArchiveView.as_view(), name='event_archive'),
+    # path('archive/<int:event_id>/', EventArchiveView.as_view(), name='event_archive'),
     # path('prepare_file/<int:event_id>/', prepare_file, name='prepare_file'),
     path(
         "download_request_json/<int:request_id>/",

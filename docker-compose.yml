@@ -13,7 +13,6 @@ services:
     image: accr-django:latest
     container_name: accr-django
     restart: unless-stopped
-    network_mode: host
     platform: linux/amd64
     volumes:
       - ./:/app
@@ -40,7 +39,6 @@ services:
     image: accr-django:latest
     container_name: accr-celery-worker
     restart: unless-stopped
-    network_mode: host
     volumes:
       - ./:/app
       - ./media:/app/media
@@ -57,3 +55,7 @@ services:
     depends_on:
       - redis
       - accreditation-center
+
+networks:
+  default:
+    driver: bridge

@@ -1,6 +1,8 @@
 # settings.py - исправленная версия
 from pathlib import Path
 
+from celery.schedules import crontab
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -69,7 +71,7 @@ DATABASES = {
         "NAME": "eventdb",
         "USER": "event", 
         "PASSWORD": "aktobe",
-        "HOST": "127.0.0.1",
+        "HOST": "172.17.0.1",
         "PORT": "5432",
     }
 }
@@ -115,8 +117,8 @@ CACHES = {
 
 
 # Celery настройки
-CELERY_BROKER_URL = "redis://127.0.0.1:6379/0"
-CELERY_RESULT_BACKEND = "redis://127.0.0.1:6379/0"
+CELERY_BROKER_URL = "redis://redis:6379/0"
+CELERY_RESULT_BACKEND = "redis://redis:6379/0"
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -162,6 +164,13 @@ MEDIA_URL = "/media/"
 STATIC_URL = "/static/"
 STATICFILES_DIRS = [STATIC_DIR]
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+CELERY_BEAT_SCHEDULE = {
+    "kazexpo-import-task": {
+        "task": "eventproject.tasks.kazexpo_import_job",
+        "schedule": crontab(minute="*/2"),  # каждые 2 минуты
+    },
+}
 
 # Логирование
 LOGGING = {
@@ -215,6 +224,6 @@ LOGGING = {
 CRONJOBS_LOGGING = True
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-CRONJOBS = [
-    ('*/2 * * * *', 'eventproject.cron.kazenergy_receive'),
-]
+# CRONJOBS = [
+#     ('*/2 * * * *', 'eventproject.cron.kazexpo_import_job'),
+# ]
