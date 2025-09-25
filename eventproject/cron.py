@@ -20,13 +20,13 @@ def kazexpo_import_job():
 
     # 2. Выбираем Event и Operator (здесь можно параметризовать)
     try:
-        event = Event.objects.get(pk=777)
+        event = Event.objects.get(pk=797)
         operator = Operator.objects.get(pk=1405)
     except (Event.DoesNotExist, Operator.DoesNotExist) as exc:
         logger.error("Cron job aborted: %s", exc)
         return
 
-    logger.info("Starting kazexpo_import_job: event=%s operator=%s", event.id, operator.id)
+    logger.info("Starting import_job: event=%s operator=%s", event.id, operator.id)
 
     # 3. Вызываем view для импорта
     try:
@@ -34,7 +34,7 @@ def kazexpo_import_job():
         response = async_to_sync(kazenergy_receive)(request, event.id, operator.id)
         status = getattr(response, 'status_code', None)
         content = getattr(response, 'content', b'').decode('utf-8', errors='ignore')
-        logger.info("kazexpo_receive response: status=%s, body=%s", status, content)
+        logger.info("receive response: status=%s, body=%s", status, content)
 
         # 4. Пытаемся парсить JSON, чтобы получить список созданных ID
         try:
@@ -46,4 +46,4 @@ def kazexpo_import_job():
             logger.warning("Response is not valid JSON, skipping parse")
 
     except Exception as exc:
-        logger.exception("KazExpo cron import failed: %s", exc)
+        logger.exception("Сron import failed: %s", exc)

@@ -5,7 +5,7 @@ import mimetypes
 
 from datetime import date, timedelta, datetime
 from django.utils import timezone
-from django.http import HttpResponse, Http404, HttpResponseRedirect, FileResponse
+from django.http import HttpResponse, Http404, HttpResponseRedirect, FileResponse, HttpResponseNotFound
 from django.template import RequestContext
 from django.shortcuts import render
 from django.contrib.auth import authenticate, login, logout
@@ -38,6 +38,23 @@ def protected_media(request, file_path):
     else:
         raise Http404
 
+# from django.shortcuts import redirect
+# from django.http import HttpResponseNotFound
+# from django.urls import get_resolver, Resolver404
+#
+# def custom_page_not_found(request, exception=None):
+#     # Берем только первый сегмент URL после слэша
+#     first_segment = request.path_info.strip("/").split("/")[0]
+#
+#     try:
+#         # Пробуем найти совпадение хотя бы по первому сегменту
+#         get_resolver().resolve(f"/{first_segment}/")
+#         # Если сегмент существует, но URL не совпал полностью → обычная 404
+#         return HttpResponseNotFound("Page not found")
+#     except Resolver404:
+#         # Если даже первый сегмент не существует → редирект на главную
+#         return redirect('/')
+
 
 @user_passes_test(lambda u: u.is_superuser, login_url="/user_login/")
 def index(request):
@@ -48,7 +65,7 @@ def index(request):
     event_list = Event.objects.filter(date_end__range=[startdate, enddate]).order_by(
         "date_start"
     )
-    operators = Operator.objects.all()
+    operators = Operator.objects.all().order_by("user__last_name", "user__first_name")
     cities = City.objects.all()
     context_dict = {"events": event_list}
     context_dict["operators"] = operators

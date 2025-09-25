@@ -167,3 +167,4 @@ if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
     urlpatterns += [path("graphql", lambda r: JsonResponse({"detail": "GraphQL not enabled"}, status=404))]
 
+# handler404 = 'eventproject.views.views.custom_page_not_found'
