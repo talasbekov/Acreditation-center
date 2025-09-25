@@ -20,8 +20,8 @@ def kazexpo_import_job():
 
     # 2. Выбираем Event и Operator (здесь можно параметризовать)
     try:
-        event = Event.objects.get(pk=3)
-        operator = Operator.objects.get(pk=1)
+        event = Event.objects.get(pk=777)
+        operator = Operator.objects.get(pk=1405)
     except (Event.DoesNotExist, Operator.DoesNotExist) as exc:
         logger.error("Cron job aborted: %s", exc)
         return

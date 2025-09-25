@@ -9,14 +9,25 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 LOG_DIR = BASE_DIR / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-6sl-*ire%_p+en7)xv&6w)x5m3q8-9yzx0c+#)jy$i4)$xxck*"
-AVALON_API_KEY = "Fe6dv1LkLMpY0pqwSuocznfwyGo77upgHYfobtPDM98REHKMWXmW3KW6WKbYZ2t5Q2Fd515wPhIVpYaYt1zRghD3mDB6EQ04XzSD6meoAWVdvZT5vrfM6vCPumCzr55hh"
 
-DEBUG = True
+
+DEBUG = False
 APPEND_SLASH = True
 
 ALLOWED_HOSTS = ["localhost", "*"]
+
+# CSRF и CORS настройки
+CSRF_TRUSTED_ORIGINS = [
+    "https://accr.sgork.kz:64778",
+    "https://accr.sgork.kz",
+    "http://localhost",
+    "http://127.0.0.1",
+]
+
+# Для разработки - можно временно отключить CSRF проверку для GraphQL
+CSRF_COOKIE_SECURE = False  # Для HTTP (в продакшене должно быть True для HTTPS)
+CSRF_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SECURE = False  # Для HTTP (в продакшене должно быть True для HTTPS)
 
 # Application definition
 INSTALLED_APPS = [
@@ -64,17 +75,7 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "eventproject.wsgi.application"
 
-# Database
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": "eventdb",
-        "USER": "event", 
-        "PASSWORD": "aktobe",
-        "HOST": "172.17.0.1",
-        "PORT": "5432",
-    }
-}
+
 
 GUNICORN_CONFIG = {
     "timeout": 300,
@@ -224,6 +225,6 @@ LOGGING = {
 CRONJOBS_LOGGING = True
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# CRONJOBS = [
-#     ('*/2 * * * *', 'eventproject.cron.kazexpo_import_job'),
-# ]
+CRONJOBS = [
+    ('*/2 * * * *', 'eventproject.cron.kazexpo_import_job'),
+]

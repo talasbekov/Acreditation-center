@@ -13,8 +13,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     gcc \
     curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
+    postgresql-client \
+ && rm -rf /var/lib/apt/lists/* \
+ && apt-get clean
 
 # Копируем requirements.txt в рабочую директорию
 COPY requirements.txt /app/

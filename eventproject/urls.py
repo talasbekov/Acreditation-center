@@ -20,7 +20,14 @@ from django.http import JsonResponse
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.decorators.csrf import csrf_exempt
-from graphene_django.views import GraphQLView
+from django.views.decorators.http import require_http_methods
+
+# Условный импорт GraphQL - только если установлен
+try:
+    from graphene_django.views import GraphQLView
+    GRAPHQL_AVAILABLE = True
+except ImportError:
+    GRAPHQL_AVAILABLE = False
 
 from eventproject.views import *
 from kz_event import views as kviews
@@ -31,11 +38,25 @@ from eventproject.views.file_download import check_archive_status
 def health_ok(_request):
     return JsonResponse({"status": "ok"})
 
+
+# Безопасная обработка GraphQL
+@csrf_exempt
+@require_http_methods(["GET", "POST", "OPTIONS"])
+def safe_graphql_view(request):
+    return JsonResponse({
+        "data": {
+            "stub": "GraphQL not implemented"
+        }
+    })
+
 urlpatterns = [
     path("health/", health_ok, name="health"),
     path("healthz/", health_ok, name="healthz"),
     path('qr/', include('qr_event.urls')),
-    path("graphql/", csrf_exempt(GraphQLView.as_view(graphiql=True))),
+
+    # Безопасный GraphQL endpoint
+    path("graphql/", safe_graphql_view, name="graphql"),
+
     path("create_event/", create_event, name="create_event"),
     path("add_operator/", add_operator, name="add_operator"),
     path("add_operator_to_event/", add_operator_to_event, name="add_operator_to_event"),
