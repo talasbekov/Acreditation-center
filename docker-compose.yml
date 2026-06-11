@@ -4,11 +4,11 @@ services:
     container_name: accr-db
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     environment:
       - POSTGRES_DB=eventdb
       - POSTGRES_USER=event
-      - POSTGRES_PASSWORD=aktobe
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -22,7 +22,7 @@ services:
     container_name: accr-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -43,7 +43,8 @@ services:
       - ./static:/app/static
       - ./staticfiles:/app/staticfiles
       - ./logs:/app/logs
-      - /tmp:/tmp
+    tmpfs:
+      - /tmp
     environment:
       - PYTHONUNBUFFERED=1
       - DJANGO_SETTINGS_MODULE=eventproject.settings
@@ -51,7 +52,7 @@ services:
       - DB_PORT=5432
       - DB_NAME=eventdb
       - DB_USER=event
-      - DB_PASSWORD=aktobe
+      - DB_PASSWORD=${DB_PASSWORD:?Set DB_PASSWORD}
       - REDIS_URL=redis://redis:6379/0
     command: >
       bash -c "
@@ -92,7 +93,7 @@ services:
       - DB_PORT=5432
       - DB_NAME=eventdb
       - DB_USER=event
-      - DB_PASSWORD=aktobe
+      - DB_PASSWORD=${DB_PASSWORD:?Set DB_PASSWORD}
       - REDIS_URL=redis://redis:6379/0
     command: >
       bash -c "
@@ -127,7 +128,7 @@ services:
       - DB_PORT=5432
       - DB_NAME=eventdb
       - DB_USER=event
-      - DB_PASSWORD=aktobe
+      - DB_PASSWORD=${DB_PASSWORD:?Set DB_PASSWORD}
       - REDIS_URL=redis://redis:6379/0
     command: >
       bash -c "

@@ -24,6 +24,12 @@ wheelhouse/
 attendee_photos/
 attendee_document/
 
+# E2E artifacts
+e2e.sqlite3
+e2e/node_modules/
+e2e/test-results/
+e2e/playwright-report/
+
 # Sensitive local artifacts — never commit
 db_backup.sql
 backup.sql
