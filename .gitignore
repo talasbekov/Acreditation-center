@@ -1,2 +1,53 @@
 db.sqlite3
 output/
+
+# Python artifacts
+__pycache__/
+*.pyc
+
+# Virtual environments
+.venv/
+.venv_new/
+evenv/
+venv/
+
+# Runtime data
+django_cache/
+logs/*.log*
+media/
+test_media/
+staticfiles/
+postgres_data/
+wheelhouse/
+
+# Legacy sample uploads
+attendee_photos/
+attendee_document/
+
+# Sensitive local artifacts — never commit
+db_backup.sql
+backup.sql
+sessions.csv
+sessions_with_ip.csv
+celerybeat-schedule
+.DS_Store
+
+# Codex local configuration
+.codex/
+
+# Claude Flow runtime data
+.claude-flow/data/
+.claude-flow/logs/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Load test results
+docs/load_test_baseline_*.json
+docs/load_test_baseline_*.csv
+docs/load_test_baseline_*.html
+
+# Claude Code local config
+CLAUDE.local.md

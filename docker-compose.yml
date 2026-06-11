@@ -1,0 +1,151 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: accr-db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=eventdb
+      - POSTGRES_USER=event
+      - POSTGRES_PASSWORD=aktobe
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U event -d eventdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: accr-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  accreditation-center:
+    build: .
+    image: accr-django:latest
+    container_name: accr-django
+    restart: unless-stopped
+    platform: linux/amd64
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./:/app
+      - ./media:/app/media
+      - ./static:/app/static
+      - ./staticfiles:/app/staticfiles
+      - ./logs:/app/logs
+      - /tmp:/tmp
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DJANGO_SETTINGS_MODULE=eventproject.settings
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=eventdb
+      - DB_USER=event
+      - DB_PASSWORD=aktobe
+      - REDIS_URL=redis://redis:6379/0
+    command: >
+      bash -c "
+      echo 'Waiting for database...' &&
+      until pg_isready -h db -U event; do
+        sleep 1
+      done &&
+      echo 'Database is ready. Starting application...' &&
+      python manage.py migrate --noinput &&
+      python manage.py collectstatic --noinput &&
+      python manage.py runserver 0.0.0.0:8000
+      "
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/api/health/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery-worker:
+    build: .
+    image: accr-django:latest
+    container_name: accr-celery-worker
+    restart: unless-stopped
+    volumes:
+      - ./:/app
+      - ./media:/app/media
+      - ./logs:/app/logs
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DJANGO_SETTINGS_MODULE=eventproject.settings
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=eventdb
+      - DB_USER=event
+      - DB_PASSWORD=aktobe
+      - REDIS_URL=redis://redis:6379/0
+    command: >
+      bash -c "
+      echo 'Waiting for dependencies...' &&
+      until pg_isready -h db -U event && redis-cli -h redis ping; do
+        sleep 1
+      done &&
+      echo 'Dependencies are ready. Starting Celery Worker...' &&
+      celery -A eventproject worker --loglevel=INFO --concurrency=2
+      "
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      accreditation-center:
+        condition: service_started
+
+  celery-beat:
+    build: .
+    image: accr-django:latest
+    container_name: accr-celery-beat
+    restart: unless-stopped
+    volumes:
+      - ./:/app
+      - ./media:/app/media
+      - ./logs:/app/logs
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DJANGO_SETTINGS_MODULE=eventproject.settings
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_NAME=eventdb
+      - DB_USER=event
+      - DB_PASSWORD=aktobe
+      - REDIS_URL=redis://redis:6379/0
+    command: >
+      bash -c "
+      echo 'Waiting for dependencies...' &&
+      until pg_isready -h db -U event && redis-cli -h redis ping; do
+        sleep 1
+      done &&
+      echo 'Dependencies are ready. Starting Celery Beat...' &&
+      celery -A eventproject beat --loglevel=INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
+      "
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      accreditation-center:
+        condition: service_started
+
+networks:
+  default:
+    driver: bridge
