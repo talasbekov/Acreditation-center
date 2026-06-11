@@ -12,7 +12,7 @@ LOG_DIR.mkdir(exist_ok=True)
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config('SECRET_KEY')
 AVALON_API_KEY = config('AVALON_API_KEY')
-KAZENERGY_API_KEY = config('KAZENERGY_API_KEY', default='')
+KAZENERGY_API_KEY = config('KAZENERGY_API_KEY')
 FERNET_KEYS = config("FERNET_KEYS", cast=Csv())
 
 

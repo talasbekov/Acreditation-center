@@ -43,8 +43,7 @@ services:
       - ./static:/app/static
       - ./staticfiles:/app/staticfiles
       - ./logs:/app/logs
-    tmpfs:
-      - /tmp
+      - tmp_archives:/tmp
     environment:
       - PYTHONUNBUFFERED=1
       - DJANGO_SETTINGS_MODULE=eventproject.settings
@@ -146,6 +145,9 @@ services:
         condition: service_healthy
       accreditation-center:
         condition: service_started
+
+volumes:
+  tmp_archives:
 
 networks:
   default:

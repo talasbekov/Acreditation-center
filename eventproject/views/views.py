@@ -118,10 +118,11 @@ def application(request):
     user = request.user
     if user.is_superuser:
         return HttpResponseRedirect("/avmac/")
-    operator = Operator.objects.get(user=user)
-    cities = City.objects.all()
-    if not operator:
+    try:
+        operator = Operator.objects.get(user=user)
+    except Operator.DoesNotExist:
         return HttpResponse("You are logged in.")
+    cities = City.objects.all()
     startdate = date.today()
     enddate = startdate + timedelta(days=600)
     events = operator.events.filter(date_end__range=[startdate, enddate])
@@ -158,8 +159,8 @@ def new_password(request, username):
         context_dict["operator"] = operator
         context_dict["requests"] = reqs
         context_dict["success_message"] = "Сгенерирован новый пароль: " + password
-    except Event.DoesNotExist:
-        return HttpResponse("Could not find event")
+    except (User.DoesNotExist, Operator.DoesNotExist):
+        return HttpResponse("Could not find operator")
     return render(request, "operator.html", context_dict)
 
 
@@ -236,8 +237,8 @@ def send(request, request_id):
         sexs = Sex.objects.all()
         context_dict["sexs"] = sexs
         context_dict["success_message"] = "Отправлено " + str(req.registration_time)
-    except Event.DoesNotExist:
-        return HttpResponse("Could not find event")
+    except (Request.DoesNotExist, Operator.DoesNotExist):
+        return HttpResponse("Could not find request")
     return render(request, "request.html", context_dict)
 
 
