@@ -17,6 +17,7 @@ logs/*.log*
 media/
 test_media/
 staticfiles/
+static/admin/
 postgres_data/
 wheelhouse/
 
@@ -57,3 +58,19 @@ docs/load_test_baseline_*.html
 
 # Claude Code local config
 CLAUDE.local.md
+
+# Agent / tooling scratch dirs (not project code)
+.claude/
+.claude-flow/
+.swarm/
+.agents/
+_bmad/
+_bmad-output/
+
+# One-off ops scripts (session-PII tooling) — keep out of the repo
+log_scan_sessionid.py
+manual.py
+logs/*.py
+
+# Editor backups
+*.save

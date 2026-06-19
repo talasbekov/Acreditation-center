@@ -1,0 +1,50 @@
+# Version control
+.git
+.gitignore
+
+# Python bytecode / caches
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# Runtime data (not needed in image)
+media/
+static/
+logs/
+postgres_data/
+
+# Secrets — MUST never be baked into image layers
+.env
+.env.*
+!.env.example
+
+# Database dumps / local DBs
+*.sql
+db_backup.sql
+*.sqlite3
+e2e.sqlite3
+
+# Session / PII exports produced by ops scripts
+sessions.csv
+sessions_with_ip.csv
+sessions*.csv
+
+# Test fixtures containing PII
+test_media/
+e2e/
+
+# Editor / tooling / agent scratch dirs
+.idea/
+.vscode/
+.DS_Store
+.claude/
+.claude-flow/
+.swarm/
+.agents/
+_bmad/
+_bmad-output/
+
+# L6: одноразовые ops-скрипты — не нужны в образе приложения
+log_scan_sessionid.py
+manual.py
