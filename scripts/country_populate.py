@@ -1,14 +1,22 @@
 import os
+import sys
+import pathlib
+
+# Скрипт живёт в scripts/ — добавляем корень проекта в sys.path, чтобы импортировать settings.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'eventproject.settings')
 
 import django
 django.setup()
 from directories.models import Country
 
+# CSV лежит рядом со скриптом — путь не зависит от текущей директории запуска.
+_CSV = pathlib.Path(__file__).resolve().parent / "countries.csv"
+
 # For an explanation of what is going on here, please refer to the TwD book.
 
 def populate():
-	file = open("countries.csv","r")
+	file = open(_CSV, "r")
 	lines = file.readlines()
 	for line in lines:
 		elements = line.split(',')
