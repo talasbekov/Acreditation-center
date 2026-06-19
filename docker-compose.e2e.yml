@@ -1,0 +1,19 @@
+# Изолированный прогон E2E-набора в Docker. Не требует Postgres/Redis —
+# приложение поднимается на профиле settings_e2e (SQLite) внутри одного контейнера.
+#
+# Запуск всего набора (сборка + прогон, exit-code = результат тестов):
+#   docker compose -f docker-compose.e2e.yml run --build --rm e2e
+#
+# Отдельные файлы:
+#   docker compose -f docker-compose.e2e.yml run --build --rm e2e bash e2e/run-e2e.sh tests/i18n_qr.spec.js
+services:
+  e2e:
+    build:
+      context: .
+      dockerfile: Dockerfile.e2e
+    image: accr-e2e:latest
+    container_name: accr-e2e
+    # Отчёты/трейсы падений попадают на хост:
+    volumes:
+      - ./e2e/test-results:/app/e2e/test-results
+      - ./e2e/playwright-report:/app/e2e/playwright-report

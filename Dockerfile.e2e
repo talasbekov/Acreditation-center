@@ -1,0 +1,35 @@
+# syntax=docker/dockerfile:1
+# E2E-образ: официальный Playwright (Node + Chromium 1.60) + Python для Django.
+# Всё в одном контейнере — приложение поднимается на профиле settings_e2e
+# (SQLite, без Postgres/Redis/Celery), затем прогоняется Playwright.
+FROM mcr.microsoft.com/playwright:v1.60.0-jammy
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app \
+    DJANGO_SETTINGS_MODULE=eventproject.settings_e2e \
+    PATH="/opt/venv/bin:$PATH" \
+    PYTHON=/opt/venv/bin/python
+
+WORKDIR /app
+
+# Python + venv + curl (для health-цикла в run-e2e.sh). Node/браузеры уже в образе.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3 python3-venv curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && python3 -m venv /opt/venv
+
+# Python-зависимости приложения (psycopg2-binary/pillow ставятся из wheel)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Node-зависимости тестов (браузеры уже установлены в базовом образе той же версии)
+COPY e2e/package.json e2e/package-lock.json ./e2e/
+RUN cd e2e && npm ci
+
+# Исходники проекта (e2e/ включается — см. Dockerfile.e2e.dockerignore)
+COPY . .
+
+# Сброс БД → миграции → seed → runserver:8088 → playwright → teardown.
+# Аргументы можно переопределить: docker compose ... run e2e bash e2e/run-e2e.sh tests/qr*.spec.js
+CMD ["bash", "e2e/run-e2e.sh"]

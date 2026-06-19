@@ -98,7 +98,9 @@ test.describe('Оператор: заявка', () => {
 });
 
 test.describe('QR-модуль', () => {
+  // /qr/ требует логина (security hardening) — авторизуемся оператором.
   test('валидный ИИН → страница успеха с QR-кодом', async ({ page }) => {
+    await login(page, OPERATOR);
     await page.goto('/qr/');
     await page.fill('input[name="iin"]', VALID_IIN);
     await Promise.all([page.waitForNavigation(), page.click('#submitBtn, button[type="submit"]')]);
@@ -107,6 +109,7 @@ test.describe('QR-модуль', () => {
   });
 
   test('невалидный ИИН (не 12 цифр) не проходит', async ({ page }) => {
+    await login(page, OPERATOR);
     await page.goto('/qr/');
     await page.fill('input[name="iin"]', '123');
     await page.click('#submitBtn, button[type="submit"]');

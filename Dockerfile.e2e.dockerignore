@@ -1,0 +1,44 @@
+# Контекст для Dockerfile.e2e (BuildKit берёт этот файл вместо корневого .dockerignore).
+# В отличие от основного .dockerignore — папка e2e/ ВКЛЮЧЕНА (это и есть тесты).
+
+# VCS / venv / кэши
+.git
+.gitignore
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# node_modules ставятся через npm ci в образе — не тащим хостовые
+e2e/node_modules/
+e2e/test-results/
+e2e/playwright-report/
+
+# Секреты — не должны попадать в слои образа
+.env
+.env.*
+!.env.example
+
+# Локальные БД / дампы / runtime-данные
+*.sqlite3
+db_backup.sql
+*.sql
+postgres_data/
+media/
+test_media/
+logs/
+
+# PII-экспорты ops-скриптов
+sessions*.csv
+sessions_with_ip.csv
+
+# Tooling / agent scratch
+.idea/
+.vscode/
+.DS_Store
+.claude/
+.claude-flow/
+.swarm/
+.agents/
+_bmad/
+_bmad-output/
