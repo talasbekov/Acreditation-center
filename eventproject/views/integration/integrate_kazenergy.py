@@ -13,6 +13,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings as django_settings
 
 from eventproject.models import Attendee, Event, Operator, Request
+from eventproject.validators.iin import mask_iin
 
 # ────────────────────  CONSTANTS  ────────────────────
 API_KEY = django_settings.KAZENERGY_API_KEY
@@ -131,8 +132,9 @@ async def kazenergy_receive(request, event_id: int, operator_id: int):
                 return JsonResponse({"error": "Upstream GET failed"}, status=502)
 
             if resp.status_code != 200:
-                logger.error("GET %s returned HTTP %s: %s",
-                             BASE_URL, resp.status_code, resp.text[:400])
+                # Тело ответа НЕ логируем: содержит PII (IIN, ФИО, документы, фото).
+                logger.error("GET %s returned HTTP %s (тело не логируется: PII)",
+                             BASE_URL, resp.status_code)
                 return JsonResponse({"error": "Upstream error"}, status=502)
 
             payload = resp.json()
@@ -145,11 +147,9 @@ async def kazenergy_receive(request, event_id: int, operator_id: int):
             attendee_id = attendee.get("id")
             processed += 1
 
-            logger.info("ID=%s  IIN=%s  %s %s",
+            logger.info("ID=%s  IIN=%s",
                         attendee_id,
-                        attendee.get("iin"),
-                        attendee.get("firstname"),
-                        attendee.get("surname"))
+                        mask_iin(attendee.get("iin")))
 
             # 4) Валидация обязательных полей
             missing = [f for f in REQUIRED_FIELDS if _is_empty(attendee.get(f))]
@@ -159,8 +159,8 @@ async def kazenergy_receive(request, event_id: int, operator_id: int):
                     # Код ошибки — 9 (ошибка)
                     ack = await client.post(ACK_URL, headers=headers_post,
                                             json={"id": attendee_id, "code": 9, "message": msg})
-                    logger.error("ACK error id=%s → %s %s",
-                                 attendee_id, ack.status_code, ack.text[:200])
+                    logger.error("ACK error id=%s → HTTP %s",
+                                 attendee_id, ack.status_code)
                 except Exception as e:
                     logger.error("ACK post failed (error) id=%s: %s", attendee_id, e)
                 errors += 1
@@ -178,8 +178,8 @@ async def kazenergy_receive(request, event_id: int, operator_id: int):
                     # Считаем дубликат «успешно обработанным», чтобы API не отдавал его снова
                     ack = await client.post(ACK_URL, headers=headers_post,
                                             json={"id": attendee_id, "code": 2})
-                    logger.info("ACK success (dup) id=%s → %s %s",
-                                attendee_id, ack.status_code, ack.text.strip())
+                    logger.info("ACK success (dup) id=%s → HTTP %s",
+                                attendee_id, ack.status_code)
                 except Exception as e:
                     logger.error("ACK post failed (dup) id=%s: %s", attendee_id, e)
                 continue
@@ -218,7 +218,7 @@ async def kazenergy_receive(request, event_id: int, operator_id: int):
                 for fld in ("photo", "docScan"):
                     b64 = attendee.get(fld)
                     if b64:
-                        cf = _data_uri_to_contentfile(b64, f"{attendee.get('iin') or 'att'}_{fld}")
+                        cf = _data_uri_to_contentfile(b64, f"{attendee_id or 'att'}_{fld}")
                         if cf:
                             setattr(att, fld, cf)
 
@@ -228,8 +228,8 @@ async def kazenergy_receive(request, event_id: int, operator_id: int):
                 try:
                     ack = await client.post(ACK_URL, headers=headers_post,
                                             json={"id": attendee_id, "code": 2})
-                    logger.info("ACK success id=%s → %s %s",
-                                attendee_id, ack.status_code, ack.text.strip())
+                    logger.info("ACK success id=%s → HTTP %s",
+                                attendee_id, ack.status_code)
                 except Exception as e:
                     logger.error("ACK post failed (success) id=%s: %s", attendee_id, e)
 
@@ -241,17 +241,15 @@ async def kazenergy_receive(request, event_id: int, operator_id: int):
                 else:
                     err_msg = str(e).split("DETAIL:")[0].strip()
 
-                logger.error("save-error id=%s iin=%s %s %s: %s",
+                logger.error("save-error id=%s iin=%s: %s",
                              attendee_id,
-                             attendee.get("iin"),
-                             attendee.get("firstname"),
-                             attendee.get("surname"),
+                             mask_iin(attendee.get("iin")),
                              err_msg)
                 try:
                     ack = await client.post(ACK_URL, headers=headers_post,
                                             json={"id": attendee_id, "code": 9, "message": err_msg})
-                    logger.error("ACK error id=%s → %s %s",
-                                 attendee_id, ack.status_code, ack.text[:200])
+                    logger.error("ACK error id=%s → HTTP %s",
+                                 attendee_id, ack.status_code)
                 except Exception as e2:
                     logger.error("ACK post failed (error) id=%s: %s", attendee_id, e2)
 

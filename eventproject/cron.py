@@ -1,29 +1,49 @@
-import os
-import shutil
-from datetime import date, timedelta, datetime
-from eventproject.models import Event, Operator, Request, Attendee
+import logging
+import json
 
-def my_cron_job():
+from asgiref.sync import async_to_sync
+from django.test import RequestFactory
+
+from eventproject.models import Event, Operator
+from eventproject.views.integration.integrate import kazexpo_receive
+from eventproject.views.integration.integrate_kazenergy import kazenergy_receive
+
+logger = logging.getLogger(__name__)
+
+
+def kazexpo_import_job():
+    """Ежеминутный импорт из Avalon, вызывается через django‑crontab."""
+
+    # 1. Получаем тестовый GET-запрос
+    rf = RequestFactory()
+    request = rf.get('/')
+
+    # 2. Выбираем Event и Operator (здесь можно параметризовать)
     try:
-        enddate = date.today()
-        startdate = enddate - timedelta(days=900)
-        event_list = Event.objects.filter(date_end__range=[startdate, enddate])
-        count = len(event_list)
-        print(count)
-        for event in event_list:
-            print(event.id)
-            mydir = "media/event_"+str(event.id)
-            print(mydir)
-            try:
-                shutil.rmtree(mydir)
-                print("perfect")
-            except OSError as e:
-                print("Error: %s - %s." % (e.filename, e.strerror))
-            event.delete()
+        event = Event.objects.get(pk=797)
+        operator = Operator.objects.get(pk=1405)
+    except (Event.DoesNotExist, Operator.DoesNotExist) as exc:
+        logger.error("Cron job aborted: %s", exc)
+        return
+
+    logger.info("Starting import_job: event=%s operator=%s", event.id, operator.id)
+
+    # 3. Вызываем view для импорта
+    try:
+        # response = async_to_sync(kazexpo_receive)(request, event.id)  # operator берётся из request.user (auth)
+        response = async_to_sync(kazenergy_receive)(request, event.id, operator.id)
+        status = getattr(response, 'status_code', None)
+        content = getattr(response, 'content', b'').decode('utf-8', errors='ignore')
+        logger.info("receive response: status=%s, body=%s", status, content)
+
+        # 4. Пытаемся парсить JSON, чтобы получить список созданных ID
         try:
-            shutil.rmtree("output")
-        except OSError as e:
-            print("Error: %s - %s." % (e.filename, e.strerror))
-    except Exception as e:
-        return HttpResponse("Some error occured")
-    # your functionality goes here
+            data = json.loads(content)
+            created = data.get('created_ids')
+            pages = data.get('pages_fetched')
+            logger.info("Import result: created_ids=%s, pages_fetched=%s", created, pages)
+        except json.JSONDecodeError:
+            logger.warning("Response is not valid JSON, skipping parse")
+
+    except Exception as exc:
+        logger.exception("Сron import failed: %s", exc)

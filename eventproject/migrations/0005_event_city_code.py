@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('eventproject', '0004_auto_20220424_1033'),
+        ("eventproject", "0004_auto_20220424_1033"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='event',
-            name='city_code',
+            model_name="event",
+            name="city_code",
             field=models.CharField(default=1110106945, max_length=20),
             preserve_default=False,
         ),

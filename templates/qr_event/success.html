@@ -1,0 +1,59 @@
+{% extends "qr_event/base.html" %}
+{% load static %}
+
+{% block title %}QR-код сгенерирован - Система регистрации{% endblock %}
+
+{% block content %}
+<div class="success-card">
+    <!-- Header -->
+    <div class="success-header text-center">
+        <div class="logo-container">
+            <img src="{% static 'qr_event/logo_sgo.png' %}" alt="SGO Logo" class="logo">
+        </div>
+        <div class="success-icon">
+            <i class="fas fa-check"></i>
+        </div>
+        <h1 class="success-title">QR-код создан</h1>
+        <p class="success-message">ИИН успешно верифицирован и QR-код сгенерирован</p>
+    </div>
+
+    <!-- ИИН Display -->
+    <div class="iin-display">
+        <strong>ИИН:</strong> {{ qr_record.iin }}
+    </div>
+
+    <!-- QR Code Display -->
+    {% if qr_record.qr_code %}
+    <div class="qr-code-container text-center">
+        <h5 class="mb-3">Ваш QR-код:</h5>
+        <div class="qr-code-wrapper">
+            <img src="{{ qr_record.qr_code.url }}" alt="QR Code для ИИН {{ qr_record.iin }}" class="qr-code-image">
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Actions -->
+    <div class="success-actions">
+        <a href="{% url 'iin_form' %}" class="btn btn-primary btn-lg w-100 mb-2">
+            <i class="fas fa-plus"></i> Добавить еще один ИИН
+        </a>
+        {% if qr_record.qr_code %}
+        <a href="{{ qr_record.qr_code.url }}" download="qr_{{ qr_record.iin }}.png" class="btn btn-outline-primary btn-lg w-100">
+            <i class="fas fa-download"></i> Скачать QR-код
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Success Info -->
+    <div class="success-info">
+        <div class="info-item">
+            <i class="fas fa-clock"></i>
+            Создано: {{ qr_record.created_at|date:"d.m.Y H:i" }}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+
+

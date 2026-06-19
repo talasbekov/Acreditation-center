@@ -43,7 +43,7 @@
             {% elif req.status == 'Sent' %} btn-success
             {% elif req.status == 'Exported' %} btn-success
             {% else %} btn-primary {% endif %}" role="button">
-            {% if req.status == 'Active' %} Тізімді өзгерту {% else %} Тізімді қарау &#160;&#160;&#160;{% endif %}</a> Өтініш нөмірі:&#160;{{ req.name }}. статусы: {% if req.status == "Active" %} Тізім дайындалуда <a href="/kz/delete_request/{{ req.id }}" style="color:red">тізімді жою</a>{% elif req.status == "Checking" %} Алдын-ала тексеру {% elif req.status == "Sent" %} Жіберілді {% elif req.status == "Exported" %} Қабылданды {% else %} Белгісіз {% endif %}
+            {% if req.status == 'Active' %} Тізімді өзгерту {% else %} Тізімді қарау &#160;&#160;&#160;{% endif %}</a> Өтініш нөмірі:&#160;{{ req.name }}. статусы: {% if req.status == "Active" %} Тізім дайындалуда <form method="post" action="/kz/delete_request/{{ req.id }}/" style="display:inline">{% csrf_token %}<button type="submit" class="btn btn-link btn-sm p-0 align-baseline" style="color:red">тізімді жою</button></form>{% elif req.status == "Checking" %} Алдын-ала тексеру {% elif req.status == "Sent" %} Жіберілді {% elif req.status == "Exported" %} Қабылданды {% else %} Белгісіз {% endif %}
 
         <br><br>
             {% endif %}

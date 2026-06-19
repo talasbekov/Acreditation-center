@@ -63,10 +63,10 @@
                     <b>Контактные данные:</b> {{ operator.phone_number }}<br>
                     <b>Место работы:</b> {{ operator.workplace }}<br>
                     <br><br>
-                    <a href="/delete_operator/{{ operator.user.username }}/">
+                    <form method="post" action="/delete_operator/{{ operator.user.username }}/">{% csrf_token %}
                     <button class="w-100 btn btn-danger btn-md" type="submit">Удалить пользователя
                                 </button>
-                    </a>
+                    </form>
                 </div>
                 <div class="col-md-6 col-lg-6 order-md-last">
                     <h4 class="mb-3">Мероприятия</h4>

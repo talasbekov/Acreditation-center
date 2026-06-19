@@ -492,14 +492,10 @@ def download_photos(request, event_id):
         dir_name = 'media/event_'+str(event_id)
         if not os.path.isdir(dir_name):
             return HttpResponse("No photos uploaded yet")
-        output_filename = "output/event_"+str(event_id)+"/event_"+str(event_id)
-        copy_tree(dir_name, output_filename)
-        zip_address = "output/event_"+str(event_id)
-        file = open(zip_address+"/test.txt", "w")
+        file = open(dir_name+"/test.txt", "w")
         file.close()
-        archieve = "event_"+str(event_id)
-        shutil.make_archive(archieve, 'zip', zip_address)
-        zip = open(archieve+'.zip', 'rb')
+        shutil.make_archive(dir_name, 'zip', dir_name)
+        zip = open(dir_name+'.zip', 'rb')
         response = FileResponse(zip)
         return response
     except Request.DoesNotExist:
@@ -734,6 +730,12 @@ def add_attendee(request, request_id):
         attendee.request = req
         attendee.dateAdd = datetime.now()
         attendee.dateEnd = date.today()
+                if photo_file:
+            allowed_extensions = {'.jpg', '.jpeg', '.png'}
+            file_extension = photo_file.name.split('.')[-1].lower()
+            if file_extension not in allowed_extensions:
+                context_dict["delete_message"] = "Загрузите файл с форматом фотографии .jpg, .jpeg, .png"
+                return render(request, "gov3.html", context_dict)
         if attendee.countryId != "1000000105aaaa":
             attendee.stickId = request.POST['category']
         doc_start = datetime.strptime(attendee.docBegin, '%Y-%m-%d').date()

@@ -1,24 +1,25 @@
 from django.shortcuts import render
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseForbidden
 from eventproject.models import Event, Operator, Request, Attendee
-from eventproject.forms import EventForm
+from django.utils import timezone
 import datetime
+import logging
 from django.http import HttpResponseRedirect
-from django.contrib.auth.models import User
+
 from django.contrib.auth import authenticate, login
 from django.template import RequestContext
 from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_protect
+from django_ratelimit.decorators import ratelimit
 from datetime import date, timedelta, datetime
 from django.contrib.auth import logout
 from directories.models import Sex, Country, DocumentType, City, Category
-from django.forms.models import model_to_dict
-from django.contrib.auth.decorators import user_passes_test
-from django.http import JsonResponse
-from django.http import FileResponse
-import json
-import secrets
-import os
-import shutil
+from eventproject.validators.iin import event_has_iin_duplicate
+
+logger = logging.getLogger("eventproject")
+import eventproject.views.attendee as attendee_views
+
 
 # Create your views here.
 def user_login(request):
@@ -26,7 +27,7 @@ def user_login(request):
     if request.method == 'POST':
         username = request.POST['username']
         password = request.POST['password']
-        user = authenticate(username=username, password=password)
+        user = authenticate(request, username=username, password=password)
         if user is not None:
             if user.is_active:
                 login(request, user)
@@ -82,7 +83,8 @@ def change_password(request):
                 context_dict['error_message'] = "Ескі құпиясөз дұрыс емес"
                 return render(request, 'kz/change_password_result.html', context_dict)
     except Exception as e:
-        print("unknown")
+        logger.error("kz change_password failed for user=%s: %s", getattr(request.user, "id", None), e)
+        context_dict['error_message'] = "Құпиясөзді өзгерту мүмкін болмады. Қайталап көріңіз."
     return render(request, 'kz/change_password.html', context_dict)
 
 @login_required(login_url='/kz/user_login/')
@@ -93,7 +95,7 @@ def create_request(request, event_id):
         context_dict['event'] = event
         operator = Operator.objects.get(user=request.user)
         req = Request()
-        now = datetime.now()
+        now = timezone.now()
         req.name = now.strftime("%d%m%Y%H%M%S")
         req.event = event
         req.status = "Active"
@@ -136,14 +138,14 @@ def show_request(request, request_id):
 def check_dublicate(attendee, req):
     attendees = Attendee.objects.filter(request__event = req.event)
     if attendee.countryId == "1000000105":
-        fa = attendees.filter(iin = attendee.iin)
+        return event_has_iin_duplicate(attendees, attendee.iin, exclude_pk=attendee.pk)
     else:
         fa = attendees.filter(surname=attendee.surname, firstname=attendee.firstname, birthDate=attendee.birthDate)
-    if len(fa) > 0:
-        return True
-    else:
-        return False
+        if attendee.pk:
+            fa = fa.exclude(pk=attendee.pk)
+    return fa.exists()
 
+@ratelimit(key="ip", rate="20/h", method="POST", block=True)
 @login_required(login_url='/kz/user_login/')
 def add_attendee(request, request_id):
     context_dict = {}
@@ -176,7 +178,7 @@ def add_attendee(request, request_id):
         attendee.firstname= request.POST['first_name']
         attendee.patronymic = request.POST['patronymic']
         attendee.transcription = request.POST['latin_name']
-        attendee.iin = request.POST['iin']
+        attendee.iin = request.POST['iin'].strip()
         attendee.birthDate = request.POST['dob']
         attendee.sexId = request.POST['sex']
         attendee.countryId = request.POST['citizenship']
@@ -192,9 +194,9 @@ def add_attendee(request, request_id):
         attendee.docScan = request.FILES['doc_photo']
         attendee.visitObjects = request.POST['visit_objects']
         attendee.request = req
-        attendee.dateAdd = datetime.now()
+        attendee.dateAdd = timezone.now()
         attendee.dateEnd = date.today()
-        if attendee.countryId != "1000000105aaaaa":
+        if attendee.countryId != "1000000105":
             attendee.stickId = request.POST['category']
         doc_start = datetime.strptime(attendee.docBegin, '%Y-%m-%d').date()
         doc_end = datetime.strptime(attendee.docEnd, '%Y-%m-%d').date()
@@ -214,16 +216,23 @@ def add_attendee(request, request_id):
         elif attendee.docScan.size > 9000000:
             context_dict['delete_message'] = "Қатысушы қосылмады. Құжаттың салмағы 7Mb артады"
             #return render(request, 'request.html', context_dict)
-        elif attendee.photo.size < 50000:
-            context_dict['delete_message'] = "Қатысушы қосылмады. Суреттің салмағы кемінде 50Kb болуы қажет"
-        elif attendee.docScan.size < 50000:
-            context_dict['delete_message'] = "Қатысушы қосылмады. Құжаттың салмағы кемінде 50Kb болуы қажет"
+        elif attendee.photo.size < 1000:
+            context_dict['delete_message'] = "Қатысушы қосылмады. Суреттің салмағы кемінде 1Kb болуы қажет"
+        elif attendee.docScan.size < 1000:
+            context_dict['delete_message'] = "Қатысушы қосылмады. Құжаттың салмағы кемінде 1Kb болуы қажет"
         elif attendee.countryId == "1000000105" and len(attendee.iin)<12:
             context_dict['delete_message'] = "Қатысушы қосылмады. Қазақстан азаматтарына ЖСН міндетті"
         elif check_dublicate(attendee, req):
             context_dict['delete_message'] = "Қатысушы қосылмады. Қатысушыны қайтара қосып жатырсыз"
         else:
             attendee.save()
+            attendee_views.audit_log(
+                user=request.user if request.user.is_authenticated else None,
+                action="attendee.create",
+                obj_type="Attendee",
+                obj_id=attendee.id,
+                ip=request.META.get("REMOTE_ADDR"),
+            )
             context_dict['success_message'] = "Қатысушы " + attendee.surname + " " + attendee.firstname + " сәтті қосылды"
         context_dict['req'] = req
         attendees = Attendee.objects.filter(request=req).order_by('-dateAdd')
@@ -294,7 +303,7 @@ def send(request, request_id):
         if req.created_by != operator:
             return HttpResponse("You are not authorised to see this page")
         req.status = "Sent"
-        req.registration_time = datetime.now()
+        req.registration_time = timezone.now()
         req.save()
         attendees = Attendee.objects.filter(request = req)
         context_dict['attendees'] = attendees
@@ -320,6 +329,13 @@ def delete_attendee(request):
             operator = Operator.objects.get(user=request.user)
             if req.created_by != operator:
                 return HttpResponse("You are not authorised to see this page")
+            attendee_views.audit_log(
+                user=request.user if request.user.is_authenticated else None,
+                action="attendee.delete",
+                obj_type="Attendee",
+                obj_id=str(attendee_id),
+                ip=request.META.get("REMOTE_ADDR"),
+            )
             context_dict['req'] = req
             attendees = Attendee.objects.filter(request=req)
             context_dict['attendees'] = attendees
@@ -336,14 +352,18 @@ def delete_attendee(request):
     return render(request, 'kz/request.html', context_dict)
 
 @login_required(login_url='/kz/user_login/')
+@require_POST
+@csrf_protect
 def delete_request(request, request_id):
     context_dict = {}
     try:
         req = Request.objects.get(pk=request_id)
-        operator = Operator.objects.get(user=request.user)
-        if req.created_by != operator:
-            return HttpResponse("You are not authorised to see this page")
+        user = request.user
+        if not user.is_superuser:
+            operator = Operator.objects.get(user=user)
+            if req.created_by != operator:
+                return HttpResponse("You are not authorised to see this page")
         req.delete()
-    except Event.DoesNotExist:
-        return HttpResponse("Could not find request")
+    except Request.DoesNotExist:
+        return HttpResponse("Could not find request", status=404)
     return HttpResponseRedirect('/kz/application/')

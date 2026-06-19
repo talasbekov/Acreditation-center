@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('eventproject', '0005_event_city_code'),
+        ("eventproject", "0005_event_city_code"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='attendee',
-            name='stickId',
-            field=models.CharField(default='', max_length=20),
+            model_name="attendee",
+            name="stickId",
+            field=models.CharField(default="", max_length=20),
         ),
     ]

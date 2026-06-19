@@ -36,12 +36,16 @@
         <main>
             <div class="py-5 text-center">
                 <h2>Заявка</h2>
+                {% if attendees %}
+                    <h4>Количество участников: {{ attendees|length }}</h4>
+                {% endif %}
                 <p class="lead"></p>
                 {% if success_message %}
                     <div class="alert alert-success" role="alert">
                       {{ success_message }}
                     </div>
                 {% endif %}
+                <h6 class="text-danger">{{ delete_message }}</h6>
                 {% if error_message %}
                     <div class="alert alert-danger" role="alert">
                       {{ error_message }}
@@ -89,12 +93,12 @@
                             <p> {{ attendee.docIssue }}</p>
                         </div>
                         <div class="col-lg-1">
-                            {% if req.status == "Active" %}
+                           
                             <form action="/delete_attendee/" method="POST">{% csrf_token %}
                                 <input type="hidden" name="attendee_id" value="{{ attendee.id }}">
                                 <button type="submit" class="btn btn-danger">Удалить</button>
                             </form>
-                            {% endif %}
+                           
                         </div>
                     </div>
                     {% endfor %}

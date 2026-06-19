@@ -1,17 +1,13 @@
 <!DOCTYPE html>
 
 {% load static %}
-<html>
 <head>
     <title>Accrediation </title>
     <link rel="stylesheet" type="text/css" href="{% static 'css/all.min.css' %}">
     <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet"
           integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
 </head>
-<body>
-
 <main>
-
     <div class="container">
         <header class="p-3 bg-dark text-white">
             <div class="container">
@@ -19,36 +15,31 @@
                     <a href="/avmac/" class="d-flex align-items-center mb-2 mb-lg-0 text-white text-decoration-none">
                         Главная
                     </a>
-
                     <ul class="nav col-12 col-lg-auto me-lg-auto mb-2 justify-content-center mb-md-0">
                     </ul>
-
-
                     <div class="text-end">
                         <a href="/logout/">
-                        <button type="button" class="btn btn-outline-light me-2"> Выйти</button>
+                            <button type="button" class="btn btn-outline-light me-2"> Выйти</button>
                         </a>
                     </div>
                 </div>
             </div>
         </header>
-
         <main>
             <div class="py-5 text-center">
-                <h2>Мероприятие:&#160; {{ event.name_rus }}</h2>
+                <h2>{{ user.first_name }} {{ user.last_name }}, это мероприятие:&#160; {{ event.name_rus }}</h2>
                 <p class="lead"></p>
                 {% if success_message %}
-                    <div class="alert alert-success" role="alert">
-                      {{ success_message }}
-                    </div>
+                <div class="alert alert-success" role="alert">
+                    {{ success_message }}
+                </div>
                 {% endif %}
                 {% if error_message %}
-                    <div class="alert alert-danger" role="alert">
-                      {{ error_message }}
-                    </div>
+                <div class="alert alert-danger" role="alert">
+                    {{ error_message }}
+                </div>
                 {% endif %}
             </div>
-
             <div class="row g-5">
                 <div class="col-md-6 col-lg-6">
                     <h4 class="d-flex justify-content-between align-items-center mb-3">
@@ -96,12 +87,11 @@
                             <div class="col-md-6">
                                 <label for="cc-number" class="form-label">Мероприятие</label>
 
-                                    <select class="form-select" aria-label="Default select example" name="event_code">
-                                        {% for event in events %}
-                                            <option value="{{ event.id }}">{{ event.name_rus}}</option>
-                                        {% endfor %}
-                                    </select>
-
+                                <select class="form-select" aria-label="Default select example" name="event_code">
+                                    {% for event in events %}
+                                    <option value="{{ event.id }}">{{ event.name_rus}}</option>
+                                    {% endfor %}
+                                </select>
                             </div>
                         </div>
                         <br>
@@ -114,8 +104,6 @@
                         </div>
                     </form>
                     <hr>
-
-
                     <ul class="list-group mb-3">
                         {% for operator in operators %}
 
@@ -128,12 +116,9 @@
                         </li>
                         {% endfor %}
                     </ul>
-
-
                 </div>
                 <div class="col-md-6 col-lg-6 order-md-last">
                     <h4 class="mb-3">Мероприятие</h4>
-
                     <hr class="my-4">
                     <p><b>Название:&#160;</b>{{ event.name_rus }}</p>
                     <p><b>Атауы:&#160;</b>{{ event.name_kaz }}</p>
@@ -141,71 +126,72 @@
                     <p><b>Начало:&#160;</b>{{ event.date_start|date:"d.m.Y" }}</p>
                     <p><b>Окончание:&#160;</b>{{ event.date_end|date:"d.m.Y" }}</p>
                     <p><b>Город:&#160;</b>
-                    {% for city in cities %}
+                        {% for city in cities %}
                         {% if city.city_code == event.city_code %}
-                            {{ city.name_rus }}
+                        {{ city.name_rus }}
                         {% endif %}
-                    {% endfor %}
+                        {% endfor %}
                     </p>
-                    <p><a href="/download_all_guests_json/{{ event.id }}/">Скачать весь список участников одним json файлом</a></p>
+                    <p>
+                        <form method="post" action="/download_all_guests_json/{{ event.id }}/" style="display:inline">{% csrf_token %}<button type="submit" class="btn btn-link p-0 align-baseline">Скачать весь список участников одним json файлом</button></form>
+                    </p>
                     {% if unexported > 0  %}
-                        <p><a href="/download_guests_json/{{ event.id }}/">Скачать невыгруженных участников от {{ unexported }} новых заявок&#160;
-                    <span class="badge bg-danger ms-2 smaller">!</span></a></p>{% endif %}
+                    <p>
+                        <form method="post" action="/download_guests_json/{{ event.id }}/" style="display:inline">{% csrf_token %}<button type="submit" class="btn btn-link p-0 align-baseline">Скачать невыгруженных участников от {{ unexported }} новых заявок&#160;<span class="badge bg-danger ms-2 smaller">!</span></button></form>
+                    </p>{% endif %}
                     <p><a href="/download_photos/{{ event.id }}/">Скачать фотографии и сканы документов</a></p>
                     <p><b>Количество отправленных заявок:&#160;</b>{{ reqs|length }}</p>
                     <ul>
                         {% if reqs %}
-                            {% for req in reqs %}
-                                <li>        <a href="/show_request_to_admin/{{ req.id }}" class="btn
+                        {% for req in reqs %}
+                        <li>        <a href="/show_request_to_admin/{{ req.id }}" class="btn
             {% if req.status == 'Active' %}     btn-secondary
             {% elif req.status == 'Exported' %} btn-success
             {% elif req.status == 'Sent' %} btn-warning
             {% else %} btn-primary {% endif %}" role="button">{{ req.name }}</a> от
-                                    {{ req.created_by.user.first_name }} {{ req.created_by.user.last_name }}
-                                <a href="/download_request_json/{{ req.id }}/">скачать json</a> </li>
+                            {{ req.created_by.user.first_name }} {{ req.created_by.user.last_name }}
+                            <form method="post" action="/download_request_json/{{ req.id }}/" style="display:inline">{% csrf_token %}<button type="submit" class="btn btn-link p-0 align-baseline">скачать json</button></form> </li>
                         <br>
-                            {% endfor %}
+                        {% endfor %}
                         {% endif %}
                     </ul>
                     {% if active_reqs %}
                     <p><b>Количество неотправленных заявок:&#160;</b>{{ active_reqs|length }}</p>
                     <ul>
-                            {% for req in active_reqs %}
-                                <li>        <a href="/show_request_to_admin/{{ req.id }}" class="btn
-            {% if req.status == 'Active' %}     btn-light
-            {% elif req.status == 'Checking' %} btn-secondary
-            {% elif req.status == 'Sent' %} btn-warning
-            {% else %} btn-primary {% endif %}" role="button">{{ req.name }}</a> от
-                                    {{ req.created_by.user.first_name }} {{ req.created_by.user.last_name }}
-                                    статус:
-            {% if req.status == 'Active' %}     создано
-            {% elif req.status == 'Checking' %} предпросмотр
-                                    {% endif %}
-                        <br>
-                            {% endfor %}
+                        {% for req in active_reqs %}
+                        <li>
+                            <a href="/show_request_to_admin/{{ req.id }}" class="btn
+                                {% if req.status == 'Active' %}     btn-light
+                                {% elif req.status == 'Checking' %} btn-secondary
+                                {% elif req.status == 'Sent' %} btn-warning
+                                {% else %} btn-primary {% endif %}" role="button">{{ req.name }}
+                            </a> от
+                            {{ req.created_by.user.first_name }} {{ req.created_by.user.last_name }}
+                            статус:
+                            {% if req.status == 'Active' %}     создано
+                            {% elif req.status == 'Checking' %} предпросмотр
+                            {% endif %}<br>{% endfor %}
                     </ul>
                     {% endif %}
-
-
-
                     <hr class="my-4">
-                    <a href="/delete_event/{{ event.id }}/">
-                    <button class="w-100 btn btn-danger btn-md" type="submit">Удалить мероприятие
-                                </button>
-                    </a>
+                    <form method="post" action="/delete_event/{{ event.id }}/">{% csrf_token %}
+                        <button class="w-100 btn btn-danger btn-md" type="submit">
+                            Удалить мероприятие
+                        </button>
+                    </form>
                     <br><br><hr><br><br>
-                                        <form class="needs-validation" method="post" action="/bind_operators/">
+                    <form class="needs-validation" method="post" action="/bind_operators/">
                         {% csrf_token %}
                         <div class="row gy-3">
                             <div class="col-md-12">
-                                                    <select class="form-select" size="30" multiple name="operator">
-                                                        {% for o in other_operators %}
-  <option value="{{ o.id }}">{{ o.user.last_name }} {{ o.user.first_name }} {{ o.patronymic }} {{ o.user.username }}</option>
-  {% endfor %}
-
-</select>
-                                <input type="hidden" class="form-control" name="event_code" value="{{ event.id }}"
-                                       required>
+                                <select class="form-select" size="30" multiple name="operator">
+                                    {% for o in other_operators %}
+                                    <option value="{{ o.id }}">
+                                        {{ o.user.last_name }} {{ o.user.first_name }} {{ o.patronymic }} {{ o.user.username }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <input type="hidden" class="form-control" name="event_code" value="{{ event.id }}" required>
                             </div>
                         </div>
                         <br>
@@ -224,7 +210,4 @@
         <footer class="my-5 pt-5 text-muted text-center text-small">
             <p class="mb-1">&copy; 2017–2021 Quantum bit</p>
         </footer>
-
-
-</body>
-</html>
+    </div></main>

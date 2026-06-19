@@ -1,4 +1,6 @@
 import os
+import re
+import logging
 import datetime
 import secrets
 import mimetypes
@@ -16,6 +18,8 @@ from django.conf import settings
 from directories.models import Sex, Country, DocumentType, City
 from eventproject.models import Event, Operator, Request, Attendee
 
+logger = logging.getLogger("eventproject")
+
 
 @login_required
 def auth_check(request):
@@ -31,6 +35,20 @@ def protected_media(request, file_path):
     full_path = os.path.realpath(os.path.join(media_root, file_path))
     if os.path.commonpath([full_path, media_root]) != media_root:
         raise Http404
+
+    # Авторизация на уровне объекта: оператор получает файлы только своих событий.
+    # Медиа лежит в каталогах вида event_<id>/...  Суперпользователь — без ограничений.
+    # 404 (а не 403), чтобы не раскрывать существование чужих файлов.
+    if not request.user.is_superuser:
+        match = re.match(r"event_(\d+)/", file_path)
+        if not match:
+            raise Http404
+        try:
+            operator = Operator.objects.get(user=request.user)
+        except Operator.DoesNotExist:
+            raise Http404
+        if not operator.events.filter(pk=int(match.group(1))).exists():
+            raise Http404
 
     if not os.path.isfile(full_path):
         raise Http404
@@ -268,7 +286,13 @@ def change_password(request):
                 context_dict["error_message"] = "Не удалось подтвердить данные"
                 return render(request, "change_password_result.html", context_dict)
     except Exception as e:
-        print("unknown")
+        # L7: не глотаем ошибку молча (был print("unknown")) — логируем и
+        # показываем пользователю, что смена пароля не удалась.
+        logger.error(
+            "change_password failed for user=%s: %s",
+            getattr(request.user, "id", None), e,
+        )
+        context_dict["error_message"] = "Не удалось изменить пароль. Попробуйте ещё раз."
     return render(request, "change_password.html", context_dict)
 
 
