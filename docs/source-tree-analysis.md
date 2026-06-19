@@ -72,10 +72,10 @@ eventproject/                       # Корень репозитория
 │   ├── log_scan1.py                # Поиск сессий с несколькими IP (session hijacking)
 │   └── log_scan_sessionid.py       # Сопоставление nginx sessionid ↔ Django-сессии
 │
-├── populate_categories.py          # Загрузка справочников из CSV (+ cities, docs, countries)
-├── populate_cities.py / populate_docs.py / country_populate.py
-├── categories.csv / cities.csv / docs.csv / countries.csv
-├── manual.py                       # Дубль async_create.py (не используется)
+├── scripts/                        # Одноразовые сидеры справочников из CSV
+│   ├── populate_categories.py / populate_cities.py / populate_docs.py / country_populate.py
+│   ├── categories.csv / cities.csv / docs.csv / countries.csv
+│   └── README.md
 │
 ├── docs/                           # ЭТА документация + нагрузочные тесты
 │   ├── index.md                    # Главный индекс

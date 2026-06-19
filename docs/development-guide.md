@@ -55,10 +55,10 @@ celery -A eventproject beat --loglevel=INFO --scheduler django_celery_beat.sched
 ## Наполнение справочников
 
 ```bash
-python populate_cities.py        # cities.csv → City
-python populate_categories.py    # categories.csv → Category (справочник)
-python populate_docs.py          # docs.csv → DocumentType
-python country_populate.py       # countries.csv → Country
+python scripts/populate_cities.py        # cities.csv → City
+python scripts/populate_categories.py    # categories.csv → Category (справочник)
+python scripts/populate_docs.py          # docs.csv → DocumentType
+python scripts/country_populate.py       # countries.csv → Country
 ```
 
 ## Тесты
