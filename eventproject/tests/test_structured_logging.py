@@ -76,6 +76,26 @@ class StructuredLoggingSettingsTests(SimpleTestCase):
         self.assertEqual(payload["ip"], "127.0.0.1")
         self.assertIn("timestamp", payload)
 
+    def test_structured_context_filter_injects_defaults(self):
+        """Запись без extra-полей получает None-дефолты от StructuredContextFilter."""
+        from eventproject.logging_filters import StructuredContextFilter
+
+        record = logging.LogRecord(
+            name="eventproject",
+            level=logging.INFO,
+            pathname=__file__,
+            lineno=1,
+            msg="no extras",
+            args=(),
+            exc_info=None,
+        )
+
+        self.assertTrue(StructuredContextFilter().filter(record))
+
+        for field in ("user_id", "role", "action", "obj_type", "obj_id", "ip"):
+            self.assertTrue(hasattr(record, field))
+            self.assertIsNone(getattr(record, field))
+
 
 class HealthCheckTests(TestCase):
     def test_health_ok(self):
@@ -125,5 +145,64 @@ class HealthCheckTests(TestCase):
                 "obj_type": "db",
                 "obj_id": None,
                 "ip": "10.1.2.3",
+                "method": "GET",
+                "path": "/api/health/",
+                "status": 503,
+                "error": "OperationalError",
             },
+        )
+
+    @patch("eventproject.views.health.logger")
+    def test_health_when_database_raises_non_operational_error(self, mocked_logger):
+        """Не-OperationalError (напр. InterfaceError) тоже даёт 503 + CRITICAL, а не 500."""
+        from django.db.utils import InterfaceError
+
+        failing_connection = type(
+            "FailingConnection",
+            (),
+            {
+                "ensure_connection": lambda self: (_ for _ in ()).throw(
+                    InterfaceError()
+                )
+            },
+        )()
+
+        with patch(
+            "eventproject.views.health.connections",
+            {"default": failing_connection},
+        ):
+            response = self.client.get("/api/health/", REMOTE_ADDR="10.1.2.3")
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json(), {"status": "error", "db": "unreachable"})
+        mocked_logger.critical.assert_called_once()
+        self.assertEqual(
+            mocked_logger.critical.call_args.kwargs["extra"]["error"],
+            "InterfaceError",
+        )
+
+    @patch("eventproject.views.health.logger")
+    def test_health_critical_log_defaults_missing_ip(self, mocked_logger):
+        """Без REMOTE_ADDR в CRITICAL-логе ip не null, а 'unknown'."""
+        from django.db.utils import OperationalError
+
+        failing_connection = type(
+            "FailingConnection",
+            (),
+            {
+                "ensure_connection": lambda self: (_ for _ in ()).throw(
+                    OperationalError()
+                )
+            },
+        )()
+
+        with patch(
+            "eventproject.views.health.connections",
+            {"default": failing_connection},
+        ):
+            response = self.client.get("/api/health/", REMOTE_ADDR="")
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(
+            mocked_logger.critical.call_args.kwargs["extra"]["ip"], "unknown"
         )

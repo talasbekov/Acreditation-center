@@ -10,7 +10,7 @@ from django.utils import timezone
 from django.http import HttpResponse, Http404, HttpResponseRedirect, FileResponse, HttpResponseNotFound
 from django.template import RequestContext
 from django.shortcuts import render
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required, user_passes_test
 
@@ -280,6 +280,14 @@ def change_password(request):
             if request.user.check_password(old_password):
                 request.user.set_password(new_password)
                 request.user.save()
+                # Сохраняем сессию активной после смены пароля (иначе Django
+                # ротирует auth-hash и пользователь разлогинивается).
+                update_session_auth_hash(request, request.user)
+                # Story 2.3 (AC-5): снимаем форс смены пароля после успешной смены.
+                operator = getattr(request.user, "operator", None)
+                if operator is not None and operator.force_password_change:
+                    operator.force_password_change = False
+                    operator.save(update_fields=["force_password_change"])
                 context_dict["success_message"] = "Пароль успешно изменен"
                 return render(request, "change_password_result.html", context_dict)
             else:

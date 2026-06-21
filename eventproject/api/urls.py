@@ -1,15 +1,19 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from eventproject.views.event import EventViewSet
+from eventproject.views.operator_api import OperatorViewSet
 
 
 router = DefaultRouter()
 router.register(r"events", EventViewSet, basename="event")
+router.register(r"operators", OperatorViewSet, basename="operator")
 
 
 @api_view(["GET"])
+@permission_classes([IsAuthenticated])  # defense-in-depth: явно, не полагаясь на глобальный default
 def rbac_check(request):
     return Response({"role": request.user.role})
 

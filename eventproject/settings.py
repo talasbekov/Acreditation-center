@@ -7,7 +7,12 @@ from celery.schedules import crontab
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 LOG_DIR = BASE_DIR / "logs"
-LOG_DIR.mkdir(exist_ok=True)
+try:
+    LOG_DIR.mkdir(exist_ok=True)
+except OSError:
+    # На read-only FS (или если logs существует как обычный файл) не валим импорт
+    # settings — RotatingFileHandler сам сообщит об ошибке при первой записи.
+    pass
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = config('SECRET_KEY')
@@ -68,6 +73,9 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "eventproject.middleware.session_timeout.RoleBasedSessionTimeoutMiddleware",
+    # Story 2.3 (AC-5): форс смены пароля для авто-созданных операторов.
+    # После AuthenticationMiddleware (нужен request.user).
+    "eventproject.middleware.force_password_change.ForcePasswordChangeMiddleware",
     "eventproject.middleware.logging_middleware.RequestLoggingMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -153,6 +161,22 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'Asia/Almaty'
 CELERY_ENABLE_UTC = True
+
+# Email (Story 2.3 — онбординг операторов). Значения берутся из .env; по умолчанию
+# console-backend (письма печатаются в stdout), чтобы dev/CI не требовали SMTP.
+EMAIL_BACKEND = config(
+    "EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend"
+)
+EMAIL_HOST = config("EMAIL_HOST", default="localhost")
+EMAIL_PORT = config("EMAIL_PORT", default=25, cast=int)
+EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = _env_flag("EMAIL_USE_TLS", default=False)
+DEFAULT_FROM_EMAIL = config(
+    "DEFAULT_FROM_EMAIL", default="noreply@accreditation.local"
+)
+# Ссылка для входа в письме оператору.
+OPERATOR_LOGIN_URL = config("OPERATOR_LOGIN_URL", default="/user_login/")
 
 # Настройки архивов
 ARCHIVE_STORAGE_DURATION = 24  # часов

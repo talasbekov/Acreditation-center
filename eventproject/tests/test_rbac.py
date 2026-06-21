@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from django.contrib.auth.models import User
+from django.contrib.auth.models import AnonymousUser, User
 from django.test import TestCase
 from rest_framework.test import APIClient
 
@@ -71,6 +71,23 @@ class PermissionClassTest(TestCase):
         for role in ("operator", "superoperator", "superuser"):
             request = _make_request(self._user_with_role(role))
             self.assertTrue(perm.has_permission(request, None), f"Expected True for role={role}")
+
+    def test_is_superuser_permission(self):
+        perm = IsSuperuser()
+        self.assertTrue(
+            perm.has_permission(_make_request(self._user_with_role("superuser")), None)
+        )
+        self.assertFalse(
+            perm.has_permission(_make_request(self._user_with_role("operator")), None)
+        )
+
+    def test_user_role_denied_by_all_permission_classes(self):
+        request = _make_request(self._user_with_role("user"))
+        for perm in (IsSuperuser(), IsSuperoperator(), IsOperator()):
+            self.assertFalse(
+                perm.has_permission(request, None),
+                f"role='user' must be denied by {perm.__class__.__name__}",
+            )
 
 
 class RbacCheckEndpointTest(TestCase):
@@ -146,3 +163,33 @@ class GetOperatorEventsTest(TestCase):
         ids = list(qs.values_list("id", flat=True))
         self.assertIn(self.event1.id, ids)
         self.assertIn(self.event2.id, ids)
+
+    def test_anonymous_user_sees_no_events(self):
+        # AnonymousUser не имеет .role — должен быть fail-closed (пустой queryset), не 500.
+        self.assertEqual(get_operator_events(AnonymousUser()).count(), 0)
+
+    def test_authenticated_user_without_operator_sees_no_events(self):
+        plain = User.objects.create_user("plain_no_op")
+        self.assertEqual(plain.role, "user")
+        self.assertEqual(get_operator_events(plain).count(), 0)
+
+    def test_superuser_without_operator_sees_all_events(self):
+        su = User.objects.create_user("su_no_op", is_superuser=True)
+        self.assertEqual(su.role, "superuser")
+        self.assertEqual(get_operator_events(su).count(), Event.objects.count())
+
+    def test_operator_cannot_see_other_operators_events(self):
+        # Истинная negative cross-tenant изоляция: event2 принадлежит ДРУГОМУ оператору.
+        op2_user = User.objects.create_user("op2_events_rbac")
+        op2 = Operator.objects.create(
+            user=op2_user,
+            patronymic="Op2",
+            phone_number="+70000000005",
+            workplace="HQ",
+            role="operator",
+        )
+        op2.events.add(self.event2)
+
+        op1_ids = list(get_operator_events(self.op_user).values_list("id", flat=True))
+        self.assertIn(self.event1.id, op1_ids)
+        self.assertNotIn(self.event2.id, op1_ids)  # чужое событие невидимо

@@ -72,6 +72,29 @@ class Operator(models.Model):
     is_accreditator = models.BooleanField(default=False)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="operator")
 
+    # Story 2.3 — онбординг операторов (авто-генерация credentials + email)
+    EMAIL_STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("sent", "Sent"),
+        ("error", "Error"),
+    ]
+    email_status = models.CharField(
+        max_length=20, choices=EMAIL_STATUS_CHOICES, default="pending"
+    )
+    credentials_sent_at = models.DateTimeField(null=True, blank=True)
+    # default=False: форс смены пароля включается ТОЛЬКО для операторов, созданных
+    # авто-генерацией (services.create_operator выставляет True явно, AC-5). Иначе
+    # все существующие/legacy операторы были бы принудительно сброшены.
+    force_password_change = models.BooleanField(default=False)
+    # Story 2.3 (review): опциональная привязка оператора к категории (AC-1 category_id).
+    category = models.ForeignKey(
+        Category,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="operators",
+    )
+
     def __str__(self):
         return self.user.first_name + " " + self.user.last_name
 

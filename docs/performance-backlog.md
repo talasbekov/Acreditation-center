@@ -17,3 +17,16 @@ This document tracks identified performance bottlenecks and optimization tasks b
 3.  **Full Load Test (3000 users)**
     *   **Description:** Current baseline is a smoke test with 100 users on SQLite.
     *   **Task:** Run the full 3000-user test on a production-like environment (Docker with PostgreSQL and Redis) once rate limits are handled.
+
+## Harness fixes (code review 2026-06-21) and remaining work
+
+The `docs/load_tests/locustfile.py` harness was hardened during code review of Story 1.7:
+*   **DONE:** explicit per-request status checks (`catch_response`) — 302-to-login, 403-CSRF, 200-error-pages and 429-ratelimit are now recorded as **failures** instead of silently counting as successful latency.
+*   **DONE:** login verification in `on_start` (a 200 from `/user_login/` = failed login → marked failure); CSRF read from the session cookie jar; host/scheme guard.
+*   **DONE:** the `2026-04-14` baseline's `nfr5_compliance.compliant` corrected from `true` → `null` (a 100-user SQLite run cannot assert NFR5 at 3000 users).
+
+**Still required before Story 1.7 can be signed off (operational — needs infrastructure, cannot be done in the dev container):**
+1.  Stand up a production-like environment (PostgreSQL + Redis) over **HTTPS** (or a load-test settings override: `SECURE_SSL_REDIRECT=False`, `*_COOKIE_SECURE=False`).
+2.  Disable/relax **django-axes** (`AXES_FAILURE_LIMIT=10`) and the `/add_attendee/` **ratelimit** (`20/h`) for the load-test source, or use a pool of accounts/IPs.
+3.  Seed `TEST_USER`/`TEST_PASS`, a valid `Event` + `Request` (`TEST_REQUEST_ID`), and FK ids (`SEX_ID`/`COUNTRY_ID`/`DOCTYPE_ID`).
+4.  Run `-u 3000 -r 100 --run-time 5m` and capture p50/p95/p99 for all four endpoints with **0% spurious failures**, plus the **Redis** cache hit rate (AC-3).
