@@ -6,3 +6,4 @@ from .operator import (
     OperatorRegistryListSerializer,
     OperatorRegistryDetailSerializer,
 )
+from .attendee import AttendeeSerializer

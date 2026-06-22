@@ -5,11 +5,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from eventproject.views.event import EventViewSet
 from eventproject.views.operator_api import OperatorViewSet
+from eventproject.views.attendee_api import AttendeeViewSet
 
 
 router = DefaultRouter()
 router.register(r"events", EventViewSet, basename="event")
 router.register(r"operators", OperatorViewSet, basename="operator")
+router.register(r"attendees", AttendeeViewSet, basename="attendee")
 
 
 @api_view(["GET"])
