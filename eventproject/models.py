@@ -5,6 +5,7 @@ from django.db import models
 from django.contrib.auth.models import User
 
 from eventproject.fernet_fields import EncryptedCharField
+from eventproject.state_machine import ATTENDEE_STATUS_CHOICES, AttendeeStatus
 
 
 IIN_ENCRYPTION_HELP_TEXT = (
@@ -224,6 +225,13 @@ class Attendee(models.Model):
     # Residency-логика (validators/residency.py) выставляет явно при создании/
     # обновлении. default=True — KZ-центрично (исторические строки → True).
     is_resident = models.BooleanField(default=True)
+    # Story 3.3: конечный автомат статусов (см. eventproject/state_machine.py).
+    # Применение переходов (audit/edit-lock/submit-проверки) — Story 3.4.
+    status = models.CharField(
+        max_length=20,
+        choices=ATTENDEE_STATUS_CHOICES,
+        default=AttendeeStatus.DRAFT,
+    )
 
     def __str__(self):
         return self.firstname + " " + (self.iin or "")
