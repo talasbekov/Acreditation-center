@@ -226,7 +226,7 @@ class EventViewSet(ModelViewSet):
                 "categories",
                 queryset=Category.objects.annotate(_attendee_count=Count("attendees")),
             )
-        )
+        ).order_by("id")
 
     def perform_create(self, serializer):
         event = serializer.save(created_by=self.request.user)

@@ -133,6 +133,16 @@ GUNICORN_CONFIG = {
 
 CORS_ALLOWED_ORIGINS = config("CORS_ALLOWED_ORIGINS", default="", cast=Csv())
 
+# Story 2.4 (AC-5): порог неактивности оператора (дней) для warning-индикатора
+# в реестре. Конфигурируется через .env.
+OPERATOR_INACTIVITY_THRESHOLD_DAYS = config(
+    "OPERATOR_INACTIVITY_THRESHOLD_DAYS", default=30, cast=int
+)
+
+# Story 3.2: идентификатор Казахстана в Attendee.countryId (резидент РК).
+# Значение совпадает с legacy (eventproject/views/attendee.py:217).
+KZ_COUNTRY_ID = config("KZ_COUNTRY_ID", default="1000000105")
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
@@ -141,6 +151,10 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticated",
     ],
     "EXCEPTION_HANDLER": "eventproject.api.exceptions.rfc7807_exception_handler",
+    # Retro Epic 2: централизованная пагинация для всего /api/v1/ —
+    # документированный envelope {count, next, previous, results}.
+    "DEFAULT_PAGINATION_CLASS": "eventproject.api.pagination.StandardResultsSetPagination",
+    "PAGE_SIZE": 50,
 }
 
 CACHES = {

@@ -91,8 +91,8 @@ class EventViewTest(TestCase):
         response = self.client.get("/api/v1/events/")
         self.assertEqual(response.status_code, 200)
         
-        # No pagination configured by default, returns list
-        results = response.json()
+        # Retro Epic 2: пагинация включена → envelope {count, next, previous, results}
+        results = response.json()["results"]
         event_data = next(e for e in results if e["id"] == self.event.id)
         cat_data = next(c for c in event_data["categories"] if c["name"] == "Staff")
         self.assertEqual(cat_data["attendee_count"], 1)

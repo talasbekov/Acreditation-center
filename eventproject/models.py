@@ -111,6 +111,48 @@ def _user_role(self):
 User.role = property(_user_role)
 
 
+class OperatorAccessEvent(models.Model):
+    """Story 2.4 — персистентная история доступа оператора.
+
+    Queryable-источник для детального вида реестра. `audit_log` (Story 1.5)
+    пишет только structured JSON-логи и НЕ запрашивается через ORM, поэтому
+    история действий, отображаемая в UI/API, хранится здесь. События пишутся
+    из views (created / login / password_changed / deactivated / reactivated).
+    """
+
+    EVENT_TYPE_CHOICES = [
+        ("created", "created"),
+        ("login", "login"),
+        ("password_changed", "password_changed"),
+        ("deactivated", "deactivated"),
+        ("reactivated", "reactivated"),
+    ]
+
+    operator = models.ForeignKey(
+        Operator, on_delete=models.CASCADE, related_name="access_events"
+    )
+    event_type = models.CharField(max_length=20, choices=EVENT_TYPE_CHOICES)
+    # Кто совершил действие: для админ-операций (deactivate) — Супероператор;
+    # для login/password_changed — сам оператор. SET_NULL: история переживает
+    # удаление актора.
+    actor = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+    timestamp = models.DateTimeField(default=timezone.now, db_index=True)
+    ip = models.CharField(max_length=45, blank=True, default="")
+    details = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["-timestamp"]
+
+    def __str__(self):
+        return f"{self.operator_id}:{self.event_type}@{self.timestamp:%Y-%m-%dT%H:%M:%S}"
+
+
 class Request(models.Model):
     name = models.CharField(max_length=128)
     event = models.ForeignKey(Event, on_delete=models.CASCADE)
@@ -178,6 +220,10 @@ class Attendee(models.Model):
     )
     dateEnd = models.DateField(null=True, blank=True)
     stickId = models.CharField(max_length=20, default="")
+    # Story 3.2: резидент РК (countryId == settings.KZ_COUNTRY_ID) → True.
+    # Residency-логика (validators/residency.py) выставляет явно при создании/
+    # обновлении. default=True — KZ-центрично (исторические строки → True).
+    is_resident = models.BooleanField(default=True)
 
     def __str__(self):
         return self.firstname + " " + (self.iin or "")

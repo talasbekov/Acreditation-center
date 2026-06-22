@@ -17,6 +17,8 @@ from django.contrib.auth.decorators import login_required, user_passes_test
 from django.conf import settings
 from directories.models import Sex, Country, DocumentType, City
 from eventproject.models import Event, Operator, Request, Attendee
+from eventproject.audit import audit_log
+from eventproject.services.access_events import record_access_event
 
 logger = logging.getLogger("eventproject")
 
@@ -288,6 +290,27 @@ def change_password(request):
                 if operator is not None and operator.force_password_change:
                     operator.force_password_change = False
                     operator.save(update_fields=["force_password_change"])
+                # Story 2.4 (AC-3): фиксируем смену пароля в истории доступа + audit.
+                # Best-effort: пароль уже изменён — сбой записи истории не должен
+                # привести к ложному «не удалось изменить пароль».
+                if operator is not None:
+                    try:
+                        ip = request.META.get("REMOTE_ADDR", "")
+                        record_access_event(
+                            operator, "password_changed", actor=request.user, ip=ip
+                        )
+                        audit_log(
+                            user=request.user,
+                            action="user.change_password",
+                            obj_type="User",
+                            obj_id=request.user.id,
+                            ip=ip,
+                        )
+                    except Exception:
+                        logger.exception(
+                            "failed to record password_changed event for user=%s",
+                            request.user.id,
+                        )
                 context_dict["success_message"] = "Пароль успешно изменен"
                 return render(request, "change_password_result.html", context_dict)
             else:
@@ -314,13 +337,45 @@ def user_login(request):
 
             if user.is_active:
                 login(request, user)
+                # Story 2.4 (AC-3): фиксируем вход оператора в истории доступа + audit.
+                # Best-effort: сбой записи истории НЕ должен ломать уже успешный вход.
+                operator = getattr(user, "operator", None)
+                if operator is not None:
+                    try:
+                        ip = request.META.get("REMOTE_ADDR", "")
+                        record_access_event(operator, "login", actor=user, ip=ip)
+                        audit_log(
+                            user=user,
+                            action="user.login",
+                            obj_type="User",
+                            obj_id=user.id,
+                            ip=ip,
+                        )
+                    except Exception:
+                        logger.exception(
+                            "failed to record login access event for user=%s", user.id
+                        )
                 if user.is_superuser:
                     return HttpResponseRedirect("/avmac/")
                 else:
                     return HttpResponseRedirect("/application/")
             else:
-                return HttpResponse("Your account is suspended")
+                # Story 2.4 (AC-4): локализованное сообщение о деактивации.
+                return render(
+                    request,
+                    "gov.html",
+                    context={"error_message": "Аккаунт деактивирован"},
+                )
         else:
+            # Story 2.4 (AC-4): дефолтный ModelBackend возвращает None и для
+            # неактивных аккаунтов (authenticate проверяет is_active) — поэтому
+            # отличаем деактивированный аккаунт от неверных credentials.
+            if User.objects.filter(username=username, is_active=False).exists():
+                return render(
+                    request,
+                    "gov.html",
+                    context={"error_message": "Аккаунт деактивирован"},
+                )
             return render(
                 request,
                 "gov.html",
