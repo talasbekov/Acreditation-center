@@ -2,6 +2,11 @@
 {% load static %}
 {% block body_block %}
     <script type="text/javascript" src="{% static 'js/jquery-3.6.0.min.js' %}"></script>
+    <style>
+      /* Story 3.5: anti-fatigue читаемость статуса ИИН */
+      .iin-error { color:#dc3545; font-size:16px; font-weight:600; margin-top:4px; }
+      .iin-ok { color:#198754; font-size:15px; font-weight:600; margin-top:4px; }
+    </style>
 
 <div class="container-fluid ministry-header-top" style="max-width: 1100px; margin: auto;">
     <div class="row justify-content-between align-items-center">
@@ -20,19 +25,19 @@
             <div class="row">
                 <div class="form-group col-md-3 mb-2">
                     <label for="" title  class="req"> Фамилия </label>
-                    <input placeholder="Алиев" type="text" required class="form-control" value="" name="last_name">
+                    <input placeholder="Алиев" type="text" required class="form-control" value="{{ form_data.last_name|default:'' }}" name="last_name">
                 </div>
                 <div class="form-group col-md-2 mb-2">
                     <label for="first_name" class="req">Имя</label>
-                    <input placeholder="Али" type="text" required class="form-control" value="" name="first_name">
+                    <input placeholder="Али" type="text" required class="form-control" value="{{ form_data.first_name|default:'' }}" name="first_name">
                 </div>
                 <div class="form-group col-md-3 mb-2">
                     <label for="patronymic">Отчество</label>
-                    <input placeholder="Алиевич" type="text" class="form-control" value="" name="patronymic">
+                    <input placeholder="Алиевич" type="text" class="form-control" value="{{ form_data.patronymic|default:'' }}" name="patronymic">
                 </div>
                 <div class="form-group col-md-4 mb-2">
                     <label for="latin_name" class="req">Транслитерация полного имени</label>
-                    <input placeholder="Aliev Ali Alievich" type="text" required class="form-control" value="" name="latin_name" oninput="this.value=this.value.replace(/[^A-Za-z\s]/g,'');">
+                    <input placeholder="Aliev Ali Alievich" type="text" required class="form-control" value="{{ form_data.latin_name|default:'' }}" name="latin_name" oninput="this.value=this.value.replace(/[^A-Za-z\s]/g,'');">
                 </div>
             </div>
             <div class="col-12">
@@ -43,14 +48,16 @@
                     <label for="citizenship" class="req">Гражданство</label>
                     <select class="form-control" name="citizenship" id="citizenship">
                         {% for country in countries %}
-                        <option value="{{ country.country_code }}"  {% if country.country_code == "1000000105" %} selected="selected" {% endif %}>
+                        <option value="{{ country.country_code }}"  {% if country.country_code == form_data.citizenship|default:"1000000105" %} selected="selected" {% endif %}>
                         {{ country.name_rus }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="form-group col-md-2 mb-2">
-                    <label for="iin" class="req">ИИН</label>
-                    <input placeholder="781213351207" type="text" class="form-control" value="" name="iin" minlength="12" maxlength="12" oninput="process(this)">
+                <div class="form-group col-md-2 mb-2" id="iin_group">
+                    <label for="iin" id="iin_label" class="req">ИИН</label>
+                    <input placeholder="781213351207" type="text" class="form-control" value="{{ form_data.iin|default:'' }}" name="iin" id="iin" minlength="12" maxlength="12" oninput="process(this)">
+                    <span id="iin_ok" class="iin-ok" style="display:none;">✅ Формат ИИН верный</span>
+                    {% if iin_error %}<div class="iin-error">{{ iin_error }}</div>{% endif %}
                 </div>
                 <div class="form-group col-md-2 mb-2">
                     <label for="dob" class="req">Дата рождения</label>
@@ -61,6 +68,7 @@
                         class="form-control"
                         name="dob"
                         id="dob"
+                        value="{{ form_data.dob|default:'' }}"
                         min="1945-01-01"
                     >
                 </div>
@@ -68,7 +76,7 @@
                     <label for="sex" class="req">Пол</label>
                     <select class="form-control" name="sex">
                         {% for sex in sexs %}
-                        <option value="{{ sex.sex_code }}">{{ sex.name_rus }}</option>
+                        <option value="{{ sex.sex_code }}" {% if sex.sex_code == form_data.sex %}selected{% endif %}>{{ sex.name_rus }}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -76,14 +84,14 @@
                     <label for="category" class="req">Категория</label>
                     <select class="form-control" name="category">
                         {% for category in categories %}
-                        <option value="{{ category.category_code }}">
+                        <option value="{{ category.category_code }}" {% if category.category_code == form_data.category %}selected{% endif %}>
                         {{ category.name_rus }}</option>
                         {% endfor %}
                     </select>
                 </div>
                 <div class="form-group col-md-2 mb-2">
                     <label for="post" class="req">Должность</label>
-                    <input type="text" required class="form-control" value="" name="post">
+                    <input type="text" required class="form-control" value="{{ form_data.post|default:'' }}" name="post">
                 </div>
             </div>
             <div class="col-12">
@@ -102,23 +110,23 @@
                 </div>
                 <div class="form-group col-md-1 mb-2">
                     <label for="doc_series">Серия</label>
-                    <input type="text" class="form-control" value="" name="doc_series">
+                    <input type="text" class="form-control" value="{{ form_data.doc_series|default:'' }}" name="doc_series">
                 </div>
                 <div class="form-group col-md-2 mb-2">
                     <label for="doc_number" class="req">Номер документа</label>
-                    <input type="text" required class="form-control" value="" name="doc_number">
+                    <input type="text" required class="form-control" value="{{ form_data.doc_number|default:'' }}" name="doc_number">
                 </div>
                 <div class="form-group col-md-2 mb-2">
                     <label for="doc_date_start" class="req">Дата выдачи</label>
-                    <input type="date" required class="form-control" value="" name="doc_date_start">
+                    <input type="date" required class="form-control" value="{{ form_data.doc_date_start|default:'' }}" name="doc_date_start">
                 </div>
                 <div class="form-group col-md-2 mb-2">
                     <label for="doc_date_end" class="req">Действителен до</label>
-                    <input type="date" required class="form-control" value="" name="doc_date_end">
+                    <input type="date" required class="form-control" value="{{ form_data.doc_date_end|default:'' }}" name="doc_date_end">
                 </div>
                 <div class="form-group col-md-2 mb-2">
                     <label for="doc_issuer">Кем выдан</label>
-                    <input type="text" class="form-control" value="" name="doc_issuer">
+                    <input type="text" class="form-control" value="{{ form_data.doc_issuer|default:'' }}" name="doc_issuer">
                 </div>
             </div>
             <div class="col-12">
@@ -141,7 +149,7 @@
                 </div>
                 <div class="form-group col-md-4 mb-2">
                     <label for="visit_objects" class="req" id="plan">Планируемые объекты посещения</label>
-                    <textarea class="form-control" required rows="3" name="visit_objects" id="exampleFormControlTextarea3"></textarea>
+                    <textarea class="form-control" required rows="3" name="visit_objects" id="exampleFormControlTextarea3">{{ form_data.visit_objects|default:'' }}</textarea>
                 </div>
             </div>
 
@@ -202,44 +210,30 @@ function checkFileFormat(inputId) {
 </script>
 
 <script>
+// Story 3.5: residency-переключение — поле ИИН только для РК (1000000105).
+function applyResidency(c, clearIin) {
+    if (c == "1000000105") {
+        $("#doctype").html($('#qazdoctype').html());
+        $("#iin_group").show();
+        $("#iin_label").attr("class", "req");
+        $("#iin").attr("required", "");
+        $("#plan").attr("class", "req");
+    } else {
+        $("#doctype").html($('#fulldoctype').html());
+        $("#iin").removeAttr("required");
+        if (clearIin) { $("#iin").val(""); }   // ИИН нерезидента не отправляется
+        $("#iin_group").hide();
+        $("#plan").attr("class", "");
+    }
+    $('#qazdoctype').hide();
+    $('#fulldoctype').hide();
+}
 document.addEventListener('DOMContentLoaded', function () {
-      $('#qazdoctype').hide()
-  $('#fulldoctype').hide()
-var c = $( "#citizenship" ).val()
- if( c == "1000000105"){
-        var res = $('#qazdoctype').html();
-        $("#doctype").html(res)
-        $("#plan").attr("class", "req")
-    }else{
-        var res = $('#fulldoctype').html();
-        $("#doctype").html(res)
-        $("#plan").attr("class", "")
-    }
+    applyResidency($("#citizenship").val(), false);
 });
-</script>
-
-<script>
 $("#citizenship").change(function () {
-      var c = $( "#citizenship" ).val()
-
-    if( c == "1000000105"){
-        var res = $('#qazdoctype').html();
-        $("#doctype").html(res)
-        $("#iin_label").attr("class", "req")
-        $("#iin").attr( "required", "" )
-        // $('#category').hide()
-        // $('#post').removeClass("col-md-2").addClass("col-md-4")
-    }else{
-        var res = $('#fulldoctype').html();
-        $("#doctype").html(res)
-        $("#iin_label").attr("class", "")
-        $("#iin").removeAttr( "required" )
-        // $('#category').show()
-        // $('#post').removeClass("col-md-4").addClass("col-md-2")
-    }
-  $('#qazdoctype').hide()
-  $('#fulldoctype').hide()
-     });
+    applyResidency($(this).val(), true);
+});
 </script>
 <script>
      var today = new Date();
@@ -305,6 +299,9 @@ function process(input){
   let value = input.value;
   let numbers = value.replace(/[^0-9]/g, "");
   input.value = numbers;
+  // Story 3.5: мгновенная подсказка формата (полная проверка — на сервере).
+  var ok = document.getElementById("iin_ok");
+  if (ok) { ok.style.display = (numbers.length === 12) ? "block" : "none"; }
 }
         $(".latin_letters").on("keypress", function(event) {
         var englishAlphabetAndWhiteSpace = /^[-@./#&+\w\s]*$/;

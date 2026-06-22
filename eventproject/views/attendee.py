@@ -12,6 +12,7 @@ from django_ratelimit.decorators import ratelimit
 from directories.models import Sex, Country, DocumentType, Category
 from eventproject.models import Operator, Request, Attendee
 from eventproject.validators.iin import event_has_iin_duplicate
+from eventproject.validators.residency import resolve_residency
 from eventproject.audit import audit_log
 
 logger = logging.getLogger("eventproject")
@@ -165,7 +166,7 @@ def add_attendee(request, request_id):
         attendee.firstname = request.POST["first_name"]
         attendee.patronymic = request.POST["patronymic"]
         attendee.transcription = request.POST["latin_name"]
-        attendee.iin = request.POST["iin"]
+        attendee.iin = request.POST.get("iin", "")
         attendee.birthDate = request.POST["dob"]
         attendee.sexId = request.POST["sex"]
         attendee.countryId = request.POST["citizenship"]
@@ -188,6 +189,10 @@ def add_attendee(request, request_id):
         doc_start = datetime.strptime(attendee.docBegin, "%Y-%m-%d").date()
         doc_end = datetime.strptime(attendee.docEnd, "%Y-%m-%d").date()
         dob = datetime.strptime(attendee.birthDate, "%Y-%m-%d").date()
+        # Story 3.5: единый residency+ИИН-валидатор (validators/iin.py).
+        residency = resolve_residency(attendee.countryId, attendee.iin, dob)
+        attendee.iin = residency.iin
+        attendee.is_resident = residency.is_resident
         if doc_start > date.today():
             context_dict["delete_message"] = (
                 "Не удалось добавить. Дата выдачи документа еще не наступил"
@@ -214,10 +219,9 @@ def add_attendee(request, request_id):
             context_dict["delete_message"] = (
                 "Не удалось добавить. Размер скана документа меньше чем 1Kb"
             )
-        elif attendee.countryId == "1000000105" and len(attendee.iin) < 12:
-            context_dict["delete_message"] = (
-                "Не удалось добавить. ИИН обязателен для граждан Казахстана"
-            )
+        elif residency.error:
+            context_dict["delete_message"] = "Не удалось добавить. " + residency.error
+            context_dict["iin_error"] = residency.error
         elif check_dublicate(attendee, req):
             context_dict["delete_message"] = (
                 "Не удалось добавить. Уже ранее добавляли этого участника"
@@ -243,6 +247,8 @@ def add_attendee(request, request_id):
         context_dict["req"] = req
         attendees = Attendee.objects.filter(request=req).order_by("-dateAdd")
         context_dict["attendees"] = attendees
+        # Story 3.5 (AC-2): сохранить введённые данные при ошибке.
+        context_dict["form_data"] = request.POST
         if "delete_message" in context_dict:
             return render(request, "gov3.html", context_dict)
         else:
@@ -279,7 +285,7 @@ def update_attendee(request, attendee_id):
             attendee.firstname = request.POST["first_name"]
             attendee.patronymic = request.POST["patronymic"]
             attendee.transcription = request.POST["latin_name"]
-            attendee.iin = request.POST["iin"]
+            attendee.iin = request.POST.get("iin", "")
             attendee.birthDate = request.POST["dob"]
             attendee.sexId = request.POST["sex"]
             attendee.countryId = request.POST.get("citizenship")
@@ -299,12 +305,24 @@ def update_attendee(request, attendee_id):
             if uploaded_doc_scan is not None:
                 attendee.docScan = uploaded_doc_scan
 
+            # Story 3.5: единый residency+ИИН-валидатор (validators/iin.py).
+            try:
+                dob = datetime.strptime(attendee.birthDate, "%Y-%m-%d").date()
+            except (ValueError, TypeError):
+                dob = None
+            residency = resolve_residency(attendee.countryId, attendee.iin, dob)
+            attendee.iin = residency.iin
+            attendee.is_resident = residency.is_resident
+
             if uploaded_photo is not None and attendee.photo.size > 9000000:
                 context_dict["error_message"] = "Photo size exceeds the limit (9MB)"
             elif uploaded_doc_scan is not None and attendee.docScan.size > 9000000:
                 context_dict["error_message"] = (
                     "Document scan size exceeds the limit (9MB)"
                 )
+            elif residency.error:
+                context_dict["error_message"] = residency.error
+                context_dict["iin_error"] = residency.error
             else:
                 attendee.save()
 
