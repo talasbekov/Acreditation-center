@@ -20,7 +20,9 @@ _ERR_IIN_REQUIRED = "ИИН обязателен для граждан Каза�
 
 
 def _kz_country_id():
-    return str(getattr(settings, "KZ_COUNTRY_ID", _DEFAULT_KZ_COUNTRY_ID))
+    # .strip() симметрично нормализации входа в is_resident_country — иначе
+    # пробел в env-значении KZ_COUNTRY_ID молча превратит всех резидентов в нерезидентов.
+    return str(getattr(settings, "KZ_COUNTRY_ID", _DEFAULT_KZ_COUNTRY_ID)).strip()
 
 
 def is_resident_country(country_id) -> bool:

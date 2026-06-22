@@ -66,6 +66,35 @@ class ResidentRulesTests(SimpleTestCase):
         self.assertTrue(r.is_resident)
         self.assertIn("не совпадает", r.error)
 
+    def test_resident_invalid_iin_preserves_normalized_iin(self):
+        # При невалидном ИИН резидента нормализованный ИИН сохраняется в результате.
+        r = resolve_residency(KZ, f"  851205301235  ", BDATE)
+        self.assertTrue(r.is_resident)
+        self.assertEqual(r.iin, "851205301235")
+        self.assertNotEqual(r.error, "")
+
+    def test_resident_garbage_iin_routes_to_validator(self):
+        # Непустой мусор уходит в validate_iin (формат), а не в ветку «обязателен».
+        r = resolve_residency(KZ, "not-an-iin", BDATE)
+        self.assertTrue(r.is_resident)
+        self.assertEqual(r.error, "ИИН должен содержать ровно 12 цифр.")
+
+
+class AmbientSettingTests(SimpleTestCase):
+    def test_uses_configured_kz_country_id(self):
+        # Без override_settings — полагается на settings.KZ_COUNTRY_ID (default "1000000105").
+        self.assertTrue(is_resident_country("1000000105"))
+        r = resolve_residency("1000000105", VALID_IIN, BDATE)
+        self.assertTrue(r.is_resident)
+        self.assertEqual(r.iin, VALID_IIN)
+
+
+@override_settings(KZ_COUNTRY_ID="  1000000105  ")
+class KzSettingWhitespaceTests(SimpleTestCase):
+    def test_setting_whitespace_tolerated(self):
+        # P1: значение setting стрипается → пробелы в env не ломают резидентство.
+        self.assertTrue(is_resident_country("1000000105"))
+
 
 @override_settings(KZ_COUNTRY_ID=KZ)
 class NonResidentRulesTests(SimpleTestCase):
