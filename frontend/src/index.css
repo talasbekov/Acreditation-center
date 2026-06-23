@@ -1,0 +1,31 @@
+@import 'tailwindcss';
+
+/*
+ * Anti-fatigue базовая тема (Story 5.1 AC-5): высокий контраст (WCAG AA),
+ * шрифт form-labels ≥16px, touch target ≥44px для интерактивных элементов.
+ * CSS isolation (AC-4): всё ограничено контейнером #react-root.
+ */
+
+#react-root {
+  min-height: 100svh;
+  font-size: 16px; /* AC-5: базовый шрифт ≥16px */
+  line-height: 1.5;
+  color: #171717; /* высокий контраст на белом (WCAG AA) */
+  background: #ffffff;
+  font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* AC-5: интерактивные элементы — минимальный touch target 44px */
+#react-root button,
+#react-root [role='button'],
+#react-root input,
+#react-root select,
+#react-root textarea {
+  min-height: 44px;
+}
+
+/* AC-5: form-labels ≥16px */
+#react-root label {
+  font-size: 1rem;
+  font-weight: 500;
+}
