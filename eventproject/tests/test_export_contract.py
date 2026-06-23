@@ -4,10 +4,12 @@
 машиночитаемой спеки `docs/integration-spec-v1.schema.json` (единый источник правды).
 Тест ПАДАЕТ при любом отклонении формата — защита от регрессий (AC-3).
 
-Story 4.3 подключит сюда реальный export serializer (точка расширения —
-`build_export_object`); сейчас валидируется эталонный пример из спеки.
+Здесь валидируется эталонный объект (фиксирует формат схемы). Реальный serializer
+`build_export_object` валидируется против этой же схемы в
+`test_export_delta.BuildExportObjectTests` (в т.ч. кейс с категорией — AC-6).
 
-⚠️ Схема — DRAFT (выведена из модели Attendee), подлежит подтверждению downstream.
+Формат v1.0 (утверждён Erda 2026-06-23): даты `DD.MM.YYYY`, datetime
+`DD.MM.YYYY HH:MM:SS`, справочники отдаются как `*_id` + `*_name`.
 """
 
 import json
@@ -38,18 +40,20 @@ def _check_type(value, declared_type):
     if declared_type == "string":
         return isinstance(value, str)
     if declared_type == "date":
+        # Формат v1.0: DD.MM.YYYY (утверждён Erda 2026-06-23).
         if not isinstance(value, str):
             return False
         try:
-            datetime.strptime(value, "%Y-%m-%d")
+            datetime.strptime(value, "%d.%m.%Y")
             return True
         except ValueError:
             return False
     if declared_type == "datetime":
+        # Формат v1.0: DD.MM.YYYY HH:MM:SS.
         if not isinstance(value, str):
             return False
         try:
-            datetime.fromisoformat(value)
+            datetime.strptime(value, "%d.%m.%Y %H:%M:%S")
             return True
         except ValueError:
             return False
@@ -109,20 +113,23 @@ def reference_attendee_object():
         "firstname": "Иван",
         "patronymic": "Петрович",
         "transcription": "Ivanov Ivan",
-        "birth_date": "1990-01-01",
+        "birth_date": "01.01.1990",
         "iin": "900101300007",
         "is_resident": True,
         "sex_id": "M",
+        "sex_name": "Мужской",
         "country_id": "1000000105",
+        "country_name": "Казахстан",
         "post": "Инженер",
         "doc_type_id": "passport",
+        "doc_type_name": "Паспорт",
         "doc_series": "AA",
         "doc_number": "123456",
-        "doc_begin": "2020-01-01",
-        "doc_end": "2030-01-01",
+        "doc_begin": "01.01.2020",
+        "doc_end": "01.01.2030",
         "doc_issue": "МВД",
         "visit_objects": "Объект A",
-        "date_add": "2026-06-23T10:00:00+00:00",
+        "date_add": "23.06.2026 10:00:00",
         "photo_file": "photos/123.jpg",
         "doc_scan_file": "documents/123.jpg",
     }
@@ -185,3 +192,19 @@ class ExportContractTest(SimpleTestCase):
         obj["photo_file"] = "wrong/123.jpg"  # должно начинаться с photos/
         errors = validate_against_spec(obj, self.schema)
         self.assertTrue(any("photo_file" in e for e in errors))
+
+    def test_iso_date_rejected(self):
+        # Формат v1.0 — DD.MM.YYYY; ISO YYYY-MM-DD должен отклоняться (фиксация решения).
+        obj = reference_attendee_object()
+        obj["birth_date"] = "1990-01-01"
+        errors = validate_against_spec(obj, self.schema)
+        self.assertTrue(any("birth_date" in e for e in errors))
+
+    def test_directory_name_fields_present_and_nullable(self):
+        # Справочники отдаются как *_id + *_name; *_name nullable (код не найден → null).
+        obj = reference_attendee_object()
+        obj["country_name"] = None
+        obj["sex_name"] = None
+        obj["doc_type_name"] = None
+        errors = validate_against_spec(obj, self.schema)
+        self.assertEqual(errors, [], f"*_name должны принимать null: {errors}")

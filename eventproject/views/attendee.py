@@ -273,7 +273,11 @@ def update_attendee(request, attendee_id):
         user = request.user
         if not user.is_superuser:
             operator = Operator.objects.get(user=request.user)
-            if req.created_by != operator:
+            # Story 4.2 (review, AC-3): Супероператор (по роли) редактирует любого
+            # участника — дашборд статусов ссылается сюда. Обычный оператор — только
+            # заявки, которые сам создал.
+            is_superoperator = operator.role in ("superoperator", "superuser")
+            if not is_superoperator and req.created_by != operator:
                 return HttpResponse("You are not authorised to see this page")
 
         if request.method == "GET":

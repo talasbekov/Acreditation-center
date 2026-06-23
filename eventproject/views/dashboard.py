@@ -7,12 +7,13 @@ Strangler Fig: новый файл, legacy не трогаем. RBAC: тольк
 
 import logging
 
-from django.contrib.auth.decorators import user_passes_test
+from django.contrib.auth.views import redirect_to_login
 from django.core.cache import cache
+from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, render
 
-from eventproject.models import Attendee, Event, Operator
+from eventproject.models import Attendee, Event, Operator, Request
 from eventproject.state_machine import AttendeeStatus
 
 logger = logging.getLogger("eventproject")
@@ -38,15 +39,20 @@ def _name(attendee):
 
 
 def _flag_list(qs):
-    """{items:[{id,name}], shown, overflow} с ограничением на _FLAG_DISPLAY_CAP."""
-    rows = list(qs.only("id", "surname", "firstname")[: _FLAG_DISPLAY_CAP + 1])
-    overflow = len(rows) > _FLAG_DISPLAY_CAP
-    shown = rows[:_FLAG_DISPLAY_CAP]
+    """{items:[{id,name}], shown, total, overflow}.
+
+    total — честный COUNT (а не capped 200): счётчик в заголовке не должен врать.
+    Список имён ограничен _FLAG_DISPLAY_CAP и детерминирован (order_by) — «первые
+    200» стабильны между загрузками и перестройками кэша (у Attendee нет Meta.ordering).
+    """
+    qs = qs.order_by("surname", "firstname", "id")
+    total = qs.count()
+    shown_rows = list(qs.only("id", "surname", "firstname")[:_FLAG_DISPLAY_CAP])
     return {
-        "items": [{"id": a.id, "name": _name(a)} for a in shown],
-        "shown": len(shown),
-        "total": len(shown) + (1 if overflow else 0),  # ≥; точное — count() при необходимости
-        "overflow": overflow,
+        "items": [{"id": a.id, "name": _name(a)} for a in shown_rows],
+        "shown": len(shown_rows),
+        "total": total,
+        "overflow": total > _FLAG_DISPLAY_CAP,
     }
 
 
@@ -70,7 +76,7 @@ def _compute_dashboard(event):
     doc_missing = attendees.filter(Q(docScan="") | Q(docScan__isnull=True))
 
     flags = [
-        {"key": "iin", "label": "ИИН не заполнен / не прошёл валидацию", **_flag_list(iin_missing)},
+        {"key": "iin", "label": "ИИН не заполнен (резидент РК)", **_flag_list(iin_missing)},
         {"key": "photo", "label": "Фото не загружено", **_flag_list(photo_missing)},
         {"key": "doc", "label": "Документ не загружен", **_flag_list(doc_missing)},
     ]
@@ -85,16 +91,24 @@ def _compute_dashboard(event):
         "exported": exported,
         "all_ready": total > 0 and ready == total,
         "flags": flags,
-        "flags_total": sum(f["shown"] for f in flags),
+        "flags_total": sum(f["total"] for f in flags),
     }
 
 
-@user_passes_test(_is_superoperator, login_url="/user_login/")
 def superoperator_dashboard(request, event_id):
+    # Аноним → на логин (302). Аутентифицированный без прав → 403, а НЕ редирект
+    # на логин: иначе залогиненный оператор уходит в петлю ?next= к недоступной
+    # странице вместо понятного отказа.
+    if not request.user.is_authenticated:
+        return redirect_to_login(request.get_full_path(), login_url="/user_login/")
+    if not _is_superoperator(request.user):
+        raise PermissionDenied
     event = get_object_or_404(Event, pk=event_id)
     cache_key = f"dashboard:event:{event_id}"
     data = cache.get(cache_key)
     if data is None:
         data = _compute_dashboard(event)
         cache.set(cache_key, data, _DASHBOARD_CACHE_TTL)
-    return render(request, "dashboard.html", {"event": event, **data})
+    # Категории (Request) события — для кнопок delta-экспорта (Story 4.3); не кэшируем.
+    categories = Request.objects.filter(event=event).order_by("name")
+    return render(request, "dashboard.html", {"event": event, "categories": categories, **data})

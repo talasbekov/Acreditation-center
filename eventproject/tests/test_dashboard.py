@@ -93,7 +93,7 @@ class DashboardViewTests(DashboardBase):
     def test_operator_forbidden(self):
         self.client.force_login(self.op_user)
         resp = self.client.get(self._url())
-        self.assertEqual(resp.status_code, 302)  # user_passes_test → редирект на логин
+        self.assertEqual(resp.status_code, 403)  # аутентифицирован, но без прав → 403, не петля логина
 
     def test_superoperator_access(self):
         self._mk("ready", is_resident=True, iin="900101300007")
@@ -120,3 +120,12 @@ class DashboardViewTests(DashboardBase):
         self.client.force_login(self.super_user)
         resp = self.client.get("/dashboard/999999/")
         self.assertEqual(resp.status_code, 404)
+
+    def test_superoperator_can_edit_foreign_attendee(self):
+        # Review D1 (AC-3): Супероператор (по роли, не Django-superuser) должен
+        # открыть редактирование участника из ЧУЖОЙ заявки (req.created_by=self.operator).
+        a = self._mk("submitted", is_resident=True, iin=None, surname="Чужой")
+        self.client.force_login(self.super_user)
+        resp = self.client.get(f"/update_attendee/{a.id}/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotContains(resp, "not authorised")

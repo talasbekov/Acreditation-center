@@ -34,6 +34,7 @@ from eventproject.views import (
     add_operator, show_operator, delete_operator, bind_operators,
 )
 from eventproject.views.dashboard import superoperator_dashboard
+from eventproject.views.export import export_delta
 from eventproject.views.file_download import check_archive_status
 from kz_event import views as kviews
 from en_event import views as eviews
@@ -89,6 +90,7 @@ urlpatterns = [
     ),
     path("show_event/<int:event_id>/", show_event, name="show_event"),
     path("dashboard/<int:event_id>/", superoperator_dashboard, name="superoperator_dashboard"),
+    path("export_delta/<int:event_id>/<int:request_id>/", export_delta, name="export_delta"),
     path("delete_event/<int:event_id>/", delete_event, name="delete_event"),
     path("download_json/<int:event_id>/", download_json, name="download_json"),
     path(

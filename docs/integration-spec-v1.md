@@ -1,14 +1,13 @@
 # Integration Spec v1.0 — формат экспорта участников (downstream security-система)
 
-> **СТАТУС: `DRAFT` — UNCONFIRMED.**
-> Поля и форматы ниже выведены из модели `Attendee` и являются **предположением**.
-> Они подлежат подтверждению downstream-системой через Project Lead (Erda) до перевода
-> Story 4.1 в `done` и до старта Story 4.3. См. раздел «Открытые вопросы».
+> **СТАТУС: `v1.0` — CONFIRMED.**
+> Формат утверждён Project Lead (Erda) 2026-06-23 (Story 4.1). Решения по открытым
+> вопросам зафиксированы ниже в разделе «Решения v1.0».
 >
 > Машиночитаемый источник правды: [`integration-spec-v1.schema.json`](./integration-spec-v1.schema.json)
 > (его проверяет `eventproject/tests/test_export_contract.py`).
 
-**Версия:** 1.0-DRAFT · **Дата:** 2026-06-23 · **Story:** 4.1
+**Версия:** 1.0 · **Дата:** 2026-06-23 · **Story:** 4.1
 
 ## Назначение
 
@@ -42,27 +41,32 @@ export_5_Охрана_20260623T100000Z.zip
 | `firstname` | string | ✓ | — | `firstname` |
 | `patronymic` | string | — | да | `patronymic` |
 | `transcription` | string (latin) | ✓ | — | `transcription` |
-| `birth_date` | date `YYYY-MM-DD` | ✓ | да | `birthDate` |
+| `birth_date` | date `DD.MM.YYYY` | ✓ | да | `birthDate` |
 | `iin` | string `^[0-9]{12}$` | ✓ | да | `iin` (расшифрован; null для нерезидента) — **PII** |
 | `is_resident` | boolean | ✓ | — | `is_resident` |
-| `sex_id` | string | ✓ | — | `sexId` (id `directories.Sex`) |
-| `country_id` | string | ✓ | — | `countryId` (id `directories.Country`) |
+| `sex_id` | string | ✓ | — | `sexId` (= `directories.Sex.sex_code`) |
+| `sex_name` | string | ✓ | да | `directories.Sex.name_rus` по `sex_code` |
+| `country_id` | string | ✓ | — | `countryId` (= `directories.Country.country_code`) |
+| `country_name` | string | ✓ | да | `directories.Country.name_rus` по `country_code` |
 | `post` | string | ✓ | — | `post` |
-| `doc_type_id` | string | ✓ | — | `docTypeId` (id `directories.DocumentType`) |
+| `doc_type_id` | string | ✓ | — | `docTypeId` (= `directories.DocumentType.doc_code`) |
+| `doc_type_name` | string | ✓ | да | `directories.DocumentType.name_rus` по `doc_code` |
 | `doc_series` | string | ✓ | — | `docSeries` |
 | `doc_number` | string | — | да | `docNumber` |
-| `doc_begin` | date `YYYY-MM-DD` | — | да | `docBegin` |
-| `doc_end` | date `YYYY-MM-DD` | — | да | `docEnd` |
+| `doc_begin` | date `DD.MM.YYYY` | — | да | `docBegin` |
+| `doc_end` | date `DD.MM.YYYY` | — | да | `docEnd` |
 | `doc_issue` | string | ✓ | — | `docIssue` |
 | `visit_objects` | string | ✓ | — | `visitObjects` |
-| `date_add` | datetime ISO8601 | ✓ | — | `dateAdd` |
-| `photo_file` | string `photos/…` | ✓ | — | путь в ZIP |
-| `doc_scan_file` | string `documents/…` | ✓ | — | путь в ZIP |
+| `date_add` | datetime `DD.MM.YYYY HH:MM:SS` | ✓ | — | `dateAdd` |
+| `photo_file` | string `photos/…` | ✓ | да | путь в ZIP (null, если файла нет на диске) |
+| `doc_scan_file` | string `documents/…` | ✓ | да | путь в ZIP (null, если файла нет на диске) |
 
-### Форматы значений (DRAFT-допущения)
-- **Даты:** ISO `YYYY-MM-DD`. **datetime:** ISO8601 с TZ (`2026-06-23T10:00:00+00:00`).
+### Форматы значений
+- **Даты:** `DD.MM.YYYY` (напр. `01.01.1990`). **datetime:** `DD.MM.YYYY HH:MM:SS` (напр. `23.06.2026 10:00:00`).
 - **Строки:** UTF-8. **Булевы:** JSON `true`/`false`.
 - **null:** отсутствующее опциональное значение передаётся как JSON `null`.
+- **Справочники:** для `country`/`sex`/`doc_type` отдаются ОБА — сырой код (`*_id`) и
+  человекочитаемое русское имя (`*_name`). `*_name` = `null`, если код не найден в справочнике.
 
 ### Пример валидного объекта
 ```json
@@ -76,33 +80,36 @@ export_5_Охрана_20260623T100000Z.zip
   "firstname": "Иван",
   "patronymic": "Петрович",
   "transcription": "Ivanov Ivan",
-  "birth_date": "1990-01-01",
+  "birth_date": "01.01.1990",
   "iin": "900101300007",
   "is_resident": true,
   "sex_id": "M",
+  "sex_name": "Мужской",
   "country_id": "1000000105",
+  "country_name": "Казахстан",
   "post": "Инженер",
   "doc_type_id": "passport",
+  "doc_type_name": "Паспорт",
   "doc_series": "AA",
   "doc_number": "123456",
-  "doc_begin": "2020-01-01",
-  "doc_end": "2030-01-01",
+  "doc_begin": "01.01.2020",
+  "doc_end": "01.01.2030",
   "doc_issue": "МВД",
   "visit_objects": "Объект A",
-  "date_add": "2026-06-23T10:00:00+00:00",
+  "date_add": "23.06.2026 10:00:00",
   "photo_file": "photos/123.jpg",
   "doc_scan_file": "documents/123.jpg"
 }
 ```
 
-## Открытые вопросы (требуют подтверждения downstream / Erda)
+## Решения v1.0 (утверждено Erda 2026-06-23)
 
-1. **🔴 Полный список полей и их форматы** — подтвердить/скорректировать таблицу выше реальными требованиями downstream.
-2. **ИИН в экспорте** — нужен ли расшифрованный ИИН (PII)? Если да — согласовать защиту канала передачи.
-3. **Справочники** (`country_id`/`sex_id`/`doc_type_id`) — отдавать ID (как сейчас) или человекочитаемое имя (рус/каз/англ)?
-4. **Формат дат** — `YYYY-MM-DD` или `DD.MM.YYYY`? datetime — ISO8601?
-5. **Медиа** — подтвердить отдельные файлы в `photos/`/`documents/` (vs base64-инлайн); допустимые форматы/макс. размер.
-6. **Идентификатор** записи — `attendee_id` (PK) или иной бизнес-ключ для связи JSON↔файлы?
+1. **Формат дат:** `DD.MM.YYYY`; datetime — `DD.MM.YYYY HH:MM:SS`.
+2. **Справочники** (`country`/`sex`/`doc_type`): отдаём ОБА — `*_id` (сырой код) и `*_name` (рус. имя из `directories.*`).
+3. **ИИН в экспорте:** включается расшифрованный ИИН для резидентов (`null` для нерезидентов). PII — канал передачи защищён, в логах ИИН маскируется (`mask_iin`).
+4. **Медиа:** отдельные файлы в `photos/`/`documents/` (не base64-инлайн); имя файла = `<attendee_id>.<ext>`.
+5. **Идентификатор записи** в JSON: `attendee_id` (PK `Attendee.id`) — он же связывает JSON с медиафайлами.
+6. **Источник формата:** формального документа downstream нет; формат зафиксирован решениями Project Lead. При появлении реальных требований downstream — bump версии по политике ниже.
 
 ## Политика версионирования (AC-5)
 
@@ -110,4 +117,5 @@ export_5_Охрана_20260623T100000Z.zip
 обновить `test_export_contract.py`, поднять версию (`1.0` → `1.1`/`2.0`) и добавить запись в историю.
 
 ## История версий
+- **1.0 (2026-06-23):** формат утверждён Project Lead (Erda). Снят DRAFT; зафиксированы даты `DD.MM.YYYY`, справочники `*_id`+`*_name`, ИИН для резидентов. Добавлены поля `sex_name`/`country_name`/`doc_type_name`.
 - **1.0-DRAFT (2026-06-23):** первичный черновик из модели `Attendee` (Story 4.1). Не подтверждён downstream.

@@ -233,6 +233,15 @@ class Attendee(models.Model):
         default=AttendeeStatus.DRAFT,
     )
 
+    def save(self, *args, **kwargs):
+        # Story 4.2 (review): пустой ИИН храним как NULL, не "".
+        # iin — EncryptedCharField, фильтрация по значению невозможна, поэтому
+        # единственный надёжный маркер «ИИН не заполнен» — IS NULL. "" обходил бы
+        # флаг дашборда (Story 4.2) и любую isnull-проверку.
+        if self.iin == "":
+            self.iin = None
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return self.firstname + " " + (self.iin or "")
 
