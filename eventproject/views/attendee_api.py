@@ -69,12 +69,8 @@ class AttendeeViewSet(viewsets.ModelViewSet):
         return qs
 
     def perform_create(self, serializer):
-        req = serializer.validated_data.get("request")
-        # Нельзя создать участника в чужом мероприятии (RBAC).
-        if req is None or not get_operator_events(self.request.user).filter(
-            id=req.event_id
-        ).exists():
-            raise PermissionDenied("Нет доступа к этому мероприятию.")
+        # RBAC-проверка владения мероприятием выполняется в
+        # AttendeeSerializer.validate() (единый источник для create и update).
         # status по умолчанию draft; dateAdd ставит сервер.
         attendee = serializer.save(dateAdd=timezone.now())
         audit_log(
@@ -92,17 +88,35 @@ class AttendeeViewSet(viewsets.ModelViewSet):
             raise PermissionDenied(_EDIT_LOCKED_MESSAGE)
         return instance
 
+    def _audit_write(self, request, action, obj_id):
+        # Аудит мутаций/удаления PII (Story 3.4 review): audit.py документирует
+        # attendee.update / attendee.delete как ожидаемые экшены.
+        audit_log(
+            user=request.user,
+            action=action,
+            obj_type="Attendee",
+            obj_id=str(obj_id),
+            ip=request.META.get("REMOTE_ADDR", ""),
+        )
+
     def update(self, request, *args, **kwargs):
-        self._ensure_editable()
-        return super().update(request, *args, **kwargs)
+        instance = self._ensure_editable()
+        response = super().update(request, *args, **kwargs)
+        self._audit_write(request, "attendee.update", instance.pk)
+        return response
 
     def partial_update(self, request, *args, **kwargs):
-        self._ensure_editable()
-        return super().partial_update(request, *args, **kwargs)
+        instance = self._ensure_editable()
+        response = super().partial_update(request, *args, **kwargs)
+        self._audit_write(request, "attendee.update", instance.pk)
+        return response
 
     def destroy(self, request, *args, **kwargs):
-        self._ensure_editable()
-        return super().destroy(request, *args, **kwargs)
+        instance = self._ensure_editable()
+        obj_id = instance.pk
+        response = super().destroy(request, *args, **kwargs)
+        self._audit_write(request, "attendee.delete", obj_id)
+        return response
 
     # ── Переход draft → submitted (операторский submit, AC-6) ────────────
     @action(detail=True, methods=["post"], permission_classes=[IsOperator])

@@ -56,13 +56,13 @@
                 </div>
                 <div class="form-group col-md-2 mb-2" id="iin_group">
                     <label for="iin" id="iin_label" class="req">ИИН</label>
-                    <input type="text" class="form-control" value="{{ attendee.iin }}" name="iin" id="iin" minlength="12" maxlength="12" oninput="process(this)">
+                    <input type="text" class="form-control" value="{% if form_data %}{{ form_data.iin }}{% else %}{{ attendee.iin }}{% endif %}" name="iin" id="iin" minlength="12" maxlength="12" oninput="process(this)">
                     <span id="iin_ok" class="iin-ok" style="display:none;">✅ Формат ИИН верный</span>
                     {% if iin_error %}<div class="iin-error">{{ iin_error }}</div>{% endif %}
                 </div>
                 <div class="form-group col-md-2 mb-2">
                     <label for="dob" class="req">Дата рождения</label>
-                    <input type="date" required class="form-control" value="{{ attendee.birthDate|default:''|date:'Y-m-d' }}" name="dob">
+                    <input type="date" required class="form-control" value="{% if form_data %}{{ form_data.dob }}{% else %}{{ attendee.birthDate|default:''|date:'Y-m-d' }}{% endif %}" name="dob">
                 </div>
                 <div class="form-group col-md-2 mb-2">
                     <label for="sex" class="req">Пол</label>
@@ -113,11 +113,11 @@
                 </div>
                 <div class="form-group col-md-2 mb-2">
                     <label for="doc_date_start" class="req">Дата выдачи</label>
-                    <input type="date" required class="form-control" value="{{ attendee.docBegin|date:'Y-m-d' }}" name="doc_date_start">
+                    <input type="date" required class="form-control" value="{% if form_data %}{{ form_data.doc_date_start }}{% else %}{{ attendee.docBegin|date:'Y-m-d' }}{% endif %}" name="doc_date_start">
                 </div>
                 <div class="form-group col-md-2 mb-2">
                     <label for="doc_date_end" class="req">Действителен до</label>
-                    <input type="date" required class="form-control" value="{{ attendee.docEnd|default:''|date:'Y-m-d' }}" name="doc_date_end">
+                    <input type="date" required class="form-control" value="{% if form_data %}{{ form_data.doc_date_end }}{% else %}{{ attendee.docEnd|default:''|date:'Y-m-d' }}{% endif %}" name="doc_date_end">
                 </div>
                 <div class="form-group col-md-2 mb-2">
                     <label for="doc_issuer">Кем выдан</label>

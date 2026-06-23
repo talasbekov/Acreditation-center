@@ -338,6 +338,10 @@ def update_attendee(request, attendee_id):
                     "Attendee information updated successfully"
                 )
 
+            # Story 3.5 review (2026-06-23): сохранить введённые значения при
+            # ошибке валидации — иначе date-поля (dob/docBegin/docEnd) обнуляются,
+            # т.к. шаблон применяет |date к POST-строке. Паритет с add_attendee.
+            context_dict["form_data"] = request.POST
             context_dict.update(_update_attendee_context(attendee))
 
             if "error_message" in context_dict:

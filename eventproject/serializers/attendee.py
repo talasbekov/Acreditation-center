@@ -6,8 +6,10 @@
 """
 
 from rest_framework import serializers
+from rest_framework.exceptions import PermissionDenied
 
 from eventproject.models import Attendee, Request
+from eventproject.serializers.rbac import get_operator_events
 from eventproject.validators.iin import event_has_iin_duplicate
 from eventproject.validators.residency import resolve_residency
 
@@ -58,6 +60,21 @@ class AttendeeSerializer(serializers.ModelSerializer):
                 return attrs[field]
             return getattr(instance, field, None)
 
+        req = current("request")
+
+        # RBAC (Story 3.4 review 2026-06-23): участник может принадлежать ТОЛЬКО
+        # мероприятию оператора. Проверяем ДО любых event-scoped запросов — иначе
+        # дедуп-запрос ниже утечёт факт существования ИИН в чужом мероприятии
+        # (400 раньше 403). Эта же проверка закрывает RBAC-bypass на update:
+        # `request` writable, поэтому без неё участника можно переназначить на
+        # Request чужого события. Единый источник RBAC для create и update.
+        request_obj = self.context.get("request")
+        if request_obj is not None and req is not None:
+            if not get_operator_events(request_obj.user).filter(
+                id=req.event_id
+            ).exists():
+                raise PermissionDenied("Нет доступа к этому мероприятию.")
+
         country_id = current("countryId")
         iin = current("iin")
         birth_date = current("birthDate")
@@ -70,13 +87,11 @@ class AttendeeSerializer(serializers.ModelSerializer):
         attrs["iin"] = result.iin  # None для нерезидента
 
         # Дедуп ИИН резидента РК в рамках мероприятия (паритет legacy).
-        if result.is_resident and result.iin:
-            req = current("request")
-            if req is not None:
-                existing = Attendee.objects.filter(request__event=req.event)
-                exclude_pk = instance.pk if instance is not None else None
-                if event_has_iin_duplicate(existing, result.iin, exclude_pk=exclude_pk):
-                    raise serializers.ValidationError(
-                        {"iin": "Участник с этим ИИН уже добавлен в это мероприятие."}
-                    )
+        if result.is_resident and result.iin and req is not None:
+            existing = Attendee.objects.filter(request__event=req.event)
+            exclude_pk = instance.pk if instance is not None else None
+            if event_has_iin_duplicate(existing, result.iin, exclude_pk=exclude_pk):
+                raise serializers.ValidationError(
+                    {"iin": "Участник с этим ИИН уже добавлен в это мероприятие."}
+                )
         return attrs

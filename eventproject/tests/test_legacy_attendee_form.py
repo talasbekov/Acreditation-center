@@ -192,3 +192,16 @@ class LegacyAttendeeFormValidationTest(TestCase):
         self.assertContains(response, "контрольная цифра")
         attendee.refresh_from_db()
         self.assertEqual(attendee.iin, VALID_IIN)  # запись не перезаписана
+
+    # ── update (RU): при ошибке валидации введённые даты не теряются (AC-2) ──
+    def test_update_invalid_iin_preserves_typed_dates(self):
+        attendee = self._create_attendee(iin=VALID_IIN)
+        response = self.client.post(
+            "/update_attendee/%d/" % attendee.id,
+            self._payload(iin=INVALID_IIN, dob="1992-03-15"),
+            REMOTE_ADDR="127.0.0.1",
+        )
+        self.assertContains(response, "контрольная цифра")
+        # До фикса date-поля рендерились |date по POST-строке → пусто.
+        self.assertContains(response, 'value="1992-03-15"')  # введённая дата рождения
+        self.assertContains(response, 'value="2020-01-01"')  # дата выдачи документа

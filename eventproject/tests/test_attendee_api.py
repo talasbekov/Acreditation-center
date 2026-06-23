@@ -195,3 +195,50 @@ class AttendeePermissionTests(AttendeeApiBase):
         client = APIClient()
         resp = client.get("/api/v1/attendees/")
         self.assertIn(resp.status_code, (401, 403))
+
+
+class AttendeeReviewPatchTests(AttendeeApiBase):
+    """Story 3.4 — фиксы код-ревью (2026-06-23)."""
+
+    def test_update_cannot_move_to_foreign_event(self):
+        # Critical: writable `request` без RBAC-проверки на update позволял увести
+        # участника в чужое мероприятие. Теперь validate() это блокирует (403).
+        resp = self.client.patch(
+            f"/api/v1/attendees/{self.attendee1.id}/",
+            {"request": self.request2.id},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 403)
+        self.attendee1.refresh_from_db()
+        self.assertEqual(self.attendee1.request_id, self.request1.id)
+
+    def test_create_foreign_event_is_403_before_dedup(self):
+        # Info-leak: attendee2 уже имеет VALID_IIN в event2 (чужом). Без фикса
+        # дедуп сработал бы первым (400 «уже добавлен» = утечка). RBAC раньше
+        # дедупа → 403, факт существования ИИН не раскрывается.
+        resp = self.client.post(
+            "/api/v1/attendees/",
+            self._payload(
+                request=self.request2.id, iin=VALID_IIN, birthDate="1985-12-05"
+            ),
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 403)
+
+    @patch("eventproject.views.attendee_api.audit_log")
+    def test_update_emits_audit(self, mock_audit):
+        resp = self.client.patch(
+            f"/api/v1/attendees/{self.attendee1.id}/",
+            {"post": "Обновлён"},
+            format="json",
+        )
+        self.assertEqual(resp.status_code, 200)
+        actions = [c.kwargs.get("action") for c in mock_audit.call_args_list]
+        self.assertIn("attendee.update", actions)
+
+    @patch("eventproject.views.attendee_api.audit_log")
+    def test_delete_emits_audit(self, mock_audit):
+        resp = self.client.delete(f"/api/v1/attendees/{self.attendee1.id}/")
+        self.assertEqual(resp.status_code, 204)
+        actions = [c.kwargs.get("action") for c in mock_audit.call_args_list]
+        self.assertIn("attendee.delete", actions)
