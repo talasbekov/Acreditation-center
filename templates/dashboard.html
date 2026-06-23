@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Дашборд статусов — {{ event.name_rus|default:event.title|default:event.event_code }}</title>
+    <style>
+        /* Anti-fatigue: крупный шрифт, высокий контраст. */
+        body { font-family: system-ui, Arial, sans-serif; font-size: 18px; color: #1a1a1a;
+               background: #f5f6f8; margin: 0; padding: 24px; }
+        h1 { font-size: 28px; margin: 0 0 4px; }
+        .sub { color: #555; margin-bottom: 24px; }
+        .cards { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 28px; }
+        .card { flex: 1 1 180px; background: #fff; border-radius: 10px; padding: 18px 20px;
+                box-shadow: 0 1px 3px rgba(0,0,0,.12); border-left: 6px solid #ccc; }
+        .card .num { font-size: 40px; font-weight: 700; line-height: 1; }
+        .card .lbl { font-size: 16px; color: #444; margin-top: 6px; }
+        .card.ready { border-left-color: #198754; }
+        .card.review { border-left-color: #fd7e14; }
+        .card.draft { border-left-color: #6c757d; }
+        .card.exported { border-left-color: #0d6efd; }
+        .all-ready { background: #d1e7dd; color: #0f5132; padding: 18px 22px; border-radius: 10px;
+                     font-size: 22px; font-weight: 600; margin-bottom: 28px; }
+        .flags h2 { font-size: 22px; }
+        .flag { background: #fff; border-radius: 10px; padding: 16px 20px; margin-bottom: 16px;
+                box-shadow: 0 1px 3px rgba(0,0,0,.1); border-left: 6px solid #dc3545; }
+        .flag .ftitle { font-size: 19px; font-weight: 600; color: #842029; }
+        .flag ul { margin: 10px 0 0; padding-left: 22px; }
+        .flag li { margin: 4px 0; }
+        .flag a { color: #0d6efd; text-decoration: none; font-size: 18px; }
+        .flag a:hover { text-decoration: underline; }
+        .empty { color: #198754; font-weight: 600; }
+        .overflow { color: #842029; font-style: italic; margin-top: 8px; }
+    </style>
+</head>
+<body>
+    <h1>Дашборд статусов</h1>
+    <div class="sub">{{ event.name_rus|default:event.title|default:event.event_code }} · всего участников: {{ total }}</div>
+
+    <div class="cards">
+        <div class="card ready"><div class="num">{{ ready }}</div><div class="lbl">✅ Готовы (ready)</div></div>
+        <div class="card review"><div class="num">{{ review }}</div><div class="lbl">🔄 На проверке (submitted + in_review)</div></div>
+        <div class="card draft"><div class="num">{{ draft }}</div><div class="lbl">✏️ Черновики (draft)</div></div>
+        <div class="card exported"><div class="num">{{ exported }}</div><div class="lbl">📦 Выгружены (exported)</div></div>
+    </div>
+
+    {% if all_ready %}
+        <div class="all-ready">✅ Все {{ total }} участников готовы к экспорту</div>
+    {% endif %}
+
+    <div class="flags">
+        <h2>🚩 Требуют проверки{% if flags_total %} ({{ flags_total }}){% endif %}</h2>
+        {% for flag in flags %}
+            <div class="flag">
+                <div class="ftitle">{{ flag.label }} — {{ flag.shown }} записей</div>
+                {% if flag.items %}
+                    <ul>
+                        {% for a in flag.items %}
+                            <li><a href="/update_attendee/{{ a.id }}/">{{ a.name|default:a.id }}</a></li>
+                        {% endfor %}
+                    </ul>
+                    {% if flag.overflow %}
+                        <div class="overflow">Показаны первые {{ flag.shown }} — есть ещё. Уточните выборку.</div>
+                    {% endif %}
+                {% else %}
+                    <div class="empty">Нет записей с этой проблемой.</div>
+                {% endif %}
+            </div>
+        {% endfor %}
+    </div>
+</body>
+</html>
