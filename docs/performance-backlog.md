@@ -26,6 +26,9 @@ The `docs/load_tests/locustfile.py` harness was hardened during code review of S
 *   **DONE:** the `2026-04-14` baseline's `nfr5_compliance.compliant` corrected from `true` → `null` (a 100-user SQLite run cannot assert NFR5 at 3000 users).
 
 **Still required before Story 1.7 can be signed off (operational — needs infrastructure, cannot be done in the dev container):**
+
+> **Canonical owner (descope 2026-06-23, correct-course):** As of the Story 1.7 descope, this section is the **single source of truth** for the operational 3000-user run. Story 1.7 is `done` at the harness level; the live run below closes the full AC-1, AC-2 (final NFR5 verdict) and AC-3 (Redis cache-hit). Also the shared blocker for Story 4.2 AC-6. Tracked in `_bmad-output/implementation-artifacts/deferred-work.md`.
+
 1.  Stand up a production-like environment (PostgreSQL + Redis) over **HTTPS** (or a load-test settings override: `SECURE_SSL_REDIRECT=False`, `*_COOKIE_SECURE=False`).
 2.  Disable/relax **django-axes** (`AXES_FAILURE_LIMIT=10`) and the `/add_attendee/` **ratelimit** (`20/h`) for the load-test source, or use a pool of accounts/IPs.
 3.  Seed `TEST_USER`/`TEST_PASS`, a valid `Event` + `Request` (`TEST_REQUEST_ID`), and FK ids (`SEX_ID`/`COUNTRY_ID`/`DOCTYPE_ID`).

@@ -1,0 +1,13 @@
+# Development / tooling-only dependencies — NOT required at runtime.
+# Вынесено из requirements.txt в рамках Story 1.8 (Strangler Fig Scope Remediation, 2026-06-23):
+# эти пакеты не импортируются runtime-кодом приложения.
+#
+# Установка для разработки:  pip install -r requirements.txt -r requirements-dev.txt
+
+# Форматтер кода (+ его dev-only зависимости mypy-extensions, pathspec)
+black==24.10.0
+mypy-extensions==1.0.0
+pathspec==0.12.1
+
+# Нагрузочное тестирование (harness Story 1.7 — docs/load_tests/locustfile.py)
+locust==2.32.3
