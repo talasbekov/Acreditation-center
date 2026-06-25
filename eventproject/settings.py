@@ -2,10 +2,8 @@
 import logging
 from pathlib import Path
 from decouple import config, Csv
-from celery.schedules import crontab
 
 from eventproject.env_config import parse_bool_flag, require_env
-from eventproject.redis_config import redis_url_for_db
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -79,7 +77,6 @@ INSTALLED_APPS = [
     "directories",
     "django_crontab",
     "qr_event",
-    'django_celery_beat'
 ]
 
 MIDDLEWARE = [
@@ -176,29 +173,18 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 50,
 }
 
-# Один базовый REDIS_URL (его задаёт docker-compose / managed-Redis: host/port/auth)
-# питает и кэш, и celery. Конкретные REDIS_CACHE_URL/CELERY_* по-прежнему имеют приоритет
-# для тонкой настройки, но если их нет — берём базовый URL, а не хардкод redis://redis:6379.
-REDIS_URL = config("REDIS_URL", default="redis://redis:6379/0")
-
+# Кэш: DatabaseCache (общий для всех воркеров gunicorn, без внешнего сервиса). Redis
+# убран — его использовали только кэш дашборда (4.2) и django-ratelimit; оба переходят
+# на БД. Таблицу кэша создаёт `python manage.py createcachetable` (идемпотентно).
+# При необходимости можно переопределить бэкенд через окружение (managed-Redis и т.п.).
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": config("REDIS_CACHE_URL", default=redis_url_for_db(REDIS_URL, 1)),
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "eventproject_cache",
         "KEY_PREFIX": "eventproject",
         "TIMEOUT": 300,
     },
 }
-
-
-# Celery настройки
-CELERY_BROKER_URL = config("CELERY_BROKER_URL", default=redis_url_for_db(REDIS_URL, 0))
-CELERY_RESULT_BACKEND = config("CELERY_RESULT_BACKEND", default=redis_url_for_db(REDIS_URL, 0))
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'Asia/Almaty'
-CELERY_ENABLE_UTC = True
 
 # Email (Story 2.3 — онбординг операторов). Значения берутся из .env; по умолчанию
 # console-backend (письма печатаются в stdout), чтобы dev/CI не требовали SMTP.

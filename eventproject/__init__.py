@@ -1,3 +1,2 @@
-from .celery import app as celery_app
-
-__all__ = ('celery_app',)
+# Celery убран (избыточен: активных задач/расписания не было; импорт KazExpo — на
+# django-crontab). Если понадобится фоновая обработка — вернуть celery app здесь.
