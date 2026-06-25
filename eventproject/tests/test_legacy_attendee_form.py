@@ -177,9 +177,28 @@ class LegacyAttendeeFormValidationTest(TestCase):
     # ── FR23/AC-2: несовпадение ИИН↔дата рождения — дословное сообщение ──
     def test_iin_birthdate_mismatch_message(self):
         # VALID_IIN кодирует 01.01.1990; введём другую дату рождения.
-        response = self._post(ADD_ENDPOINTS[0], dob="1985-05-12")
-        self.assertEqual(Attendee.objects.count(), 0)
-        self.assertContains(response, "не совпадает")
+        # BE-16b: покрываем ВСЕ три локали — KZ/EN не должны обходить валидацию (NFR8).
+        for endpoint in ADD_ENDPOINTS:
+            with self.subTest(endpoint=endpoint):
+                Attendee.objects.all().delete()
+                cache.clear()
+                response = self._post(endpoint, dob="1985-05-12")
+                self.assertEqual(Attendee.objects.count(), 0)
+                self.assertContains(response, "не совпадает")
+
+    # ── BE-16a: нерезидент, отправивший непустой ИИН → ИИН отбрасывается ──
+    def test_non_resident_with_posted_iin_discards_iin(self):
+        # citizenship важнее posted-iin: нерезидент сохраняется с iin=NULL даже если
+        # ИИН передан (и валиден). Покрываем все три локали (NFR8).
+        for endpoint in ADD_ENDPOINTS:
+            with self.subTest(endpoint=endpoint):
+                Attendee.objects.all().delete()
+                cache.clear()
+                response = self._post(endpoint, citizenship=NON_KZ, iin=VALID_IIN)
+                self.assertEqual(response.status_code, 200)
+                attendee = Attendee.objects.get(surname="Тестовский")
+                self.assertIsNone(attendee.iin)
+                self.assertFalse(attendee.is_resident)
 
     # ── update (RU): некорректный ИИН не перезаписывает запись ──
     def test_update_invalid_iin_blocks_save(self):
@@ -192,6 +211,18 @@ class LegacyAttendeeFormValidationTest(TestCase):
         self.assertContains(response, "контрольная цифра")
         attendee.refresh_from_db()
         self.assertEqual(attendee.iin, VALID_IIN)  # запись не перезаписана
+
+    def test_update_invalid_iin_error_shown_once(self):
+        # BE-17: сообщение об ошибке ИИН рендерится РОВНО ОДИН раз (inline iin_error).
+        # gov_base.html не выводит верхний error_message, поэтому видимого дубля нет;
+        # guard фиксирует «один раз» против регрессии (если кто-то добавит баннер).
+        attendee = self._create_attendee(iin=VALID_IIN)
+        response = self.client.post(
+            "/update_attendee/%d/" % attendee.id,
+            self._payload(iin=INVALID_IIN),
+            REMOTE_ADDR="127.0.0.1",
+        )
+        self.assertContains(response, "неверная контрольная цифра", count=1)
 
     # ── update (RU): при ошибке валидации введённые даты не теряются (AC-2) ──
     def test_update_invalid_iin_preserves_typed_dates(self):

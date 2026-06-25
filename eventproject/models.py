@@ -5,7 +5,11 @@ from django.db import models
 from django.contrib.auth.models import User
 
 from eventproject.fernet_fields import EncryptedCharField
-from eventproject.state_machine import ATTENDEE_STATUS_CHOICES, AttendeeStatus
+from eventproject.state_machine import (
+    ATTENDEE_STATUS_CHOICES,
+    ATTENDEE_STATUSES,
+    AttendeeStatus,
+)
 
 
 IIN_ENCRYPTION_HELP_TEXT = (
@@ -52,6 +56,14 @@ class Category(models.Model):
     )
     name = models.CharField(max_length=128)
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+
+    class Meta:
+        # BE-7: в одном мероприятии не должно быть двух одноимённых категорий.
+        constraints = [
+            models.UniqueConstraint(
+                fields=["event", "name"], name="uniq_category_event_name"
+            ),
+        ]
 
     def __str__(self):
         return f"{self.event.title or self.event.name_rus} - {self.name}"
@@ -232,6 +244,16 @@ class Attendee(models.Model):
         choices=ATTENDEE_STATUS_CHOICES,
         default=AttendeeStatus.DRAFT,
     )
+
+    class Meta:
+        # BE-9: статус ограничен FSM-набором и на уровне БД — прямой
+        # `attendee.status="bogus"; save()` отклоняется (не только форма/сериализатор).
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(status__in=list(ATTENDEE_STATUSES)),
+                name="attendee_status_valid",
+            ),
+        ]
 
     def save(self, *args, **kwargs):
         # Story 4.2 (review): пустой ИИН храним как NULL, не "".

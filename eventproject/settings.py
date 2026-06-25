@@ -2,10 +2,8 @@
 import logging
 from pathlib import Path
 from decouple import config, Csv
-from celery.schedules import crontab
 
 from eventproject.env_config import parse_bool_flag, require_env
-from eventproject.redis_config import redis_url_for_db
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -53,9 +51,12 @@ APPEND_SLASH = True
 # CSRF и CORS настройки
 CSRF_TRUSTED_ORIGINS = config("CSRF_TRUSTED_ORIGINS", default="", cast=Csv())
 
-CSRF_COOKIE_SECURE = True
+# Secure-cookie по умолчанию True (прод за TLS). Локальный HTTP-стек (runserver без
+# TLS) переопределяет в False через окружение — иначе браузер не шлёт Secure-cookie
+# по HTTP и логин/CSRF не работают.
+CSRF_COOKIE_SECURE = _env_flag("CSRF_COOKIE_SECURE", default=True)
 CSRF_COOKIE_SAMESITE = 'Strict'
-SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = _env_flag("SESSION_COOKIE_SECURE", default=True)
 SECURE_HSTS_SECONDS = config("SECURE_HSTS_SECONDS", default=31536000, cast=int)
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_SSL_REDIRECT = _env_flag("SECURE_SSL_REDIRECT", default=True)
@@ -79,11 +80,13 @@ INSTALLED_APPS = [
     "directories",
     "django_crontab",
     "qr_event",
-    'django_celery_beat'
 ]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # WhiteNoise отдаёт STATIC_ROOT напрямую — и в dev (runserver при DEBUG=False),
+    # и в prod (gunicorn). Без него Django статику не обслуживает (нужен был бы nginx).
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "axes.middleware.AxesMiddleware",  # django-axes middleware
@@ -176,29 +179,18 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 50,
 }
 
-# Один базовый REDIS_URL (его задаёт docker-compose / managed-Redis: host/port/auth)
-# питает и кэш, и celery. Конкретные REDIS_CACHE_URL/CELERY_* по-прежнему имеют приоритет
-# для тонкой настройки, но если их нет — берём базовый URL, а не хардкод redis://redis:6379.
-REDIS_URL = config("REDIS_URL", default="redis://redis:6379/0")
-
+# Кэш: DatabaseCache (общий для всех воркеров gunicorn, без внешнего сервиса). Redis
+# убран — его использовали только кэш дашборда (4.2) и django-ratelimit; оба переходят
+# на БД. Таблицу кэша создаёт `python manage.py createcachetable` (идемпотентно).
+# При необходимости можно переопределить бэкенд через окружение (managed-Redis и т.п.).
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": config("REDIS_CACHE_URL", default=redis_url_for_db(REDIS_URL, 1)),
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "eventproject_cache",
         "KEY_PREFIX": "eventproject",
         "TIMEOUT": 300,
     },
 }
-
-
-# Celery настройки
-CELERY_BROKER_URL = config("CELERY_BROKER_URL", default=redis_url_for_db(REDIS_URL, 0))
-CELERY_RESULT_BACKEND = config("CELERY_RESULT_BACKEND", default=redis_url_for_db(REDIS_URL, 0))
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'Asia/Almaty'
-CELERY_ENABLE_UTC = True
 
 # Email (Story 2.3 — онбординг операторов). Значения берутся из .env; по умолчанию
 # console-backend (письма печатаются в stdout), чтобы dev/CI не требовали SMTP.
@@ -324,6 +316,9 @@ LOGGING = {
             "maxBytes": 5 * 1024 * 1024,   # 5 MB
             "backupCount": 3,
             "formatter": "verbose",
+            # BE-14: тот же structured_context, что и у console_json — консистентность
+            # (запись несёт audit-поля; для их ВЫВОДА в файл сменить formatter на json).
+            "filters": ["structured_context"],
         },
     },
     "root": {

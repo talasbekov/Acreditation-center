@@ -41,6 +41,22 @@ RUN useradd --create-home --shell /bin/bash app \
 # (build-arg UID=$(id -u)) или используйте именованный том, а не запуск под root.
 USER app
 
+# Собираем статику на этапе build → self-contained образ; /app/staticfiles принадлежит
+# `app`. Именованный том staticfiles_data (compose) инициализируется отсюда с этими же
+# правами, поэтому рантайм-collectstatic больше не упирается в права хоста.
+# django.setup() при collectstatic НЕ трогает БД/Redis (ready() лишь регистрирует
+# signal-receiver'ы). Dummy-значения нужны только для импорта settings (require_env);
+# валидный Fernet-ключ генерируется на лету (EncryptedCharField парсит ключ при загрузке
+# моделей). В рантайме все эти значения заменяются из .env/окружения.
+RUN FERNET_KEYS="$(python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')" \
+    SECRET_KEY=build-only \
+    AVALON_API_KEY=build \
+    KAZENERGY_API_KEY=build \
+    ALLOWED_HOSTS=* \
+    DB_NAME=build DB_USER=build DB_PASSWORD=build \
+    DJANGO_SETTINGS_MODULE=eventproject.settings \
+    python manage.py collectstatic --noinput
+
 # Открываем порт
 EXPOSE 8000
 

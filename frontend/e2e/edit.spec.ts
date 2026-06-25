@@ -32,6 +32,11 @@ test.describe('Редактирование участника (Story 5.5 + P2-2
     await page.route('**/api/v1/csrf/', (r) =>
       r.fulfill({ status: 200, json: { detail: 'ok' } }),
     )
+    // FE-3: session-check проходит через rbac-пробник → мокаем 200, иначе
+    // RequireAuth не пустит на страницу и 404-detail не отрендерится.
+    await page.route('**/api/v1/rbac-check/', (r) =>
+      r.fulfill({ status: 200, json: { role: 'operator' } }),
+    )
     // Конкретный detail → 404 (регистрируем ДО catch-all, чтобы fallback его достиг).
     await page.route('**/api/v1/attendees/1/', (r) =>
       r.fulfill({ status: 404, json: { detail: 'Not found' } }),

@@ -70,8 +70,11 @@ class AttendeeViewSet(viewsets.ModelViewSet):
         )
 
         # Story 3.4 (AC-5): фильтры списка.
+        # BE-10: присутствующий параметр (даже пустой) должен быть валиден — иначе
+        # 400. Отсутствующий (None) → фильтр не применяется. Пустая строка `?x=`
+        # больше не игнорируется молча (консистентно с невалидным значением).
         category_id = self.request.query_params.get("category_id")
-        if category_id:
+        if category_id is not None:
             try:
                 category_id = int(category_id)
             except (TypeError, ValueError):
@@ -79,7 +82,7 @@ class AttendeeViewSet(viewsets.ModelViewSet):
             qs = qs.filter(category_id=category_id)
 
         status_param = self.request.query_params.get("status")
-        if status_param:
+        if status_param is not None:
             if status_param not in ATTENDEE_STATUSES:
                 raise ValidationError(
                     {"status": f"Допустимые значения: {sorted(ATTENDEE_STATUSES)}"}

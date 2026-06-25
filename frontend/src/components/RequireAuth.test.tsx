@@ -3,9 +3,10 @@ import { render, screen, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ApiError } from '@/api/client'
 
-// Нет сессии: authed-запрос отклоняется с 401.
-vi.mock('@/api/attendees', () => ({
-  getAttendees: vi.fn(() => Promise.reject(new ApiError(401, 'Не аутентифицирован'))),
+// FE-3: RequireAuth проверяет сессию через rbac-пробник checkSession (не список
+// участников). Нет сессии: пробник отклоняется с 401.
+vi.mock('@/api/auth', () => ({
+  checkSession: vi.fn(() => Promise.reject(new ApiError(401, 'Не аутентифицирован'))),
 }))
 vi.mock('@/lib/auth', () => ({
   redirectToLogin: vi.fn(),
@@ -13,6 +14,7 @@ vi.mock('@/lib/auth', () => ({
 
 import { RequireAuth } from './RequireAuth'
 import { redirectToLogin } from '@/lib/auth'
+import { checkSession } from '@/api/auth'
 
 function renderGuard() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -37,5 +39,10 @@ describe('RequireAuth (AC-2)', () => {
     renderGuard()
     await waitFor(() => expect(redirectToLogin).toHaveBeenCalled())
     expect(screen.queryByText('секретное содержимое')).not.toBeInTheDocument()
+  })
+
+  it('FE-3: проверяет сессию через checkSession (rbac-пробник), не список участников', async () => {
+    renderGuard()
+    await waitFor(() => expect(checkSession).toHaveBeenCalled())
   })
 })

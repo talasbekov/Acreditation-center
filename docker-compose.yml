@@ -8,23 +8,11 @@ services:
     environment:
       - POSTGRES_DB=eventdb
       - POSTGRES_USER=event
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      - POSTGRES_PASSWORD=aktobe
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U event -d eventdb"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  redis:
-    image: redis:7.4-alpine
-    container_name: accr-redis
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:6379:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -41,7 +29,10 @@ services:
       - ./:/app
       - ./media:/app/media
       - ./static:/app/static
-      - ./staticfiles:/app/staticfiles
+      # staticfiles — named volume (app-owned, инициализируется из образа), а НЕ
+      # host bind-mount: иначе Docker создаёт ./staticfiles как root и collectstatic
+      # (контейнер бежит под app) падает с PermissionError → крашлуп.
+      - staticfiles_data:/app/staticfiles
       - ./logs:/app/logs
       - tmp_archives:/tmp
     environment:
@@ -52,7 +43,16 @@ services:
       - DB_NAME=eventdb
       - DB_USER=event
       - DB_PASSWORD=${DB_PASSWORD:?Set DB_PASSWORD}
-      - REDIS_URL=redis://redis:6379/0
+      # Локальный стек по HTTP (runserver без TLS): без этого SECURE_SSL_REDIRECT
+      # шлёт 301→https (ломает health-check и доступ к приложению), а Secure-cookie
+      # не ходят по HTTP → логин/CSRF не работают. В проде (за TLS) НЕ задавать.
+      - SECURE_SSL_REDIRECT=False
+      - SESSION_COOKIE_SECURE=False
+      - CSRF_COOKIE_SECURE=False
+      # SPA (Vite :5173) проксирует /api → этот сервис (Host=accreditation-center).
+      # Разрешаем оба хоста + доверяем CSRF-origin фронта.
+      - ALLOWED_HOSTS=localhost,127.0.0.1,accreditation-center,0.0.0.0
+      - CSRF_TRUSTED_ORIGINS=http://localhost:5173,http://localhost:8000
     command: >
       bash -c "
       echo 'Waiting for database...' &&
@@ -61,6 +61,7 @@ services:
       done &&
       echo 'Database is ready. Starting application...' &&
       python manage.py migrate --noinput &&
+      python manage.py createcachetable &&
       python manage.py collectstatic --noinput &&
       python manage.py runserver 0.0.0.0:8000
       "
@@ -73,81 +74,29 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      redis:
-        condition: service_healthy
 
-  celery-worker:
-    build: .
-    image: accr-django:latest
-    container_name: accr-celery-worker
+  frontend:
+    build:
+      context: ./frontend
+    image: accr-frontend:latest
+    container_name: accr-frontend
     restart: unless-stopped
-    volumes:
-      - ./:/app
-      - ./media:/app/media
-      - ./logs:/app/logs
+    ports:
+      - "5173:5173"
     environment:
-      - PYTHONUNBUFFERED=1
-      - DJANGO_SETTINGS_MODULE=eventproject.settings
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_NAME=eventdb
-      - DB_USER=event
-      - DB_PASSWORD=${DB_PASSWORD:?Set DB_PASSWORD}
-      - REDIS_URL=redis://redis:6379/0
-    command: >
-      bash -c "
-      echo 'Waiting for dependencies...' &&
-      until pg_isready -h db -U event && redis-cli -h redis ping; do
-        sleep 1
-      done &&
-      echo 'Dependencies are ready. Starting Celery Worker...' &&
-      celery -A eventproject worker --loglevel=INFO --concurrency=2
-      "
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      accreditation-center:
-        condition: service_started
-
-  celery-beat:
-    build: .
-    image: accr-django:latest
-    container_name: accr-celery-beat
-    restart: unless-stopped
+      # Vite-proxy /api,/user_login → Django по имени сервиса (внутри compose-сети).
+      - VITE_BACKEND=http://accreditation-center:8000
     volumes:
-      - ./:/app
-      - ./media:/app/media
-      - ./logs:/app/logs
-    environment:
-      - PYTHONUNBUFFERED=1
-      - DJANGO_SETTINGS_MODULE=eventproject.settings
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_NAME=eventdb
-      - DB_USER=event
-      - DB_PASSWORD=${DB_PASSWORD:?Set DB_PASSWORD}
-      - REDIS_URL=redis://redis:6379/0
-    command: >
-      bash -c "
-      echo 'Waiting for dependencies...' &&
-      until pg_isready -h db -U event && redis-cli -h redis ping; do
-        sleep 1
-      done &&
-      echo 'Dependencies are ready. Starting Celery Beat...' &&
-      celery -A eventproject beat --loglevel=INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
-      "
+      - ./frontend:/app
+      # анонимный том — контейнерные node_modules (npm ci под linux) не затираются
+      # хостовыми (другой arch/платформа).
+      - /app/node_modules
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      accreditation-center:
-        condition: service_started
+      - accreditation-center
 
 volumes:
   tmp_archives:
+  staticfiles_data:
 
 networks:
   default:

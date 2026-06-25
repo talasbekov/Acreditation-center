@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getAttendees } from '@/api/attendees'
+import { checkSession } from '@/api/auth'
 import { ApiError } from '@/api/client'
 import { redirectToLogin } from '@/lib/auth'
 import { Button } from '@/components/ui/button'
@@ -10,11 +10,13 @@ import { Button } from '@/components/ui/button'
  * - 401/403 → redirect на /user_login/.
  * - прочие ошибки (500/сеть/CORS) → состояние ошибки с «Повторить» (не застреваем).
  * - успех → рендерит children.
+ * FE-3: пробник — `/api/v1/rbac-check/` (checkSession), а не `getAttendees`, чтобы
+ * не дублировать загрузку списка участников (AttendeesPage грузит его сам).
  */
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { isPending, error, refetch } = useQuery({
     queryKey: ['session-check'],
-    queryFn: () => getAttendees({ page_size: 1 }),
+    queryFn: checkSession,
     retry: false,
   })
 

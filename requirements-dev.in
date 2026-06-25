@@ -1,0 +1,8 @@
+# ── Прямые dev/tooling-зависимости — ИСТОЧНИК ПРАВДЫ (INFRA-1). ───────────────
+# Компилируется в requirements-dev.txt:
+#     pip-compile requirements-dev.in -o requirements-dev.txt
+# Транзитивные (mypy-extensions, pathspec — deps of black) подтянет pip-compile.
+
+pip-tools          # сам компилятор зависимостей (pin при первом compile)
+black==24.10.0
+locust==2.32.3

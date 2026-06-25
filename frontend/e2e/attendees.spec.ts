@@ -20,6 +20,10 @@ test.describe('Список участников (Story 5.1/5.5)', () => {
     await page.route('**/api/v1/csrf/', (route) =>
       route.fulfill({ status: 200, json: { detail: 'ok' } }),
     )
+    // FE-3: session-check идёт через rbac-пробник → именно он должен вернуть 403.
+    await page.route('**/api/v1/rbac-check/', (route) =>
+      route.fulfill({ status: 403, json: { detail: 'Forbidden' } }),
+    )
     await page.route('**/api/v1/attendees/**', (route) =>
       route.fulfill({ status: 403, json: { detail: 'Forbidden' } }),
     )
