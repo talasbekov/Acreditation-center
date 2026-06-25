@@ -21,12 +21,29 @@ export class ApiError extends Error {
 
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 
-async function safeJson(res: Response): Promise<ProblemDetail | undefined> {
+async function safeJson(res: Response): Promise<unknown> {
   try {
-    return (await res.json()) as ProblemDetail
+    return await res.json()
   } catch {
     return undefined
   }
+}
+
+/** Плоский объект-ошибка (RFC7807 или DRF `{detail}`/field-errors) — для `.field`/`.detail`. */
+function asProblem(body: unknown): ProblemDetail | undefined {
+  return body !== null && typeof body === 'object' && !Array.isArray(body)
+    ? (body as ProblemDetail)
+    : undefined
+}
+
+/** FE-4: не-RFC7807 тело тоже несёт текст. Приоритет: title → detail → строковое
+ *  тело → fallback `HTTP <status>` (раньше всё, кроме title, схлопывалось в HTTP). */
+function errorMessage(body: unknown, status: number): string {
+  if (typeof body === 'string' && body.trim()) return body
+  const p = asProblem(body)
+  const text = p?.title ?? p?.detail
+  if (typeof text === 'string' && text.trim()) return text
+  return `HTTP ${status}`
 }
 
 /**
@@ -55,8 +72,8 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   })
 
   if (!res.ok) {
-    const problem = await safeJson(res)
-    throw new ApiError(res.status, problem?.title ?? `HTTP ${res.status}`, problem)
+    const body = await safeJson(res)
+    throw new ApiError(res.status, errorMessage(body, res.status), asProblem(body))
   }
 
   if (res.status === 204) {

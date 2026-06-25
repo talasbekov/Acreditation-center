@@ -190,6 +190,16 @@ class AttendeeEditLockTests(AttendeeApiBase):
         resp = self.client.delete(f"/api/v1/attendees/{self.attendee1.id}/")
         self.assertEqual(resp.status_code, 403)
 
+    def test_put_locked_when_ready(self):
+        # BE-11: edit-lock покрывает и PUT (полное обновление), не только PATCH/DELETE
+        # (раньше явного PUT-кейса не было; поведение даёт общий _ensure_editable).
+        self.attendee1.status = "ready"
+        self.attendee1.save(update_fields=["status"])
+        resp = self.client.put(
+            f"/api/v1/attendees/{self.attendee1.id}/", self._payload(), format="json"
+        )
+        self.assertEqual(resp.status_code, 403)
+
     def test_edit_allowed_when_draft(self):
         resp = self.client.patch(
             f"/api/v1/attendees/{self.attendee1.id}/", {"post": "Новый"}, format="json"
@@ -228,6 +238,23 @@ class AttendeeRbacListTests(AttendeeApiBase):
     def test_invalid_category_filter_400(self):
         resp = self.client.get("/api/v1/attendees/", {"category_id": "abc"})
         self.assertEqual(resp.status_code, 400)
+
+    def test_empty_category_filter_400(self):
+        # BE-10: присутствующий, но пустой ?category_id= консистентен с невалидным
+        # (400), а не молча игнорируется (раньше 200 + полный список).
+        resp = self.client.get("/api/v1/attendees/", {"category_id": ""})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_empty_status_filter_400(self):
+        resp = self.client.get("/api/v1/attendees/", {"status": ""})
+        self.assertEqual(resp.status_code, 400)
+
+    def test_nonexistent_category_returns_empty_not_404(self):
+        # BE-10: фильтр по несуществующей категории → пустой список (корректная
+        # семантика list-фильтра), НЕ 404 — осознанно оставлено.
+        resp = self.client.get("/api/v1/attendees/", {"category_id": 999999})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["count"], 0)
 
 
 class AttendeeSubmitTests(AttendeeApiBase):

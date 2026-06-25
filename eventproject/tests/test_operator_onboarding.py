@@ -10,6 +10,7 @@ from rest_framework.test import APIClient
 
 from eventproject.models import Event, Operator
 from eventproject.services.operator_onboarding import (
+    create_operator,
     generate_password,
     generate_username,
 )
@@ -194,6 +195,36 @@ class CredentialGenerationTests(TestCase):
         User.objects.create_user(username=u1, password="x")
         u2 = generate_username("Иван", "Иванов")
         self.assertNotEqual(u1, u2)
+
+    def test_username_truncated_to_max_length(self):
+        # BE-8: очень длинная фамилия (unidecode расширяет кириллицу) не должна
+        # превышать User.username max_length=150 → ошибка БД.
+        max_len = User._meta.get_field("username").max_length
+        username = generate_username("Иван", "Ж" * 300)
+        self.assertLessEqual(len(username), max_len)
+
+    @patch("eventproject.services.operator_onboarding.User.objects.create_user")
+    def test_create_operator_retries_on_username_race(self, mock_create):
+        # BE-8: гонка уникальности username (другой онбординг создал тот же) → не 500,
+        # а retry со следующим суффиксом (savepoint изолирует неудачную попытку).
+        from django.db import IntegrityError
+
+        calls = {"n": 0}
+
+        def side_effect(**kw):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise IntegrityError("duplicate key value (гонка username)")
+            return User.objects.create(
+                username="retried.user", email=kw.get("email", "")
+            )
+
+        mock_create.side_effect = side_effect
+        operator, _pw = create_operator(
+            {"first_name": "Иван", "last_name": "Тестов", "email": "t@example.com"}
+        )
+        self.assertEqual(operator.user.username, "retried.user")
+        self.assertEqual(calls["n"], 2)
 
 
 class ForcePasswordChangeMiddlewareTests(TestCase):

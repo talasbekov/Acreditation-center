@@ -324,6 +324,9 @@ LOGGING = {
             "maxBytes": 5 * 1024 * 1024,   # 5 MB
             "backupCount": 3,
             "formatter": "verbose",
+            # BE-14: тот же structured_context, что и у console_json — консистентность
+            # (запись несёт audit-поля; для их ВЫВОДА в файл сменить formatter на json).
+            "filters": ["structured_context"],
         },
     },
     "root": {

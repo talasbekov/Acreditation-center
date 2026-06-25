@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from django.http import HttpResponse, HttpResponseForbidden
 from eventproject.models import Event, Operator, Request, Attendee
+from eventproject.view_helpers import require_operator
 from django.utils import timezone
 import datetime
 import logging
@@ -57,7 +58,7 @@ def application(request):
     user = request.user
     if user.is_superuser:
         return HttpResponseRedirect('/avmac/')
-    operator = Operator.objects.get(user=user)
+    operator = require_operator(user)
     cities = City.objects.all()
     if not operator:
         return HttpResponse("You are logged in.")
@@ -102,7 +103,7 @@ def create_request(request, event_id):
     try:
         event = Event.objects.get(pk=event_id)
         context_dict['event'] = event
-        operator = Operator.objects.get(user=request.user)
+        operator = require_operator(request.user)
         req = Request()
         now = timezone.now()
         req.name = now.strftime("%d%m%Y%H%M%S")
@@ -123,7 +124,7 @@ def show_request(request, request_id):
     try:
         req = Request.objects.get(pk=request_id)
         context_dict['req'] = req
-        operator = Operator.objects.get(user=request.user)
+        operator = require_operator(request.user)
         if req.created_by != operator:
             return HttpResponse("You are not authorised to see this page")
         attendees = Attendee.objects.filter(request = req)
@@ -171,7 +172,7 @@ def add_attendee(request, request_id):
         try:
             req = Request.objects.get(id = request_id)
             context_dict['req'] = req
-            operator = Operator.objects.get(user=request.user)
+            operator = require_operator(request.user)
             if req.created_by != operator:
                 return HttpResponse("You are not authorised to see this page")
         except Request.DoesNotExist:
@@ -183,31 +184,31 @@ def add_attendee(request, request_id):
         rid = request.POST['req_id']
         req = Request.objects.get(id = rid)
         try:
-            operator = Operator.objects.get(user=request.user)
+            operator = require_operator(request.user)
         except Operator.DoesNotExist:
             return HttpResponseForbidden("Operator profile not found.")
         if req.created_by != operator:
             return HttpResponse("You are not authorised to see this page")
         attendee = Attendee()
-        attendee.surname = request.POST['last_name']
-        attendee.firstname= request.POST['first_name']
-        attendee.patronymic = request.POST['patronymic']
-        attendee.transcription = request.POST['latin_name']
+        attendee.surname = request.POST.get("last_name", "")
+        attendee.firstname= request.POST.get("first_name", "")
+        attendee.patronymic = request.POST.get("patronymic", "")
+        attendee.transcription = request.POST.get("latin_name", "")
         attendee.iin = request.POST.get('iin', '').strip()
-        attendee.birthDate = request.POST['dob']
-        attendee.sexId = request.POST['sex']
+        attendee.birthDate = request.POST.get("dob", "")
+        attendee.sexId = request.POST.get("sex", "")
         attendee.countryId = request.POST.get('citizenship', '')
-        attendee.post = request.POST['post']
-        attendee.docTypeId = request.POST['document_type']
-        attendee.docSeries = request.POST['doc_series']
-        attendee.docNumber = request.POST['doc_number']
-        attendee.docBegin = request.POST['doc_date_start']
-        attendee.docEnd = request.POST['doc_date_end']
-        attendee.docIssue = request.POST['doc_issuer']
+        attendee.post = request.POST.get("post", "")
+        attendee.docTypeId = request.POST.get("document_type", "")
+        attendee.docSeries = request.POST.get("doc_series", "")
+        attendee.docNumber = request.POST.get("doc_number", "")
+        attendee.docBegin = request.POST.get("doc_date_start", "")
+        attendee.docEnd = request.POST.get("doc_date_end", "")
+        attendee.docIssue = request.POST.get("doc_issuer", "")
         attendee.photo = request.FILES['photo']
         #attendee.photo.save()
         attendee.docScan = request.FILES['doc_photo']
-        attendee.visitObjects = request.POST['visit_objects']
+        attendee.visitObjects = request.POST.get("visit_objects", "")
         attendee.request = req
         attendee.dateAdd = timezone.now()
         attendee.dateEnd = date.today()
@@ -279,7 +280,7 @@ def back_to_change(request, request_id):
     try:
         req = Request.objects.get(pk=request_id)
         context_dict['req'] = req
-        operator = Operator.objects.get(user=request.user)
+        operator = require_operator(request.user)
         if req.created_by != operator:
             return HttpResponse("You are not authorised to see this page")
         req.status = "Active"
@@ -302,7 +303,7 @@ def preview(request, request_id):
     try:
         req = Request.objects.get(pk=request_id)
         context_dict['req'] = req
-        operator = Operator.objects.get(user=request.user)
+        operator = require_operator(request.user)
         if req.created_by != operator:
             return HttpResponse("You are not authorised to see this page")
         req.status = "Checking"
@@ -327,7 +328,7 @@ def send(request, request_id):
     try:
         req = Request.objects.get(pk=request_id)
         context_dict['req'] = req
-        operator = Operator.objects.get(user=request.user)
+        operator = require_operator(request.user)
         if req.created_by != operator:
             return HttpResponse("You are not authorised to see this page")
         req.status = "Sent"
@@ -354,7 +355,7 @@ def delete_attendee(request):
             attendee_id = request.POST['attendee_id']
             attendee = Attendee.objects.get(id = attendee_id)
             req = attendee.request
-            operator = Operator.objects.get(user=request.user)
+            operator = require_operator(request.user)
             if req.created_by != operator:
                 return HttpResponse("You are not authorised to see this page")
             attendee_views.audit_log(
@@ -388,7 +389,7 @@ def delete_request(request, request_id):
         req = Request.objects.get(pk=request_id)
         user = request.user
         if not user.is_superuser:
-            operator = Operator.objects.get(user=user)
+            operator = require_operator(user)
             if req.created_by != operator:
                 return HttpResponse("You are not authorised to see this page")
         req.delete()

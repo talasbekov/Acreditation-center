@@ -1,4 +1,6 @@
 # Development / tooling-only dependencies — NOT required at runtime.
+# INFRA-1: источник правды — requirements-dev.in; регенерация:
+#     pip-compile requirements-dev.in -o requirements-dev.txt
 # Вынесено из requirements.txt в рамках Story 1.8 (Strangler Fig Scope Remediation, 2026-06-23):
 # эти пакеты не импортируются runtime-кодом приложения.
 #

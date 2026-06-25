@@ -167,25 +167,25 @@ def add_attendee(request, request_id):
             if req.created_by != operator:
                 return HttpResponse("You are not authorised to see this page")
         attendee = Attendee()
-        attendee.surname = request.POST["last_name"]
-        attendee.firstname = request.POST["first_name"]
-        attendee.patronymic = request.POST["patronymic"]
-        attendee.transcription = request.POST["latin_name"]
+        attendee.surname = request.POST.get("last_name", "")
+        attendee.firstname = request.POST.get("first_name", "")
+        attendee.patronymic = request.POST.get("patronymic", "")
+        attendee.transcription = request.POST.get("latin_name", "")
         attendee.iin = request.POST.get("iin", "")
-        attendee.birthDate = request.POST["dob"]
-        attendee.sexId = request.POST["sex"]
+        attendee.birthDate = request.POST.get("dob", "")
+        attendee.sexId = request.POST.get("sex", "")
         attendee.countryId = request.POST.get("citizenship", "")
-        attendee.post = request.POST["post"]
-        attendee.docTypeId = request.POST["document_type"]
-        attendee.docSeries = request.POST["doc_series"]
-        attendee.docNumber = request.POST["doc_number"]
-        attendee.docBegin = request.POST["doc_date_start"]
-        attendee.docEnd = request.POST["doc_date_end"]
-        attendee.docIssue = request.POST["doc_issuer"]
+        attendee.post = request.POST.get("post", "")
+        attendee.docTypeId = request.POST.get("document_type", "")
+        attendee.docSeries = request.POST.get("doc_series", "")
+        attendee.docNumber = request.POST.get("doc_number", "")
+        attendee.docBegin = request.POST.get("doc_date_start", "")
+        attendee.docEnd = request.POST.get("doc_date_end", "")
+        attendee.docIssue = request.POST.get("doc_issuer", "")
         attendee.photo = request.FILES["photo"]
         # attendee.photo.save()
         attendee.docScan = request.FILES["doc_photo"]
-        attendee.visitObjects = request.POST["visit_objects"]
+        attendee.visitObjects = request.POST.get("visit_objects", "")
         attendee.request = req
         attendee.dateAdd = timezone.now()
         attendee.dateEnd = date.today()
@@ -306,22 +306,22 @@ def update_attendee(request, attendee_id):
             return render(request, "update_attendee.html", context_dict)
 
         elif request.method == "POST":
-            attendee.surname = request.POST["last_name"]
-            attendee.firstname = request.POST["first_name"]
-            attendee.patronymic = request.POST["patronymic"]
-            attendee.transcription = request.POST["latin_name"]
+            attendee.surname = request.POST.get("last_name", "")
+            attendee.firstname = request.POST.get("first_name", "")
+            attendee.patronymic = request.POST.get("patronymic", "")
+            attendee.transcription = request.POST.get("latin_name", "")
             attendee.iin = request.POST.get("iin", "")
-            attendee.birthDate = request.POST["dob"]
-            attendee.sexId = request.POST["sex"]
+            attendee.birthDate = request.POST.get("dob", "")
+            attendee.sexId = request.POST.get("sex", "")
             attendee.countryId = request.POST.get("citizenship")
-            attendee.post = request.POST["post"]
-            attendee.docTypeId = request.POST["document_type"]
-            attendee.docSeries = request.POST["doc_series"]
-            attendee.docNumber = request.POST["doc_number"]
-            attendee.docBegin = request.POST["doc_date_start"]
-            attendee.docEnd = request.POST["doc_date_end"]
-            attendee.docIssue = request.POST["doc_issuer"]
-            attendee.visitObjects = request.POST["visit_objects"]
+            attendee.post = request.POST.get("post", "")
+            attendee.docTypeId = request.POST.get("document_type", "")
+            attendee.docSeries = request.POST.get("doc_series", "")
+            attendee.docNumber = request.POST.get("doc_number", "")
+            attendee.docBegin = request.POST.get("doc_date_start", "")
+            attendee.docEnd = request.POST.get("doc_date_end", "")
+            attendee.docIssue = request.POST.get("doc_issuer", "")
+            attendee.visitObjects = request.POST.get("visit_objects", "")
             uploaded_photo = request.FILES.get("photo")
             uploaded_doc_scan = request.FILES.get("doc_photo")
 

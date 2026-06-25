@@ -214,3 +214,26 @@ class P1GuardTest(TestCase):
                     endpoint.format(rid=self.req.id), REMOTE_ADDR="127.0.0.1"
                 )
                 self.assertEqual(resp.status_code, 403)
+
+    # ── BE-18: require_operator — Operator или PermissionDenied (→403) ────────
+    def test_require_operator_helper(self):
+        from django.core.exceptions import PermissionDenied
+        from eventproject.view_helpers import require_operator
+
+        self.assertEqual(require_operator(self.user), self.operator)
+        noop = User.objects.create_user(username="noop4", password="x")
+        with self.assertRaises(PermissionDenied):
+            require_operator(noop)
+
+    # ── BE-19: отсутствующее поле данных (не дата/citizenship) → не 500 ───────
+    def test_add_attendee_missing_data_field_no_500(self):
+        for endpoint in ADD_ENDPOINTS:
+            with self.subTest(endpoint=endpoint):
+                Attendee.objects.all().delete()
+                cache.clear()
+                payload = self._payload()
+                payload.pop("visit_objects")  # раньше KeyError 500 на bracket-доступе
+                resp = self.client.post(
+                    endpoint.format(rid=self.req.id), payload, REMOTE_ADDR="127.0.0.1"
+                )
+                self.assertNotEqual(resp.status_code, 500)

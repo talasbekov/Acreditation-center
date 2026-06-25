@@ -1,4 +1,9 @@
-# ── Runtime dependencies (production). ────────────────────────────────────────
+# ── Runtime dependencies (production) — СКОМПИЛИРОВАННЫЙ ЛОК. ──────────────────
+# INFRA-1: источник правды — requirements.in (прямые зависимости). Этот файл —
+# полный лок (включая транзитивные). Изменять зависимости через requirements.in +
+#     pip-compile requirements.in -o requirements.txt
+# НЕ запускать `pip freeze > requirements.txt` — вернёт dev-deps и сотрёт split.
+#
 # Принятые инфраструктурные апгрейды (Story 1.8 — Strangler Fig Scope Remediation,
 # 2026-06-23, утв. Erda): Django 5.1.3, DRF(+simplejwt)+cors-headers, celery/redis-
 # стек, axes/ratelimit/decouple/fernet, httpx, qrcode, json-logger — ПРИНЯТЫЙ scope
