@@ -5,6 +5,7 @@ POST `export_delta/<event_id>/<request_id>/`: формирует ZIP (attendees.
 `ready → exported`, пишет audit_log — атомарно. Архив отдаётся только после commit.
 """
 
+import os
 import re
 import tempfile
 from datetime import timezone as dt_timezone
@@ -31,6 +32,21 @@ def _safe_category(name):
     """Безопасное имя категории для имени файла архива."""
     cleaned = re.sub(r"[^\w.-]+", "_", name or "", flags=re.UNICODE).strip("_")
     return cleaned or "all"
+
+
+def _open_and_unlink(path):
+    """Открыть файл для чтения и сразу удалить путь (P1-9).
+
+    PII-архив (расшифрованный ИИН + сканы) больше не доступен по имени на хосте во
+    время стрима: на Linux inode живёт до закрытия fd. На ОС, где открытый файл удалить
+    нельзя (Windows), путь почистится позже на ``response.close``.
+    """
+    handle = open(path, "rb")
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
+    return handle
 
 
 def _no_new_response(last_export):
@@ -136,7 +152,7 @@ def export_delta(request, event_id, request_id):
         ts = now.astimezone(dt_timezone.utc).strftime("%Y%m%dT%H%M%SZ")  # UTC + Z (Spec v1.0)
         filename = f"export_{event_id}_{_safe_category(category.name)}_{ts}.zip"
         response = FileResponse(
-            open(tmp_path, "rb"),
+            _open_and_unlink(tmp_path),
             as_attachment=True,
             filename=filename,
             content_type="application/zip",
@@ -145,6 +161,7 @@ def export_delta(request, event_id, request_id):
 
         def _close(*args, **kwargs):
             original_close()
+            # Fallback (Windows/не удалось unlink при открытии): путь ещё на диске.
             Path(tmp_path).unlink(missing_ok=True)
 
         response.close = _close

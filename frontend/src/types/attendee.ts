@@ -1,5 +1,4 @@
-// Контракт данных выровнен по docs/integration-spec-v1.md (Story 4.1) и AttendeeViewSet (Story 3.4).
-// Для bootstrap — минимальный набор полей; расширяется в 5.2–5.5.
+// Контракт данных выровнен по AttendeeViewSet (Story 3.4) + AttendeeListSerializer (5.5).
 
 /** Envelope-пагинация DRF (`StandardResultsSetPagination`, retro Epic 2). */
 export interface Paginated<T> {
@@ -9,9 +8,31 @@ export interface Paginated<T> {
   results: T[]
 }
 
+/** Строка списка (`GET /api/v1/attendees/`) — AttendeeListSerializer (Story 5.5).
+ *  ИИН маскирован (`iin_masked`, последние 4); полного `iin` в списке нет. */
 export interface Attendee {
   id: number
-  lastName: string
-  firstName: string
+  surname: string
+  firstname: string
+  patronymic: string | null
   status: string
+  category: number | null
+  dateAdd: string
+  iin_masked: string
+}
+
+/** Detail (`GET /api/v1/attendees/{id}/`) — полный AttendeeSerializer (для edit, 5.5). */
+export interface AttendeeDetail {
+  id: number
+  surname: string
+  firstname: string
+  patronymic: string | null
+  birthDate: string | null
+  countryId: string
+  iin: string | null
+  request: number
+  status: string
+  /** P2-7: URL загруженного фото/документа (для превью в edit). */
+  photo: string | null
+  docScan: string | null
 }

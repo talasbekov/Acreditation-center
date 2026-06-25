@@ -1,9 +1,9 @@
 // Story 5.1 AC-2: session-based auth — при отсутствии сессии редирект на Django login.
-// Прим. (code-review 2026-06-23): Django-вью `user_login` НЕ поддерживает `?next=`
-// (после входа кидает на legacy /application/ или /avmac/), поэтому `next` не передаём —
-// иначе это вводит в заблуждение. Возврат в SPA после логина — отдельная задача (deferred-work).
+// P2-9: пробрасываем `next` (текущий путь) — `user_login` теперь возвращает на него
+// после входа (safe-redirect: только этот хост). Возврат в SPA после Django-логина.
 const LOGIN_PATH = '/user_login/'
 
 export function redirectToLogin(): void {
-  window.location.assign(LOGIN_PATH)
+  const next = window.location.pathname + window.location.search
+  window.location.assign(`${LOGIN_PATH}?next=${encodeURIComponent(next)}`)
 }

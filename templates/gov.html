@@ -19,6 +19,8 @@
         <div class="col-12 col-md-8 col-lg-5">
             <form class="form-control p-4 shadow-sm" method="post" action="/user_login/">
                 {% csrf_token %}
+                {# P2-9: возврат на исходную страницу (SPA) после входа (safe-redirect на сервере) #}
+                <input type="hidden" name="next" value="{{ next }}">
                 <!-- Ошибки -->
                 {% if error_message %}
                 <div class="alert alert-danger text-center" role="alert">

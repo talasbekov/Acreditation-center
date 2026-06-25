@@ -4,7 +4,7 @@ from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APIClient
 
@@ -167,6 +167,63 @@ class OperatorRegistryDetailTests(TestCase):
         # 3 события в хронологии
         self.assertEqual(len(data["access_events"]), 3)
 
+    def test_detail_serialization_uses_prefetch_no_extra_queries(self):
+        # BE-2: get_first_login_at / get_password_changes не должны бить .filter()
+        # мимо prefetch access_events → сериализация уже-префетченного оператора
+        # = 0 дополнительных запросов (раньше 2: login-filter + password-filter).
+        from eventproject.serializers.operator import (
+            OperatorRegistryDetailSerializer,
+        )
+
+        _, op = _make_operator("nplus1")
+        now = timezone.now()
+        for i in range(3):
+            OperatorAccessEvent.objects.create(
+                operator=op, event_type="login", actor=op.user,
+                timestamp=now - timedelta(days=i),
+            )
+        OperatorAccessEvent.objects.create(
+            operator=op, event_type="password_changed", actor=op.user, timestamp=now,
+        )
+
+        # Префетч как в OperatorViewSet.get_queryset() для action="retrieve".
+        obj = (
+            Operator.objects.select_related("user", "category")
+            .prefetch_related("events", "access_events__actor")
+            .get(pk=op.pk)
+        )
+        with self.assertNumQueries(0):
+            data = OperatorRegistryDetailSerializer(obj).data
+            _ = (
+                data["first_login_at"],
+                data["password_changes"],
+                data["access_events"],
+                data["access_events_total"],
+                data["access_events_has_more"],
+            )
+
+    def test_access_events_truncation_exposes_total_and_has_more(self):
+        # BE-3: при >50 событий список молча режется до 50; total/has_more
+        # раскрывают усечение клиенту (раньше — тихая потеря истории).
+        _, op = _make_operator("manyev")
+        now = timezone.now()
+        OperatorAccessEvent.objects.bulk_create(
+            [
+                OperatorAccessEvent(
+                    operator=op, event_type="login", actor=op.user,
+                    timestamp=now - timedelta(minutes=i),
+                )
+                for i in range(55)
+            ]
+        )
+
+        resp = self.client.get(f"/api/v1/operators/{op.id}/")
+        self.assertEqual(resp.status_code, 200)
+        data = resp.data
+        self.assertEqual(len(data["access_events"]), 50)
+        self.assertEqual(data["access_events_total"], 55)
+        self.assertTrue(data["access_events_has_more"])
+
 
 class OperatorDeactivationTests(TestCase):
     def setUp(self):
@@ -217,6 +274,26 @@ class OperatorDeactivationTests(TestCase):
         su_user.refresh_from_db()
         self.assertTrue(su_user.is_active)
 
+    def test_cannot_deactivate_peer_superoperator(self):
+        # P2-1: супероператор НЕ может деактивировать другого супероператора —
+        # иначе два супероператора могут заблокировать друг друга.
+        peer_user, peer_op = _make_operator("peer_superop", "superoperator")
+        resp = self.client.post(f"/api/v1/operators/{peer_op.id}/deactivate/")
+        self.assertEqual(resp.status_code, 403)
+        peer_user.refresh_from_db()
+        self.assertTrue(peer_user.is_active)
+
+    def test_superuser_can_deactivate_superoperator(self):
+        # P2-1: суперпользователь (админ) — может (guard только для супероператора-актора).
+        su_user, _ = _make_operator("root_admin", "superuser", is_superuser=True)
+        client = APIClient()
+        client.force_authenticate(user=su_user)
+        peer_user, peer_op = _make_operator("victim_superop", "superoperator")
+        resp = client.post(f"/api/v1/operators/{peer_op.id}/deactivate/")
+        self.assertEqual(resp.status_code, 200)
+        peer_user.refresh_from_db()
+        self.assertFalse(peer_user.is_active)
+
 
 class OperatorLoginAccessTests(TestCase):
     """Логин-флоу: запись события входа + сообщение о деактивации (AC-3/AC-4)."""
@@ -246,3 +323,23 @@ class OperatorLoginAccessTests(TestCase):
         )
         self.assertEqual(resp.status_code, 200)
         self.assertIn("Аккаунт деактивирован", resp.content.decode("utf-8"))
+
+    @override_settings(AXES_FAILURE_LIMIT=2)
+    def test_locked_out_sees_localized_message_not_english(self):
+        # BE-1: при axes-lockout оператор должен видеть локализованное сообщение
+        # о блокировке (а не голый англоязычный axes-429 «Account locked»).
+        _make_operator("lockme", password="StrongPass123!")
+        client = Client()
+        # Превышаем лимит неверными паролями → источник блокируется по ip.
+        for _ in range(2):
+            client.post(
+                "/user_login/", {"username": "lockme", "password": "WRONG"}
+            )
+        # Даже верный пароль теперь не проходит — но сообщение должно быть
+        # русским/понятным, не английским axes-дефолтом.
+        resp = client.post(
+            "/user_login/", {"username": "lockme", "password": "StrongPass123!"},
+        )
+        body = resp.content.decode("utf-8", "replace")
+        self.assertIn("заблокир", body.lower())
+        self.assertNotIn("Account locked", body)

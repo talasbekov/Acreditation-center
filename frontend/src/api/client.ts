@@ -64,3 +64,18 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   }
   return (await res.json()) as T
 }
+
+/**
+ * P2-8: гарантирует наличие `csrftoken` cookie до первой мутации. В штатном потоке
+ * cookie ставит Django-страница логина; этот bootstrap страхует случаи, когда SPA
+ * открыт с сессией, но без csrftoken (иначе первый POST уйдёт без X-CSRFToken → 403).
+ * Best-effort: сетевые ошибки не блокируют загрузку SPA.
+ */
+export async function ensureCsrfCookie(): Promise<void> {
+  if (getCsrfToken()) return
+  try {
+    await fetch('/api/v1/csrf/', { credentials: 'include' })
+  } catch {
+    // ignore — повторная попытка произойдёт при следующем вызове
+  }
+}

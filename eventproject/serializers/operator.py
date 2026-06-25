@@ -176,10 +176,15 @@ class OperatorRegistryListSerializer(serializers.ModelSerializer):
 class OperatorRegistryDetailSerializer(OperatorRegistryListSerializer):
     """Детальный вид оператора с историей доступа (AC-3)."""
 
+    # BE-3: единый лимит выдачи истории; total/has_more раскрывают усечение.
+    _ACCESS_EVENTS_LIMIT = 50
+
     created_at = serializers.DateTimeField(source="user.date_joined", read_only=True)
     first_login_at = serializers.SerializerMethodField()
     password_changes = serializers.SerializerMethodField()
     access_events = serializers.SerializerMethodField()
+    access_events_total = serializers.SerializerMethodField()
+    access_events_has_more = serializers.SerializerMethodField()
 
     class Meta(OperatorRegistryListSerializer.Meta):
         fields = OperatorRegistryListSerializer.Meta.fields + [
@@ -187,26 +192,38 @@ class OperatorRegistryDetailSerializer(OperatorRegistryListSerializer):
             "first_login_at",
             "password_changes",
             "access_events",
+            "access_events_total",
+            "access_events_has_more",
         ]
 
     def get_first_login_at(self, obj):
-        ev = (
-            obj.access_events.filter(event_type="login")
-            .order_by("timestamp")
-            .first()
+        # BE-2: считаем из префетченного access_events.all() (retrieve-prefetch),
+        # а не .filter() — иначе обход prefetch даёт +1 запрос. order-независимо: min().
+        return min(
+            (
+                e.timestamp
+                for e in obj.access_events.all()
+                if e.event_type == "login"
+            ),
+            default=None,
         )
-        return ev.timestamp if ev else None
 
     def get_password_changes(self, obj):
-        return [
-            e.timestamp
-            for e in obj.access_events.filter(event_type="password_changed").order_by(
-                "-timestamp"
-            )
-        ]
+        # BE-2: тоже из префетченного all(); сортируем -timestamp в Python
+        # (newest-first), чтобы не зависеть от Meta.ordering и не бить .filter().
+        # BE-3: капаем тем же лимитом, что и access_events — консистентность.
+        changes = sorted(
+            (
+                e.timestamp
+                for e in obj.access_events.all()
+                if e.event_type == "password_changed"
+            ),
+            reverse=True,
+        )
+        return changes[: self._ACCESS_EVENTS_LIMIT]
 
     def get_access_events(self, obj):
-        # Meta.ordering = -timestamp → последние события первыми. Ограничиваем 50.
+        # Meta.ordering = -timestamp → последние события первыми. Ограничиваем лимитом.
         return [
             {
                 "event_type": e.event_type,
@@ -214,5 +231,12 @@ class OperatorRegistryDetailSerializer(OperatorRegistryListSerializer):
                 "actor_username": (e.actor.username if e.actor_id else None),
                 "ip": e.ip,
             }
-            for e in obj.access_events.all()[:50]
+            for e in obj.access_events.all()[: self._ACCESS_EVENTS_LIMIT]
         ]
+
+    def get_access_events_total(self, obj):
+        # BE-3: полный размер истории из префетч-кэша (len, не .count() → 0 запросов).
+        return len(obj.access_events.all())
+
+    def get_access_events_has_more(self, obj):
+        return len(obj.access_events.all()) > self._ACCESS_EVENTS_LIMIT

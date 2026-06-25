@@ -32,6 +32,24 @@ def is_resident_country(country_id) -> bool:
     return str(country_id).strip() == _kz_country_id()
 
 
+def is_known_country(country_id) -> bool:
+    """True, если country_id известен: резидент РК (KZ-id) ИЛИ есть в справочнике.
+
+    BE-5: `Country.country_code` — авторитетный маппинг `Attendee.countryId`
+    (см. `services/export.py`). Нужен, чтобы непустой, но малформ/неизвестный
+    countryId (напр. «1000000105aaaa») не трактовался молча как нерезидент с
+    отбросом ИИН. БД-доступ: вызывать из слоёв с БД (serializer/view), НЕ из
+    pure-логики `resolve_residency` (она остаётся без ORM, SimpleTestCase).
+    """
+    if is_resident_country(country_id):
+        return True
+    if country_id is None:
+        return False
+    from directories.models import Country
+
+    return Country.objects.filter(country_code=str(country_id).strip()).exists()
+
+
 @dataclass(frozen=True)
 class ResidencyResult:
     is_resident: bool

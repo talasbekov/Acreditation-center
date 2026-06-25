@@ -5,13 +5,42 @@
 Дедуп ИИН в рамках мероприятия — `validators/iin.event_has_iin_duplicate`.
 """
 
+from django.http import QueryDict
 from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 
 from eventproject.models import Attendee, Request
 from eventproject.serializers.rbac import get_operator_events
-from eventproject.validators.iin import event_has_iin_duplicate
-from eventproject.validators.residency import resolve_residency
+from eventproject.validators.iin import event_has_iin_duplicate, mask_iin
+from eventproject.validators.photo import (
+    check_upload_size,
+    convert_pdf_to_jpeg,
+    is_pdf,
+    validate_image_file,
+)
+
+# Файловые поля: пустая строка в multipart → трактуем как «без файла».
+_FILE_FIELDS = ("photo", "docScan")
+from eventproject.validators.residency import is_known_country, resolve_residency
+
+
+def _strip_blank_file_fields(data, blank_fields):
+    """Вернуть ``data`` без указанных пустых файловых полей.
+
+    P1-6: для QueryDict сохраняем multi-value (``getlist``) и html-input маркер — НЕ
+    схлопываем в плоский dict (иначе multi-value поля усекаются до последнего значения,
+    а DRF теряет html-input-обработку пустых/списочных полей). Используем `setlist`
+    (без deepcopy file-handle'ов, в отличие от ``QueryDict.copy()``).
+    """
+    blank_fields = set(blank_fields)
+    if hasattr(data, "lists"):
+        cleaned = QueryDict(mutable=True)
+        for key, values in data.lists():
+            if key in blank_fields:
+                continue
+            cleaned.setlist(key, values)
+        return cleaned
+    return {key: value for key, value in data.items() if key not in blank_fields}
 
 
 class AttendeeSerializer(serializers.ModelSerializer):
@@ -21,6 +50,11 @@ class AttendeeSerializer(serializers.ModelSerializer):
     iin = serializers.CharField(
         required=False, allow_null=True, allow_blank=True, max_length=12
     )
+    # Story 5.3: photo/docScan — FileField (не ImageField), чтобы docScan мог
+    # принять PDF и пройти конвертацию ДО валидации изображения. Все проверки —
+    # в validate_photo/validate_docScan (единый validators/photo.py).
+    photo = serializers.FileField(required=False, allow_null=True)
+    docScan = serializers.FileField(required=False, allow_null=True)
 
     class Meta:
         model = Attendee
@@ -39,6 +73,8 @@ class AttendeeSerializer(serializers.ModelSerializer):
             "docBegin",
             "docEnd",
             "docIssue",
+            "photo",
+            "docScan",
             "sexId",
             "visitObjects",
             "transcription",
@@ -51,6 +87,36 @@ class AttendeeSerializer(serializers.ModelSerializer):
         ]
         # Выставляются сервером/логикой, не клиентом.
         read_only_fields = ["id", "is_resident", "status", "dateAdd"]
+
+    def to_internal_value(self, data):
+        # Пустая строка для файлового поля (multipart `photo=''`) → «без файла».
+        # DRF FileField иначе падает с английским «not a file» без field-маппинга.
+        # _strip_blank_file_fields сохраняет multi-value QueryDict (P1-6) и не
+        # deepcopy'ит file-handle'ы (QueryDict.copy() их ломает).
+        blanks = [f for f in _FILE_FIELDS if data.get(f) == ""]
+        if blanks:
+            data = _strip_blank_file_fields(data, blanks)
+        return super().to_internal_value(data)
+
+    def validate_photo(self, value):
+        # Story 5.3 AC-3: размер/вертикальность/разрешение фото участника.
+        if value in (None, ""):
+            return value
+        validate_image_file(value)
+        return value
+
+    def validate_docScan(self, value):
+        # Story 5.3 AC-4: PDF → JPEG (первая страница), далее та же валидация,
+        # что и у фото (AC-3) — решение Erda 2026-06-24.
+        if value in (None, ""):
+            return value
+        if is_pdf(value):
+            # AC-3: лимит 5 МБ — на ИСХОДНЫЙ PDF, ДО конвертации (иначе мерялся бы
+            # на сконвертированном JPEG).
+            check_upload_size(value)
+            value = convert_pdf_to_jpeg(value)
+        validate_image_file(value)
+        return value
 
     def validate(self, attrs):
         instance = getattr(self, "instance", None)
@@ -79,6 +145,15 @@ class AttendeeSerializer(serializers.ModelSerializer):
         iin = current("iin")
         birth_date = current("birthDate")
 
+        # BE-5: непустой, но неизвестный countryId (напр. малформ «1000000105aaaa»)
+        # нельзя молча трактовать как нерезидента — иначе ИИН резидента отбрасывается
+        # без сигнала. Сверяем со справочником Country.country_code. Пустой/None
+        # countryId пропускаем (нет выбора страны → текущее поведение нерезидента).
+        if str(country_id or "").strip() and not is_known_country(country_id):
+            raise serializers.ValidationError(
+                {"countryId": "Неизвестный код страны."}
+            )
+
         # Residency + ИИН (Story 3.1/3.2): обязательность/валидность/нормализация.
         result = resolve_residency(country_id, iin, birth_date)
         if result.error:
@@ -95,3 +170,30 @@ class AttendeeSerializer(serializers.ModelSerializer):
                     {"iin": "Участник с этим ИИН уже добавлен в это мероприятие."}
                 )
         return attrs
+
+
+class AttendeeListSerializer(serializers.ModelSerializer):
+    """Story 5.5 — лёгкий сериализатор СПИСКА.
+
+    Только колонки списка + **маскированный** ИИН (`mask_iin` — последние 4,
+    решение Erda 2026-06-24). Полный ИИН в списке НЕ отдаётся (PII-минимизация);
+    detail/create/update используют полный `AttendeeSerializer`.
+    """
+
+    iin_masked = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Attendee
+        fields = [
+            "id",
+            "surname",
+            "firstname",
+            "patronymic",
+            "status",
+            "category",
+            "dateAdd",
+            "iin_masked",
+        ]
+
+    def get_iin_masked(self, obj):
+        return mask_iin(obj.iin)

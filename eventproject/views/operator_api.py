@@ -184,6 +184,13 @@ class OperatorViewSet(viewsets.ModelViewSet):
                 {"detail": "Нельзя деактивировать суперпользователя."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        # P2-1: супероператор не может деактивировать другого супероператора (взаимная
+        # блокировка). Только суперпользователь (админ) вправе деактивировать супероператора.
+        if getattr(operator, "role", None) == "superoperator" and not request.user.is_superuser:
+            return Response(
+                {"detail": "Супероператор не может деактивировать другого супероператора."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         if user.is_active:
             user.is_active = False

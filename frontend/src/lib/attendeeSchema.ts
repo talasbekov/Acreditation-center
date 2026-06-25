@@ -16,6 +16,10 @@ export const attendeeSchema = z
     countryId: z.string().min(1, 'Выберите страну'),
     iin: z.string(),
     request: z.string().regex(/^\d+$/, 'Укажите категорию (ID мероприятия)'),
+    // Story 5.3 — фото/документ. Опциональны (модель blank=True); серверная
+    // Pillow-валидация (3×4, ≥600×800, ≤5МБ) — источник правды.
+    photo: z.instanceof(File, { message: 'Некорректный файл фото' }).optional(),
+    docScan: z.instanceof(File, { message: 'Некорректный файл документа' }).optional(),
   })
   .superRefine((data, ctx) => {
     if (data.countryId === KZ_COUNTRY_ID) {

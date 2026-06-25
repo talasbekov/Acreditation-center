@@ -82,6 +82,23 @@ class NonResidentTests(SimpleTestCase):
         self.assertTrue(validate_iin("   ", date(1990, 1, 1)).valid)
 
 
+class NonStringInputTests(SimpleTestCase):
+    EXPECTED = "ИИН должен содержать ровно 12 цифр."
+
+    def test_int_iin_rejected_even_if_12_digits(self):
+        # BE-4: контракт параметра — str. int проходит через str(value), что
+        # теряет ведущий ноль (валидный ИИН с ведущим 0 ложно «не 12 цифр»),
+        # а 12-значный int БЕЗ ведущего нуля раньше молча ПРИНИМАЛСЯ. Теперь
+        # любой не-str (кроме None) отклоняется детерминированно.
+        r = validate_iin(851205301234, date(1985, 12, 5))
+        self.assertFalse(r.valid)
+        self.assertEqual(r.error, self.EXPECTED)
+
+    def test_bool_iin_rejected(self):
+        # bool — подкласс int; не str → отклоняется.
+        self.assertFalse(validate_iin(True, date(1990, 1, 1)).valid)
+
+
 class FormatErrorTests(SimpleTestCase):
     EXPECTED = "ИИН должен содержать ровно 12 цифр."
 

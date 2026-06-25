@@ -7,6 +7,7 @@ import mimetypes
 
 from datetime import date, timedelta, datetime
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.http import HttpResponse, Http404, HttpResponseRedirect, FileResponse, HttpResponseNotFound
 from django.template import RequestContext
 from django.shortcuts import render
@@ -327,11 +328,45 @@ def change_password(request):
     return render(request, "change_password.html", context_dict)
 
 
+def _safe_next_url(request):
+    """P2-9: возвращает ?next= только если он указывает на ЭТОТ хост (анти open-redirect).
+
+    Внешний/протокол-относительный (`//evil`) URL → None (используется дефолтный редирект).
+    """
+    nxt = request.POST.get("next") or request.GET.get("next")
+    if nxt and url_has_allowed_host_and_scheme(
+        nxt,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return nxt
+    return None
+
+
 def user_login(request):
     context = RequestContext(request)
     if request.method == "POST":
-        username = request.POST['username']
-        password = request.POST['password']
+        # P1-2: malformed POST без полей не должен падать KeyError'ом/500.
+        username = request.POST.get('username', '')
+        password = request.POST.get('password', '')
+        # BE-1: если axes уже заблокировал источник — отдаём локализованное
+        # сообщение. Проверяем ДО authenticate: иначе backend выставит
+        # request.axes_locked_out и AxesMiddleware подменит ответ на голый
+        # англоязычный axes-429 «Account locked…».
+        from axes.handlers.proxy import AxesProxyHandler
+
+        if AxesProxyHandler.is_locked(request, {"username": username}):
+            return render(
+                request,
+                "gov.html",
+                context={
+                    "error_message": (
+                        "Аккаунт временно заблокирован из-за множества неудачных "
+                        "попыток входа. Повторите попытку позже."
+                    ),
+                },
+                status=429,
+            )
         user = authenticate(request, username=username, password=password)
         if user is not None:
 
@@ -355,6 +390,11 @@ def user_login(request):
                         logger.exception(
                             "failed to record login access event for user=%s", user.id
                         )
+                # P2-9: возврат на исходную страницу (SPA) после входа — только
+                # на безопасный (этот хост) next; иначе дефолт по роли.
+                next_url = _safe_next_url(request)
+                if next_url:
+                    return HttpResponseRedirect(next_url)
                 if user.is_superuser:
                     return HttpResponseRedirect("/avmac/")
                 else:
@@ -379,9 +419,13 @@ def user_login(request):
             return render(
                 request,
                 "gov.html",
-                context={"error_message": "Неправильный логин или пароль"},
+                context={
+                    "error_message": "Неправильный логин или пароль",
+                    "next": request.POST.get("next", ""),
+                },
             )
-    return render(request, "gov.html", context={})
+    # P2-9: прокидываем next в форму (скрытое поле), чтобы вход вернул на исходную страницу.
+    return render(request, "gov.html", context={"next": request.GET.get("next", "")})
 
 
 def ratelimited_error(request, exception):

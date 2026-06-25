@@ -11,11 +11,19 @@ def normalize_blank_iin(apps, schema_editor):
     обнуляем их одним UPDATE.
     """
     Attendee = apps.get_model("eventproject", "Attendee")
-    blank_ids = [
-        a.id
-        for a in Attendee.objects.filter(iin__isnull=False).only("id", "iin").iterator()
-        if a.iin == ""
-    ]
+    blank_ids = []
+    for a in (
+        Attendee.objects.filter(iin__isnull=False).only("id", "iin").iterator()
+    ):
+        try:
+            value = a.iin  # дешифровка EncryptedCharField на доступе
+        except Exception:  # noqa: BLE001
+            # P1-8: одна нечитаемая строка (повреждение/ротация FERNET_KEYS) не должна
+            # валить всю миграцию и блокировать деплой — пропускаем её, нормализуя
+            # остальные. Такую строку всё равно нельзя осмысленно нормализовать.
+            continue
+        if value == "":
+            blank_ids.append(a.id)
     if blank_ids:
         Attendee.objects.filter(id__in=blank_ids).update(iin=None)
 

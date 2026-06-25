@@ -152,13 +152,18 @@ def add_attendee(request, request_id):
                 return HttpResponse("You are not authorised to see this page")
         except Request.DoesNotExist:
             return HttpResponse("Could not find event")
+        except Operator.DoesNotExist:
+            return HttpResponseForbidden("Operator profile not found.")
     elif request.method == "POST":
         # try:
         rid = request.POST["req_id"]
         req = Request.objects.get(id=rid)
         user = request.user
         if not user.is_superuser:
-            operator = Operator.objects.get(user=request.user)
+            try:
+                operator = Operator.objects.get(user=request.user)
+            except Operator.DoesNotExist:
+                return HttpResponseForbidden("Operator profile not found.")
             if req.created_by != operator:
                 return HttpResponse("You are not authorised to see this page")
         attendee = Attendee()
@@ -169,7 +174,7 @@ def add_attendee(request, request_id):
         attendee.iin = request.POST.get("iin", "")
         attendee.birthDate = request.POST["dob"]
         attendee.sexId = request.POST["sex"]
-        attendee.countryId = request.POST["citizenship"]
+        attendee.countryId = request.POST.get("citizenship", "")
         attendee.post = request.POST["post"]
         attendee.docTypeId = request.POST["document_type"]
         attendee.docSeries = request.POST["doc_series"]
@@ -184,11 +189,27 @@ def add_attendee(request, request_id):
         attendee.request = req
         attendee.dateAdd = timezone.now()
         attendee.dateEnd = date.today()
-        if attendee.countryId != "1000000105aaaa":
-            attendee.stickId = request.POST["category"]
-        doc_start = datetime.strptime(attendee.docBegin, "%Y-%m-%d").date()
-        doc_end = datetime.strptime(attendee.docEnd, "%Y-%m-%d").date()
-        dob = datetime.strptime(attendee.birthDate, "%Y-%m-%d").date()
+        # P1-4: исправлен sentinel-typo "1000000105aaaa" → "1000000105" (id РК из
+        # validators/residency._DEFAULT_KZ_COUNTRY_ID). Из-за «aaaa» условие было всегда
+        # истинным, и для КЗ-резидентов (у которых residency-toggle прячет #category)
+        # чтение POST["category"] падало KeyError'ом. `.get` — доп. защита.
+        if attendee.countryId != "1000000105":
+            attendee.stickId = request.POST.get("category", "")
+        # P1-3: битая дата из прямого POST (минуя <input type=date>) больше не 500.
+        try:
+            doc_start = datetime.strptime(attendee.docBegin, "%Y-%m-%d").date()
+            doc_end = datetime.strptime(attendee.docEnd, "%Y-%m-%d").date()
+            dob = datetime.strptime(attendee.birthDate, "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            context_dict["delete_message"] = (
+                "Не удалось добавить. Проверьте формат дат (ГГГГ-ММ-ДД)."
+            )
+            context_dict["req"] = req
+            context_dict["attendees"] = Attendee.objects.filter(
+                request=req
+            ).order_by("-dateAdd")
+            context_dict["form_data"] = request.POST
+            return render(request, "gov3.html", context_dict)
         # Story 3.5: единый residency+ИИН-валидатор (validators/iin.py).
         residency = resolve_residency(attendee.countryId, attendee.iin, dob)
         attendee.iin = residency.iin
@@ -356,5 +377,8 @@ def update_attendee(request, attendee_id):
                 return redirect(f"/show_event/{req.event.id}/")
             else:
                 return redirect(f"/show/{req.id}/")
+    except Operator.DoesNotExist:
+        # P1-1: аутентифицированный пользователь без строки Operator → 403, не 500.
+        return HttpResponseForbidden("Operator profile not found.")
     except Attendee.DoesNotExist:
         return HttpResponse("Could not find attendee")

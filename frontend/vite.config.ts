@@ -28,5 +28,8 @@ export default defineConfig({
     globals: true,
     setupFiles: ['./vitest.setup.ts'],
     css: false,
+    // Playwright e2e (e2e/*.spec.ts) гоняет `playwright test`, НЕ vitest.
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    exclude: ['e2e/**', 'node_modules/**'],
   },
 })

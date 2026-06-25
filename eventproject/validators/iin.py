@@ -84,6 +84,12 @@ def validate_iin(iin, birth_date):
     Порядок проверок: нерезидент → формат → контрольная цифра → дата рождения.
     Возвращает ValidationResult(valid, error). Сообщения — дословно по FR23/AC.
     """
+    # BE-4: контракт параметра — str|None. Любой иной тип отклоняем детерминированно,
+    # не нормализуя молча: int теряет ведущий ноль через str() (валидный ИИН с ведущим 0
+    # ложно «не 12 цифр»), а 12-значный int без ведущего нуля раньше ложно принимался.
+    if iin is not None and not isinstance(iin, str):
+        return ValidationResult(valid=False, error=_ERR_FORMAT)
+
     normalized = normalize_iin(iin)
     if normalized is None:
         # Нерезидент / ИИН не задан — проверка ИИН не выполняется (AC-5).
