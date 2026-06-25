@@ -47,6 +47,24 @@ export async function mockApi(page: Page, detail = ATTENDEE_DETAIL) {
   await page.route('**/api/v1/csrf/', (route) =>
     route.fulfill({ status: 200, json: { detail: 'ok' } }),
   )
+  // FE-3: session-check теперь через rbac-пробник (не /attendees/?page_size=1).
+  await page.route('**/api/v1/rbac-check/', (route) =>
+    route.fulfill({ status: 200, json: { role: 'operator' } }),
+  )
+  // FE-1: форма добавления грузит RBAC-scoped список категорий для <select>.
+  await page.route('**/api/v1/requests/**', (route) =>
+    route.fulfill({
+      status: 200,
+      json: {
+        count: 1,
+        next: null,
+        previous: null,
+        results: [
+          { id: 7, name: 'Категория А', event_id: 1, event_name: 'Событие 1' },
+        ],
+      },
+    }),
+  )
   await page.route('**/api/v1/attendees/1/', (route) =>
     route.fulfill({ status: 200, json: detail }),
   )
