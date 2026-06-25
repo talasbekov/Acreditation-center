@@ -199,14 +199,15 @@ def delete_event(request, event_id):
         return HttpResponse("Could not find event")
     return render(request, "event.html", context_dict)
 
+from django.db.models import Count, Prefetch
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status
-from eventproject.permissions import IsSuperoperator, IsOperator
+from eventproject.permissions import IsSuperoperator
 from eventproject.serializers import (
-    EventSerializer, 
-    CategorySerializer, 
+    EventSerializer,
+    CategorySerializer,
     get_operator_events
 )
 from eventproject.audit import audit_log
@@ -217,8 +218,15 @@ class EventViewSet(ModelViewSet):
     permission_classes = [IsSuperoperator]
 
     def get_queryset(self):
-        # Супероператор/Суперпользователь видит все события
-        return get_operator_events(self.request.user)
+        # Супероператор/Суперпользователь видит все события.
+        # Prefetch категорий с аннотацией attendee_count — устраняем N+1 на списке
+        # (иначе по одному COUNT-запросу на каждую категорию каждого события).
+        return get_operator_events(self.request.user).prefetch_related(
+            Prefetch(
+                "categories",
+                queryset=Category.objects.annotate(_attendee_count=Count("attendees")),
+            )
+        ).order_by("id")
 
     def perform_create(self, serializer):
         event = serializer.save(created_by=self.request.user)

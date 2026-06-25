@@ -91,8 +91,8 @@ class EventViewTest(TestCase):
         response = self.client.get("/api/v1/events/")
         self.assertEqual(response.status_code, 200)
         
-        # No pagination configured by default, returns list
-        results = response.json()
+        # Retro Epic 2: пагинация включена → envelope {count, next, previous, results}
+        results = response.json()["results"]
         event_data = next(e for e in results if e["id"] == self.event.id)
         cat_data = next(c for c in event_data["categories"] if c["name"] == "Staff")
         self.assertEqual(cat_data["attendee_count"], 1)
@@ -109,6 +109,40 @@ class EventViewTest(TestCase):
         )
         
         self.client.force_authenticate(user=self.op_user)
-        # 403 is returned because IsSuperoperator permission blocks operators
+        # Эндпоинт superoperator-only: оператор получает 403 на ЛЮБОЕ событие
+        # (включая чужое) — доступ блокируется до queryset-изоляции. AC-4/AC-5 выполнены.
         response = self.client.get(f"/api/v1/events/{other_event.id}/categories/")
         self.assertEqual(response.status_code, 403)
+
+    def test_create_event_requires_title(self):
+        self.client.force_authenticate(user=self.sop_user)
+        response = self.client.post(
+            "/api/v1/events/",
+            {"start_date": "2026-06-01", "end_date": "2026-06-03"},
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("title", response.json())
+
+    def test_create_event_rejects_inverted_dates(self):
+        self.client.force_authenticate(user=self.sop_user)
+        response = self.client.post(
+            "/api/v1/events/",
+            {"title": "Bad Dates", "start_date": "2026-06-05", "end_date": "2026-06-01"},
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_event_can_have_multiple_categories(self):
+        self.client.force_authenticate(user=self.sop_user)
+        for name in ("Cat A", "Cat B"):
+            resp = self.client.post(
+                f"/api/v1/events/{self.event.id}/categories/", {"name": name}
+            )
+            self.assertEqual(resp.status_code, 201)
+        self.assertEqual(Category.objects.filter(event=self.event).count(), 2)
+
+    def test_category_name_whitespace_rejected(self):
+        self.client.force_authenticate(user=self.sop_user)
+        resp = self.client.post(
+            f"/api/v1/events/{self.event.id}/categories/", {"name": "   "}
+        )
+        self.assertEqual(resp.status_code, 400)

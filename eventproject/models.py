@@ -5,6 +5,7 @@ from django.db import models
 from django.contrib.auth.models import User
 
 from eventproject.fernet_fields import EncryptedCharField
+from eventproject.state_machine import ATTENDEE_STATUS_CHOICES, AttendeeStatus
 
 
 IIN_ENCRYPTION_HELP_TEXT = (
@@ -72,6 +73,29 @@ class Operator(models.Model):
     is_accreditator = models.BooleanField(default=False)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="operator")
 
+    # Story 2.3 — онбординг операторов (авто-генерация credentials + email)
+    EMAIL_STATUS_CHOICES = [
+        ("pending", "Pending"),
+        ("sent", "Sent"),
+        ("error", "Error"),
+    ]
+    email_status = models.CharField(
+        max_length=20, choices=EMAIL_STATUS_CHOICES, default="pending"
+    )
+    credentials_sent_at = models.DateTimeField(null=True, blank=True)
+    # default=False: форс смены пароля включается ТОЛЬКО для операторов, созданных
+    # авто-генерацией (services.create_operator выставляет True явно, AC-5). Иначе
+    # все существующие/legacy операторы были бы принудительно сброшены.
+    force_password_change = models.BooleanField(default=False)
+    # Story 2.3 (review): опциональная привязка оператора к категории (AC-1 category_id).
+    category = models.ForeignKey(
+        Category,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="operators",
+    )
+
     def __str__(self):
         return self.user.first_name + " " + self.user.last_name
 
@@ -86,6 +110,48 @@ def _user_role(self):
 
 
 User.role = property(_user_role)
+
+
+class OperatorAccessEvent(models.Model):
+    """Story 2.4 — персистентная история доступа оператора.
+
+    Queryable-источник для детального вида реестра. `audit_log` (Story 1.5)
+    пишет только structured JSON-логи и НЕ запрашивается через ORM, поэтому
+    история действий, отображаемая в UI/API, хранится здесь. События пишутся
+    из views (created / login / password_changed / deactivated / reactivated).
+    """
+
+    EVENT_TYPE_CHOICES = [
+        ("created", "created"),
+        ("login", "login"),
+        ("password_changed", "password_changed"),
+        ("deactivated", "deactivated"),
+        ("reactivated", "reactivated"),
+    ]
+
+    operator = models.ForeignKey(
+        Operator, on_delete=models.CASCADE, related_name="access_events"
+    )
+    event_type = models.CharField(max_length=20, choices=EVENT_TYPE_CHOICES)
+    # Кто совершил действие: для админ-операций (deactivate) — Супероператор;
+    # для login/password_changed — сам оператор. SET_NULL: история переживает
+    # удаление актора.
+    actor = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
+    timestamp = models.DateTimeField(default=timezone.now, db_index=True)
+    ip = models.CharField(max_length=45, blank=True, default="")
+    details = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["-timestamp"]
+
+    def __str__(self):
+        return f"{self.operator_id}:{self.event_type}@{self.timestamp:%Y-%m-%dT%H:%M:%S}"
 
 
 class Request(models.Model):
@@ -155,6 +221,26 @@ class Attendee(models.Model):
     )
     dateEnd = models.DateField(null=True, blank=True)
     stickId = models.CharField(max_length=20, default="")
+    # Story 3.2: резидент РК (countryId == settings.KZ_COUNTRY_ID) → True.
+    # Residency-логика (validators/residency.py) выставляет явно при создании/
+    # обновлении. default=True — KZ-центрично (исторические строки → True).
+    is_resident = models.BooleanField(default=True)
+    # Story 3.3: конечный автомат статусов (см. eventproject/state_machine.py).
+    # Применение переходов (audit/edit-lock/submit-проверки) — Story 3.4.
+    status = models.CharField(
+        max_length=20,
+        choices=ATTENDEE_STATUS_CHOICES,
+        default=AttendeeStatus.DRAFT,
+    )
+
+    def save(self, *args, **kwargs):
+        # Story 4.2 (review): пустой ИИН храним как NULL, не "".
+        # iin — EncryptedCharField, фильтрация по значению невозможна, поэтому
+        # единственный надёжный маркер «ИИН не заполнен» — IS NULL. "" обходил бы
+        # флаг дашборда (Story 4.2) и любую isnull-проверку.
+        if self.iin == "":
+            self.iin = None
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.firstname + " " + (self.iin or "")

@@ -30,6 +30,7 @@
 
 ### Основные документы
 
+- [Бизнес-процессы](./business-processes.md) — простым языком: что система делает, роли, потоки заявок, QR, автоимпорт
 - [Обзор проекта](./project-overview.md) — назначение, возможности, роли, состояние на июнь 2026
 - [Архитектура](./architecture.md) — стек, паттерны, RBAC, безопасность, async, риски
 - [Модели данных](./data-models.md) — 10 моделей, шифрование ИИН, история миграций
@@ -69,7 +70,7 @@ docker compose up --build
 
 # Или локально
 python3.10 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.txt            # dev-инструменты (black, locust): pip install -r requirements-dev.txt
 python manage.py migrate
 python manage.py runserver
 ```

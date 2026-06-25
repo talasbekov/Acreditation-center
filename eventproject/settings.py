@@ -1,30 +1,54 @@
 # settings.py - исправленная версия
+import logging
 from pathlib import Path
 from decouple import config, Csv
 from celery.schedules import crontab
+
+from eventproject.env_config import parse_bool_flag, require_env
+from eventproject.redis_config import redis_url_for_db
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 LOG_DIR = BASE_DIR / "logs"
-LOG_DIR.mkdir(exist_ok=True)
+try:
+    LOG_DIR.mkdir(exist_ok=True)
+except OSError:
+    # На read-only FS (или если logs существует как обычный файл) не валим импорт
+    # settings — RotatingFileHandler сам сообщит об ошибке при первой записи.
+    pass
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config('SECRET_KEY')
-AVALON_API_KEY = config('AVALON_API_KEY')
-KAZENERGY_API_KEY = config('KAZENERGY_API_KEY')
-FERNET_KEYS = config("FERNET_KEYS", cast=Csv())
+# BE-6: все обязательные секреты грузим разом — один понятный ImproperlyConfigured
+# со списком ВСЕХ отсутствующих, а не криптичный per-var UndefinedValueError на первой.
+_required_env = require_env(config, {
+    "SECRET_KEY": {},
+    "AVALON_API_KEY": {},
+    "KAZENERGY_API_KEY": {},
+    "FERNET_KEYS": {"cast": Csv()},
+    "ALLOWED_HOSTS": {"cast": Csv()},
+})
+SECRET_KEY = _required_env["SECRET_KEY"]
+AVALON_API_KEY = _required_env["AVALON_API_KEY"]
+KAZENERGY_API_KEY = _required_env["KAZENERGY_API_KEY"]
+FERNET_KEYS = _required_env["FERNET_KEYS"]
+ALLOWED_HOSTS = _required_env["ALLOWED_HOSTS"]
 
 
 def _env_flag(name, default=False):
-    value = str(config(name, default=str(default))).strip().lower()
-    return value in {"1", "true", "yes", "on"}
+    value, recognized = parse_bool_flag(config(name, default=str(default)), default)
+    if not recognized:
+        # BE-15: typo («yess»/«enabled») не молчим — иначе секьюрный флаг
+        # (SECURE_SSL_REDIRECT default=True) тихо отключился бы.
+        logging.getLogger("eventproject").warning(
+            "Нераспознанное значение булева флага %s — используется default=%s",
+            name, default,
+        )
+    return value
 
 
 DEBUG = _env_flag("DEBUG", default=False)
 APPEND_SLASH = True
-
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=Csv())
 
 # CSRF и CORS настройки
 CSRF_TRUSTED_ORIGINS = config("CSRF_TRUSTED_ORIGINS", default="", cast=Csv())
@@ -51,7 +75,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework",
     "axes",  # django-axes
-    "eventproject",
+    "eventproject.apps.EventprojectConfig",  # Story 5.3: ready() → signals (media cleanup)
     "directories",
     "django_crontab",
     "qr_event",
@@ -68,6 +92,9 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "eventproject.middleware.session_timeout.RoleBasedSessionTimeoutMiddleware",
+    # Story 2.3 (AC-5): форс смены пароля для авто-созданных операторов.
+    # После AuthenticationMiddleware (нужен request.user).
+    "eventproject.middleware.force_password_change.ForcePasswordChangeMiddleware",
     "eventproject.middleware.logging_middleware.RequestLoggingMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -125,6 +152,16 @@ GUNICORN_CONFIG = {
 
 CORS_ALLOWED_ORIGINS = config("CORS_ALLOWED_ORIGINS", default="", cast=Csv())
 
+# Story 2.4 (AC-5): порог неактивности оператора (дней) для warning-индикатора
+# в реестре. Конфигурируется через .env.
+OPERATOR_INACTIVITY_THRESHOLD_DAYS = config(
+    "OPERATOR_INACTIVITY_THRESHOLD_DAYS", default=30, cast=int
+)
+
+# Story 3.2: идентификатор Казахстана в Attendee.countryId (резидент РК).
+# Значение совпадает с legacy (eventproject/views/attendee.py:217).
+KZ_COUNTRY_ID = config("KZ_COUNTRY_ID", default="1000000105")
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
@@ -133,12 +170,21 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticated",
     ],
     "EXCEPTION_HANDLER": "eventproject.api.exceptions.rfc7807_exception_handler",
+    # Retro Epic 2: централизованная пагинация для всего /api/v1/ —
+    # документированный envelope {count, next, previous, results}.
+    "DEFAULT_PAGINATION_CLASS": "eventproject.api.pagination.StandardResultsSetPagination",
+    "PAGE_SIZE": 50,
 }
+
+# Один базовый REDIS_URL (его задаёт docker-compose / managed-Redis: host/port/auth)
+# питает и кэш, и celery. Конкретные REDIS_CACHE_URL/CELERY_* по-прежнему имеют приоритет
+# для тонкой настройки, но если их нет — берём базовый URL, а не хардкод redis://redis:6379.
+REDIS_URL = config("REDIS_URL", default="redis://redis:6379/0")
 
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": config("REDIS_CACHE_URL", default="redis://redis:6379/1"),
+        "LOCATION": config("REDIS_CACHE_URL", default=redis_url_for_db(REDIS_URL, 1)),
         "KEY_PREFIX": "eventproject",
         "TIMEOUT": 300,
     },
@@ -146,13 +192,29 @@ CACHES = {
 
 
 # Celery настройки
-CELERY_BROKER_URL = config("CELERY_BROKER_URL", default="redis://redis:6379/0")
-CELERY_RESULT_BACKEND = config("CELERY_RESULT_BACKEND", default="redis://redis:6379/0")
+CELERY_BROKER_URL = config("CELERY_BROKER_URL", default=redis_url_for_db(REDIS_URL, 0))
+CELERY_RESULT_BACKEND = config("CELERY_RESULT_BACKEND", default=redis_url_for_db(REDIS_URL, 0))
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'Asia/Almaty'
 CELERY_ENABLE_UTC = True
+
+# Email (Story 2.3 — онбординг операторов). Значения берутся из .env; по умолчанию
+# console-backend (письма печатаются в stdout), чтобы dev/CI не требовали SMTP.
+EMAIL_BACKEND = config(
+    "EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend"
+)
+EMAIL_HOST = config("EMAIL_HOST", default="localhost")
+EMAIL_PORT = config("EMAIL_PORT", default=25, cast=int)
+EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = _env_flag("EMAIL_USE_TLS", default=False)
+DEFAULT_FROM_EMAIL = config(
+    "DEFAULT_FROM_EMAIL", default="noreply@accreditation.local"
+)
+# Ссылка для входа в письме оператору.
+OPERATOR_LOGIN_URL = config("OPERATOR_LOGIN_URL", default="/user_login/")
 
 # Настройки архивов
 ARCHIVE_STORAGE_DURATION = 24  # часов
@@ -188,6 +250,35 @@ MEDIA_DIR = BASE_DIR / "media"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = config("MEDIA_ROOT", default=str(BASE_DIR / "media"))
+
+# Story 5.3 — two-phase upload staging. ВНЕ MEDIA_ROOT: не отдаётся через /media/
+# (protected_media обслуживает только MEDIA_ROOT). Django стейджит крупные загрузки
+# сюда при разборе запроса (фаза 1), serializer.save() переносит в MEDIA_ROOT (фаза 2).
+MEDIA_TEMP_ROOT = config("MEDIA_TEMP_ROOT", default=str(BASE_DIR / "media_temp"))
+try:
+    Path(MEDIA_TEMP_ROOT).mkdir(parents=True, exist_ok=True)
+except OSError as exc:
+    # На read-only FS не валим импорт settings, но НЕ молчим — иначе загрузки
+    # крупнее FILE_UPLOAD_MAX_MEMORY_SIZE падали бы непрозрачным 500 на parse.
+    import logging as _logging
+
+    _logging.getLogger("eventproject").warning(
+        "MEDIA_TEMP_ROOT mkdir failed (%s): %s — загрузки на диск могут падать",
+        MEDIA_TEMP_ROOT, exc,
+    )
+FILE_UPLOAD_TEMP_DIR = MEDIA_TEMP_ROOT
+# Держим валидные загрузки (≤5 МБ) В ПАМЯТИ → не стейджим на диск (минуем temp-dir
+# и его возможный сбой). Файлы крупнее лимита всё равно отклоняются валидацией.
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024 + 1024  # чуть выше PHOTO_MAX_SIZE_BYTES
+
+# Story 5.3 — серверная валидация фото участника И скана документа (Pillow).
+# ratio = ширина/высота; вертикальный формат 3×4 ⇔ ratio ≤ PHOTO_MAX_RATIO.
+PHOTO_MAX_SIZE_BYTES = 5 * 1024 * 1024  # 5 МБ
+PHOTO_MAX_RATIO = 0.85
+PHOTO_MIN_WIDTH = 600
+PHOTO_MIN_HEIGHT = 800
+PHOTO_MAX_PIXELS = 40_000_000  # ~40 МП — анти-decompression-bomb (cap до декода)
+PDF_RENDER_DPI = 150  # bounded dpi для pdf2image (анти-bomb на больших страницах)
 
 # Статика
 STATIC_URL = "/static/"

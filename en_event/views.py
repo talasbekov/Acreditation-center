@@ -26,14 +26,16 @@ import secrets
 import os
 import shutil
 from eventproject.validators.iin import event_has_iin_duplicate
+from eventproject.validators.residency import resolve_residency
 import eventproject.views.attendee as attendee_views
 
 # Create your views here.
 def user_login(request):
     context = RequestContext(request)
     if request.method == 'POST':
-        username = request.POST['username']
-        password = request.POST['password']
+        # P1-2: malformed POST без полей не должен падать KeyError'ом/500.
+        username = request.POST.get('username', '')
+        password = request.POST.get('password', '')
         user = authenticate(request, username=username, password=password)
         if user is not None:
             if user.is_active:
@@ -174,11 +176,16 @@ def add_attendee(request, request_id):
                 return HttpResponse("You are not authorised to see this page")
         except Request.DoesNotExist:
             return HttpResponse("Could not find event")
+        except Operator.DoesNotExist:
+            return HttpResponseForbidden("Operator profile not found.")
     elif request.method == 'POST':
         #try:
         rid = request.POST['req_id']
         req = Request.objects.get(id = rid)
-        operator = Operator.objects.get(user=request.user)
+        try:
+            operator = Operator.objects.get(user=request.user)
+        except Operator.DoesNotExist:
+            return HttpResponseForbidden("Operator profile not found.")
         if req.created_by != operator:
             return HttpResponse("You are not authorised to see this page")
         attendee = Attendee()
@@ -186,10 +193,10 @@ def add_attendee(request, request_id):
         attendee.firstname= request.POST['first_name']
         attendee.patronymic = request.POST['patronymic']
         attendee.transcription = request.POST['latin_name']
-        attendee.iin = request.POST['iin'].strip()
+        attendee.iin = request.POST.get('iin', '').strip()
         attendee.birthDate = request.POST['dob']
         attendee.sexId = request.POST['sex']
-        attendee.countryId = request.POST['citizenship']
+        attendee.countryId = request.POST.get('citizenship', '')
         attendee.post = request.POST['post']
         attendee.docTypeId = request.POST['document_type']
         attendee.docSeries = request.POST['doc_series']
@@ -205,10 +212,21 @@ def add_attendee(request, request_id):
         attendee.dateAdd = timezone.now()
         attendee.dateEnd = date.today()
         if attendee.countryId != "1000000105":
-            attendee.stickId = request.POST['category']
-        doc_start = datetime.strptime(attendee.docBegin, '%Y-%m-%d').date()
-        doc_end = datetime.strptime(attendee.docEnd, '%Y-%m-%d').date()
-        dob = datetime.strptime(attendee.birthDate, '%Y-%m-%d').date()
+            attendee.stickId = request.POST.get('category', '')
+        # P1-3: битая дата из прямого POST больше не 500.
+        try:
+            doc_start = datetime.strptime(attendee.docBegin, '%Y-%m-%d').date()
+            doc_end = datetime.strptime(attendee.docEnd, '%Y-%m-%d').date()
+            dob = datetime.strptime(attendee.birthDate, '%Y-%m-%d').date()
+        except (ValueError, TypeError):
+            context_dict['delete_message'] = "Could not add. Check the date format (YYYY-MM-DD)."
+            context_dict['req'] = req
+            context_dict['attendees'] = Attendee.objects.filter(request=req)
+            return render(request, 'en/gov3.html', context_dict)
+        # Story 3.5: единый residency+ИИН-валидатор (validators/iin.py).
+        residency = resolve_residency(attendee.countryId, attendee.iin, dob)
+        attendee.iin = residency.iin
+        attendee.is_resident = residency.is_resident
         if doc_start>date.today():
             context_dict['delete_message'] = "Wrong document issued date"
             #return render(request, 'request.html', context_dict)
@@ -224,9 +242,9 @@ def add_attendee(request, request_id):
         elif attendee.docScan.size > 9000000:
             context_dict['delete_message'] = "Document scan exceeds 7Mb"
             #return render(request, 'request.html', context_dict)
-        elif attendee.countryId == "1000000105" and len(attendee.iin)<12:
-            context_dict['delete_message'] = "IIN is mandatory for Kazakhstan citizens"
-            #return render(request, 'request.html', context_dict)
+        elif residency.error:
+            context_dict['delete_message'] = residency.error
+            context_dict['iin_error'] = residency.error
         elif attendee.photo.size < 1000:
             context_dict['delete_message'] = "Size of the photo is required to be at least 1Kb"
         elif attendee.docScan.size < 1000:
@@ -246,6 +264,7 @@ def add_attendee(request, request_id):
         context_dict['req'] = req
         attendees = Attendee.objects.filter(request=req).order_by('-dateAdd')
         context_dict['attendees'] = attendees
+        context_dict['form_data'] = request.POST
         if 'delete_message' in context_dict:
             return render(request, 'en/gov3.html', context_dict)
         else:

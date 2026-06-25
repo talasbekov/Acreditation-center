@@ -2,6 +2,11 @@
 {% load static %}
 {% block body_block %}
     <script type="text/javascript" src="{% static 'js/jquery-3.6.0.min.js' %}"></script>
+    <style>
+      /* Story 3.5: anti-fatigue читаемость статуса ИИН */
+      .iin-error { color:#dc3545; font-size:16px; font-weight:600; margin-top:4px; }
+      .iin-ok { color:#198754; font-size:15px; font-weight:600; margin-top:4px; }
+    </style>
 
 <div class="container-fluid ministry-header-top" style="max-width: 1100px; margin: auto;">
     <div class="row justify-content-between align-items-center">
@@ -49,13 +54,15 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="form-group col-md-2 mb-2">
-                    <label for="iin" class="req">ИИН</label>
-                    <input type="text" class="form-control" value="{{ attendee.iin }}" name="iin" minlength="12" maxlength="12" oninput="process(this)">
+                <div class="form-group col-md-2 mb-2" id="iin_group">
+                    <label for="iin" id="iin_label" class="req">ИИН</label>
+                    <input type="text" class="form-control" value="{% if form_data %}{{ form_data.iin }}{% else %}{{ attendee.iin }}{% endif %}" name="iin" id="iin" minlength="12" maxlength="12" oninput="process(this)">
+                    <span id="iin_ok" class="iin-ok" style="display:none;">✅ Формат ИИН верный</span>
+                    {% if iin_error %}<div class="iin-error">{{ iin_error }}</div>{% endif %}
                 </div>
                 <div class="form-group col-md-2 mb-2">
                     <label for="dob" class="req">Дата рождения</label>
-                    <input type="date" required class="form-control" value="{{ attendee.birthDate|default:''|date:'Y-m-d' }}" name="dob">
+                    <input type="date" required class="form-control" value="{% if form_data %}{{ form_data.dob }}{% else %}{{ attendee.birthDate|default:''|date:'Y-m-d' }}{% endif %}" name="dob">
                 </div>
                 <div class="form-group col-md-2 mb-2">
                     <label for="sex" class="req">Пол</label>
@@ -106,11 +113,11 @@
                 </div>
                 <div class="form-group col-md-2 mb-2">
                     <label for="doc_date_start" class="req">Дата выдачи</label>
-                    <input type="date" required class="form-control" value="{{ attendee.docBegin|date:'Y-m-d' }}" name="doc_date_start">
+                    <input type="date" required class="form-control" value="{% if form_data %}{{ form_data.doc_date_start }}{% else %}{{ attendee.docBegin|date:'Y-m-d' }}{% endif %}" name="doc_date_start">
                 </div>
                 <div class="form-group col-md-2 mb-2">
                     <label for="doc_date_end" class="req">Действителен до</label>
-                    <input type="date" required class="form-control" value="{{ attendee.docEnd|default:''|date:'Y-m-d' }}" name="doc_date_end">
+                    <input type="date" required class="form-control" value="{% if form_data %}{{ form_data.doc_date_end }}{% else %}{{ attendee.docEnd|default:''|date:'Y-m-d' }}{% endif %}" name="doc_date_end">
                 </div>
                 <div class="form-group col-md-2 mb-2">
                     <label for="doc_issuer">Кем выдан</label>
@@ -192,45 +199,30 @@ function checkFileFormat(inputId) {
 </script>
 
   <script>
-    document.addEventListener('DOMContentLoaded', function () {
-          $('#qazdoctype').hide()
-      $('#fulldoctype').hide()
-    var c = $( "#citizenship" ).val()
-     if( c == "1000000105"){
-            var res = $('#qazdoctype').html();
-            $("#doctype").html(res)
-            $("#plan").attr("class", "req")
-        }else{
-            var res = $('#fulldoctype').html();
-            $("#doctype").html(res)
-            $("#plan").attr("class", "")
-        }
-    });
-  </script>
-
-
-  <script>
-    $("#citizenship").change(function () {
-          var c = $( "#citizenship" ).val()
-
-        if( c == "1000000105"){
-            var res = $('#qazdoctype').html();
-            $("#doctype").html(res)
-            $("#iin_label").attr("class", "req")
-            $("#iin").attr( "required", "" )
-            // $('#category').hide()
-            // $('#post').removeClass("col-md-2").addClass("col-md-4")
-        }else{
-            var res = $('#fulldoctype').html();
-            $("#doctype").html(res)
-            $("#iin_label").attr("class", "")
-            $("#iin").removeAttr( "required" )
-            // $('#category').show()
-            // $('#post').removeClass("col-md-4").addClass("col-md-2")
-        }
-      $('#qazdoctype').hide()
-      $('#fulldoctype').hide()
-         });
+// Story 3.5: residency-переключение — поле ИИН только для РК (1000000105).
+function applyResidency(c, clearIin) {
+    if (c == "1000000105") {
+        $("#doctype").html($('#qazdoctype').html());
+        $("#iin_group").show();
+        $("#iin_label").attr("class", "req");
+        $("#iin").attr("required", "");
+        $("#plan").attr("class", "req");
+    } else {
+        $("#doctype").html($('#fulldoctype').html());
+        $("#iin").removeAttr("required");
+        if (clearIin) { $("#iin").val(""); }
+        $("#iin_group").hide();
+        $("#plan").attr("class", "");
+    }
+    $('#qazdoctype').hide();
+    $('#fulldoctype').hide();
+}
+document.addEventListener('DOMContentLoaded', function () {
+    applyResidency($("#citizenship").val(), false);
+});
+$("#citizenship").change(function () {
+    applyResidency($(this).val(), true);
+});
          </script>
          <script>
          var today = new Date();
@@ -283,6 +275,9 @@ function process(input){
   let value = input.value;
   let numbers = value.replace(/[^0-9]/g, "");
   input.value = numbers;
+  // Story 3.5: мгновенная подсказка формата (полная проверка — на сервере).
+  var ok = document.getElementById("iin_ok");
+  if (ok) { ok.style.display = (numbers.length === 12) ? "block" : "none"; }
 }
         $(".latin_letters").on("keypress", function(event) {
         var englishAlphabetAndWhiteSpace = /^[-@./#&+\w\s]*$/;

@@ -2,6 +2,11 @@
 {% load static %}
 {% block body_block %}
     <script type="text/javascript" src="{% static 'js/jquery-3.6.0.min.js' %}"></script>
+    <style>
+      /* Story 3.5: anti-fatigue ЖСН статусының оқылуы */
+      .iin-error { color:#dc3545; font-size:16px; font-weight:600; margin-top:4px; }
+      .iin-ok { color:#198754; font-size:15px; font-weight:600; margin-top:4px; }
+    </style>
 
 <div class="container flex-column flex-sm-row align-items-sm-center ministry-header-top">
     <div class="row justify-content-between align-items-center">
@@ -25,7 +30,7 @@
                         <input placeholder="Алиев"
                                type="text" required=""
                                class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
-                               value="" name="last_name">
+                               value="{{ form_data.last_name|default:'' }}" name="last_name">
                     </div>
                 </div>
                 <div data-tip="true"
@@ -35,7 +40,7 @@
                         <input placeholder="Али"
                                type="text" required=""
                                class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
-                               value="" name="first_name">
+                               value="{{ form_data.first_name|default:'' }}" name="first_name">
                     </div>
                 </div>
                 <div data-tip="true"
@@ -45,7 +50,7 @@
                         <input placeholder="Алиевич"
                                type="text"
                                class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
-                               value="" name="patronymic">
+                               value="{{ form_data.patronymic|default:'' }}" name="patronymic">
                     </div>
                 </div>
                 <div data-tip="true"
@@ -55,7 +60,7 @@
                         <input placeholder="Aliev Ali Alievich"
                                type="text"  required=""
                                class="form-input-text__input latin_letters typography__variant-body color_white__bg form-input-text__input--outlined"
-                               value="" name="latin_name">
+                               value="{{ form_data.latin_name|default:'' }}" name="latin_name">
                     </div>
                 </div>
             </div>
@@ -63,22 +68,24 @@
                 <hr>
             </div>
             <div class="row">
-                <div data-tip="true"
+                <div data-tip="true" id="iin_group"
                      class="form-control__input form-control__input--visible-first form-input-text col-md-2 mb-2 ">
                     <label for="title" id="iin_label" class="req"> ЖСН </label>
                     <div class="d-flex pos_relative">
                         <input placeholder="781213351207"
-                               type="text"  required="" id="iin"   minlength="12" maxlength="12"
+                               type="text"  required="" id="iin"   minlength="12" maxlength="12" oninput="iinFormatHint(this)"
                                class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
-                               value="" name="iin">
+                               value="{{ form_data.iin|default:'' }}" name="iin">
                     </div>
+                    <span id="iin_ok" class="iin-ok" style="display:none;">✅ ЖСН форматы дұрыс</span>
+                    {% if iin_error %}<div class="iin-error">{{ iin_error }}</div>{% endif %}
                 </div>
                 <div class="form-control__input form-control__input--visible-first col-md-2 mb-2"><label for="title"   class="req">
                     Туған күні </label>
                     <div class="d-flex align-items-center">
                         <div class="ant-picker ant-picker-range">
                             <div class="ant-picker-input ant-picker-input-active">
-                                 <input type="date" name="dob" id="dob" required=""placeholder="Начальная дата" max='2000-13-13' min='2000-13-13' size="10"  value="">
+                                 <input type="date" name="dob" id="dob" required=""placeholder="Начальная дата" max='2000-13-13' min='2000-13-13' size="10"  value="{{ form_data.dob|default:'' }}">
                             </div>
                         </div>
                     </div>
@@ -90,7 +97,7 @@
                                  class="color_white__bg form-input-select__input typography__variant-bodysubreg form-input-select__input--outlined"
                                  contenttype="projectdetails"  >
                         {% for sex in sexs %}
-                        <option value="{{ sex.sex_code }}">{{ sex.name_kaz }}</option>
+                        <option value="{{ sex.sex_code }}" {% if sex.sex_code == form_data.sex %}selected{% endif %}>{{ sex.name_kaz }}</option>
                         {% endfor %}
                     </select></div>
                 </div>
@@ -101,7 +108,7 @@
                                  class="color_white__bg form-input-select__input typography__variant-bodysubreg form-input-select__input--outlined"
                                  contenttype="">
                         {% for country in countries %}
-                        <option value="{{ country.country_code }}"  {% if country.country_code == "1000000105" %} selected="selected" {% endif %}>
+                        <option value="{{ country.country_code }}"  {% if country.country_code == form_data.citizenship|default:"1000000105" %} selected="selected" {% endif %}>
                         {{ country.name_kaz }}</option>
                         {% endfor %}
                     </select></div>
@@ -113,7 +120,7 @@
                                      class="color_white__bg form-input-select__input typography__variant-bodysubreg form-input-select__input--outlined"
                                      contenttype="">
                             {% for category in categories %}
-                            <option value="{{ category.category_code }}">
+                            <option value="{{ category.category_code }}" {% if category.category_code == form_data.category %}selected{% endif %}>
                             {{ category.name_kaz }}</option>
                             {% endfor %}
                         </select></div>
@@ -124,7 +131,7 @@
                     <div class="d-flex pos_relative">
                         <input placeholder="Директор"
                                type="text" required=""
-                               name="post"
+                               name="post" value="{{ form_data.post|default:'' }}"
                                class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined">
                     </div>
                 </div>
@@ -152,7 +159,7 @@
                         <input placeholder=""
                                type="text"
                                class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
-                               value="" name="doc_series">
+                               value="{{ form_data.doc_series|default:'' }}" name="doc_series">
                     </div>
                 </div>
                 <div data-tip="true"
@@ -162,7 +169,7 @@
                         <input
                                 type="text" required=""
                                 class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
-                                value="" name="doc_number">
+                                value="{{ form_data.doc_number|default:'' }}" name="doc_number">
                     </div>
                 </div>
                 <div class="form-control__input form-control__input--visible-first col-md-2 mb-2">
@@ -170,7 +177,7 @@
                     <div class="d-flex align-items-center">
                         <div class="ant-picker ant-picker-range">
                             <div class="ant-picker-input ant-picker-input-active">
-                                 <input type="date" required="" name="doc_date_start" id="doc_date_start" max='2000-13-13' min='2000-13-13' onkeydown="return false" size="10"  value="">
+                                 <input type="date" required="" name="doc_date_start" id="doc_date_start" max='2000-13-13' min='2000-13-13' onkeydown="return false" size="10"  value="{{ form_data.doc_date_start|default:'' }}">
                             </div>
                         </div>
                     </div>
@@ -180,7 +187,7 @@
                     <div class="d-flex align-items-center">
                         <div class="ant-picker ant-picker-range">
                             <div class="ant-picker-input ant-picker-input-active">
-                                <input type="date"  id="doc_date_end" name="doc_date_end" max='2000-13-13' min='2000-13-13'  onkeydown="return false" size="10"  value="" required="">
+                                <input type="date"  id="doc_date_end" name="doc_date_end" max='2000-13-13' min='2000-13-13'  onkeydown="return false" size="10"  value="{{ form_data.doc_date_end|default:'' }}" required="">
                             </div>
                         </div>
                     </div>
@@ -192,7 +199,7 @@
                         <input placeholder="Министрлігі"
                                type="text"
                                class="form-input-text__input typography__variant-body color_white__bg form-input-text__input--outlined"
-                               value="" name="doc_issuer">
+                               value="{{ form_data.doc_issuer|default:'' }}" name="doc_issuer">
                     </div>
                 </div>
             </div>
@@ -234,7 +241,7 @@
                      class="form-control__input form-control__input--visible-first form-input-text col-md-4 mb-2 ">
                     <label for="title"  class="req"> Баратын объектілер </label>
                     <div class="d-flex pos_relative">
-                        <textarea class="form-control"  required="" id="exampleFormControlTextarea3" rows="3" name="visit_objects"></textarea>
+                        <textarea class="form-control"  required="" id="exampleFormControlTextarea3" rows="3" name="visit_objects">{{ form_data.visit_objects|default:'' }}</textarea>
                     </div>
                 </div>
             </div>
@@ -274,46 +281,38 @@
     </div>
 </div>
 <script>
-    document.addEventListener('DOMContentLoaded', function () {
-          $('#qazdoctype').hide()
-      $('#fulldoctype').hide()
-    var c = $( "#citizenship" ).val()
-     if( c == "1000000105"){
-            var res = $('#qazdoctype').html();
-            $("#doctype").html(res)
-        }else{
-            var res = $('#fulldoctype').html();
-            $("#doctype").html(res)
-        }
-    });
-  </script>
-
-
-  <script>
-
-
-
-    $("#citizenship").change(function () {
-          var c = $( "#citizenship" ).val()
-        if( c == "1000000105"){
-            var res = $('#qazdoctype').html();
-            $("#doctype").html(res)
-            $("#iin_label").attr("class", "req")
-            $("#iin").attr( "required", "" )
-            $('#category').hide()
-            $('#post').removeClass("col-md-2").addClass("col-md-4")
-        }else{
-            var res = $('#fulldoctype').html();
-            $("#doctype").html(res)
-            $("#iin_label").attr("class", "")
-            $("#iin").removeAttr( "required" )
-            $('#category').show()
-            $('#post').removeClass("col-md-4").addClass("col-md-2")
-        }
-
-      $('#qazdoctype').hide()
-      $('#fulldoctype').hide()
-         });
+// Story 3.5: residency switch — ЖСН өрісі тек ҚР үшін (1000000105) көрінеді.
+function iinFormatHint(input) {
+    var numbers = input.value.replace(/[^0-9]/g, "");
+    input.value = numbers;
+    var ok = document.getElementById("iin_ok");
+    if (ok) { ok.style.display = (numbers.length === 12) ? "block" : "none"; }
+}
+function applyResidency(c, clearIin) {
+    if (c == "1000000105") {
+        $("#doctype").html($('#qazdoctype').html());
+        $("#iin_group").show();
+        $("#iin_label").attr("class", "req");
+        $("#iin").attr("required", "");
+        $('#category').hide();
+        $('#post').removeClass("col-md-2").addClass("col-md-4");
+    } else {
+        $("#doctype").html($('#fulldoctype').html());
+        $("#iin").removeAttr("required");
+        if (clearIin) { $("#iin").val(""); }
+        $("#iin_group").hide();
+        $('#category').show();
+        $('#post').removeClass("col-md-4").addClass("col-md-2");
+    }
+    $('#qazdoctype').hide();
+    $('#fulldoctype').hide();
+}
+document.addEventListener('DOMContentLoaded', function () {
+    applyResidency($("#citizenship").val(), false);
+});
+$("#citizenship").change(function () {
+    applyResidency($(this).val(), true);
+});
   </script>
          <script>
          var today = new Date();

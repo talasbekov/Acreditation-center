@@ -7,16 +7,19 @@ import mimetypes
 
 from datetime import date, timedelta, datetime
 from django.utils import timezone
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.http import HttpResponse, Http404, HttpResponseRedirect, FileResponse, HttpResponseNotFound
 from django.template import RequestContext
 from django.shortcuts import render
-from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required, user_passes_test
 
 from django.conf import settings
 from directories.models import Sex, Country, DocumentType, City
 from eventproject.models import Event, Operator, Request, Attendee
+from eventproject.audit import audit_log
+from eventproject.services.access_events import record_access_event
 
 logger = logging.getLogger("eventproject")
 
@@ -280,6 +283,35 @@ def change_password(request):
             if request.user.check_password(old_password):
                 request.user.set_password(new_password)
                 request.user.save()
+                # Сохраняем сессию активной после смены пароля (иначе Django
+                # ротирует auth-hash и пользователь разлогинивается).
+                update_session_auth_hash(request, request.user)
+                # Story 2.3 (AC-5): снимаем форс смены пароля после успешной смены.
+                operator = getattr(request.user, "operator", None)
+                if operator is not None and operator.force_password_change:
+                    operator.force_password_change = False
+                    operator.save(update_fields=["force_password_change"])
+                # Story 2.4 (AC-3): фиксируем смену пароля в истории доступа + audit.
+                # Best-effort: пароль уже изменён — сбой записи истории не должен
+                # привести к ложному «не удалось изменить пароль».
+                if operator is not None:
+                    try:
+                        ip = request.META.get("REMOTE_ADDR", "")
+                        record_access_event(
+                            operator, "password_changed", actor=request.user, ip=ip
+                        )
+                        audit_log(
+                            user=request.user,
+                            action="user.change_password",
+                            obj_type="User",
+                            obj_id=request.user.id,
+                            ip=ip,
+                        )
+                    except Exception:
+                        logger.exception(
+                            "failed to record password_changed event for user=%s",
+                            request.user.id,
+                        )
                 context_dict["success_message"] = "Пароль успешно изменен"
                 return render(request, "change_password_result.html", context_dict)
             else:
@@ -296,29 +328,104 @@ def change_password(request):
     return render(request, "change_password.html", context_dict)
 
 
+def _safe_next_url(request):
+    """P2-9: возвращает ?next= только если он указывает на ЭТОТ хост (анти open-redirect).
+
+    Внешний/протокол-относительный (`//evil`) URL → None (используется дефолтный редирект).
+    """
+    nxt = request.POST.get("next") or request.GET.get("next")
+    if nxt and url_has_allowed_host_and_scheme(
+        nxt,
+        allowed_hosts={request.get_host()},
+        require_https=request.is_secure(),
+    ):
+        return nxt
+    return None
+
+
 def user_login(request):
     context = RequestContext(request)
     if request.method == "POST":
-        username = request.POST['username']
-        password = request.POST['password']
+        # P1-2: malformed POST без полей не должен падать KeyError'ом/500.
+        username = request.POST.get('username', '')
+        password = request.POST.get('password', '')
+        # BE-1: если axes уже заблокировал источник — отдаём локализованное
+        # сообщение. Проверяем ДО authenticate: иначе backend выставит
+        # request.axes_locked_out и AxesMiddleware подменит ответ на голый
+        # англоязычный axes-429 «Account locked…».
+        from axes.handlers.proxy import AxesProxyHandler
+
+        if AxesProxyHandler.is_locked(request, {"username": username}):
+            return render(
+                request,
+                "gov.html",
+                context={
+                    "error_message": (
+                        "Аккаунт временно заблокирован из-за множества неудачных "
+                        "попыток входа. Повторите попытку позже."
+                    ),
+                },
+                status=429,
+            )
         user = authenticate(request, username=username, password=password)
         if user is not None:
 
             if user.is_active:
                 login(request, user)
+                # Story 2.4 (AC-3): фиксируем вход оператора в истории доступа + audit.
+                # Best-effort: сбой записи истории НЕ должен ломать уже успешный вход.
+                operator = getattr(user, "operator", None)
+                if operator is not None:
+                    try:
+                        ip = request.META.get("REMOTE_ADDR", "")
+                        record_access_event(operator, "login", actor=user, ip=ip)
+                        audit_log(
+                            user=user,
+                            action="user.login",
+                            obj_type="User",
+                            obj_id=user.id,
+                            ip=ip,
+                        )
+                    except Exception:
+                        logger.exception(
+                            "failed to record login access event for user=%s", user.id
+                        )
+                # P2-9: возврат на исходную страницу (SPA) после входа — только
+                # на безопасный (этот хост) next; иначе дефолт по роли.
+                next_url = _safe_next_url(request)
+                if next_url:
+                    return HttpResponseRedirect(next_url)
                 if user.is_superuser:
                     return HttpResponseRedirect("/avmac/")
                 else:
                     return HttpResponseRedirect("/application/")
             else:
-                return HttpResponse("Your account is suspended")
+                # Story 2.4 (AC-4): локализованное сообщение о деактивации.
+                return render(
+                    request,
+                    "gov.html",
+                    context={"error_message": "Аккаунт деактивирован"},
+                )
         else:
+            # Story 2.4 (AC-4): дефолтный ModelBackend возвращает None и для
+            # неактивных аккаунтов (authenticate проверяет is_active) — поэтому
+            # отличаем деактивированный аккаунт от неверных credentials.
+            if User.objects.filter(username=username, is_active=False).exists():
+                return render(
+                    request,
+                    "gov.html",
+                    context={"error_message": "Аккаунт деактивирован"},
+                )
             return render(
                 request,
                 "gov.html",
-                context={"error_message": "Неправильный логин или пароль"},
+                context={
+                    "error_message": "Неправильный логин или пароль",
+                    "next": request.POST.get("next", ""),
+                },
             )
-    return render(request, "gov.html", context={})
+    # P2-9: прокидываем next в форму (скрытое поле), чтобы вход вернул на исходную страницу.
+    return render(request, "gov.html", context={"next": request.GET.get("next", "")})
 
 
 def ratelimited_error(request, exception):

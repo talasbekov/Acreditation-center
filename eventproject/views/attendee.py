@@ -12,6 +12,7 @@ from django_ratelimit.decorators import ratelimit
 from directories.models import Sex, Country, DocumentType, Category
 from eventproject.models import Operator, Request, Attendee
 from eventproject.validators.iin import event_has_iin_duplicate
+from eventproject.validators.residency import resolve_residency
 from eventproject.audit import audit_log
 
 logger = logging.getLogger("eventproject")
@@ -151,13 +152,18 @@ def add_attendee(request, request_id):
                 return HttpResponse("You are not authorised to see this page")
         except Request.DoesNotExist:
             return HttpResponse("Could not find event")
+        except Operator.DoesNotExist:
+            return HttpResponseForbidden("Operator profile not found.")
     elif request.method == "POST":
         # try:
         rid = request.POST["req_id"]
         req = Request.objects.get(id=rid)
         user = request.user
         if not user.is_superuser:
-            operator = Operator.objects.get(user=request.user)
+            try:
+                operator = Operator.objects.get(user=request.user)
+            except Operator.DoesNotExist:
+                return HttpResponseForbidden("Operator profile not found.")
             if req.created_by != operator:
                 return HttpResponse("You are not authorised to see this page")
         attendee = Attendee()
@@ -165,10 +171,10 @@ def add_attendee(request, request_id):
         attendee.firstname = request.POST["first_name"]
         attendee.patronymic = request.POST["patronymic"]
         attendee.transcription = request.POST["latin_name"]
-        attendee.iin = request.POST["iin"]
+        attendee.iin = request.POST.get("iin", "")
         attendee.birthDate = request.POST["dob"]
         attendee.sexId = request.POST["sex"]
-        attendee.countryId = request.POST["citizenship"]
+        attendee.countryId = request.POST.get("citizenship", "")
         attendee.post = request.POST["post"]
         attendee.docTypeId = request.POST["document_type"]
         attendee.docSeries = request.POST["doc_series"]
@@ -183,11 +189,31 @@ def add_attendee(request, request_id):
         attendee.request = req
         attendee.dateAdd = timezone.now()
         attendee.dateEnd = date.today()
-        if attendee.countryId != "1000000105aaaa":
-            attendee.stickId = request.POST["category"]
-        doc_start = datetime.strptime(attendee.docBegin, "%Y-%m-%d").date()
-        doc_end = datetime.strptime(attendee.docEnd, "%Y-%m-%d").date()
-        dob = datetime.strptime(attendee.birthDate, "%Y-%m-%d").date()
+        # P1-4: исправлен sentinel-typo "1000000105aaaa" → "1000000105" (id РК из
+        # validators/residency._DEFAULT_KZ_COUNTRY_ID). Из-за «aaaa» условие было всегда
+        # истинным, и для КЗ-резидентов (у которых residency-toggle прячет #category)
+        # чтение POST["category"] падало KeyError'ом. `.get` — доп. защита.
+        if attendee.countryId != "1000000105":
+            attendee.stickId = request.POST.get("category", "")
+        # P1-3: битая дата из прямого POST (минуя <input type=date>) больше не 500.
+        try:
+            doc_start = datetime.strptime(attendee.docBegin, "%Y-%m-%d").date()
+            doc_end = datetime.strptime(attendee.docEnd, "%Y-%m-%d").date()
+            dob = datetime.strptime(attendee.birthDate, "%Y-%m-%d").date()
+        except (ValueError, TypeError):
+            context_dict["delete_message"] = (
+                "Не удалось добавить. Проверьте формат дат (ГГГГ-ММ-ДД)."
+            )
+            context_dict["req"] = req
+            context_dict["attendees"] = Attendee.objects.filter(
+                request=req
+            ).order_by("-dateAdd")
+            context_dict["form_data"] = request.POST
+            return render(request, "gov3.html", context_dict)
+        # Story 3.5: единый residency+ИИН-валидатор (validators/iin.py).
+        residency = resolve_residency(attendee.countryId, attendee.iin, dob)
+        attendee.iin = residency.iin
+        attendee.is_resident = residency.is_resident
         if doc_start > date.today():
             context_dict["delete_message"] = (
                 "Не удалось добавить. Дата выдачи документа еще не наступил"
@@ -214,10 +240,9 @@ def add_attendee(request, request_id):
             context_dict["delete_message"] = (
                 "Не удалось добавить. Размер скана документа меньше чем 1Kb"
             )
-        elif attendee.countryId == "1000000105" and len(attendee.iin) < 12:
-            context_dict["delete_message"] = (
-                "Не удалось добавить. ИИН обязателен для граждан Казахстана"
-            )
+        elif residency.error:
+            context_dict["delete_message"] = "Не удалось добавить. " + residency.error
+            context_dict["iin_error"] = residency.error
         elif check_dublicate(attendee, req):
             context_dict["delete_message"] = (
                 "Не удалось добавить. Уже ранее добавляли этого участника"
@@ -243,6 +268,8 @@ def add_attendee(request, request_id):
         context_dict["req"] = req
         attendees = Attendee.objects.filter(request=req).order_by("-dateAdd")
         context_dict["attendees"] = attendees
+        # Story 3.5 (AC-2): сохранить введённые данные при ошибке.
+        context_dict["form_data"] = request.POST
         if "delete_message" in context_dict:
             return render(request, "gov3.html", context_dict)
         else:
@@ -267,7 +294,11 @@ def update_attendee(request, attendee_id):
         user = request.user
         if not user.is_superuser:
             operator = Operator.objects.get(user=request.user)
-            if req.created_by != operator:
+            # Story 4.2 (review, AC-3): Супероператор (по роли) редактирует любого
+            # участника — дашборд статусов ссылается сюда. Обычный оператор — только
+            # заявки, которые сам создал.
+            is_superoperator = operator.role in ("superoperator", "superuser")
+            if not is_superoperator and req.created_by != operator:
                 return HttpResponse("You are not authorised to see this page")
 
         if request.method == "GET":
@@ -279,7 +310,7 @@ def update_attendee(request, attendee_id):
             attendee.firstname = request.POST["first_name"]
             attendee.patronymic = request.POST["patronymic"]
             attendee.transcription = request.POST["latin_name"]
-            attendee.iin = request.POST["iin"]
+            attendee.iin = request.POST.get("iin", "")
             attendee.birthDate = request.POST["dob"]
             attendee.sexId = request.POST["sex"]
             attendee.countryId = request.POST.get("citizenship")
@@ -299,12 +330,24 @@ def update_attendee(request, attendee_id):
             if uploaded_doc_scan is not None:
                 attendee.docScan = uploaded_doc_scan
 
+            # Story 3.5: единый residency+ИИН-валидатор (validators/iin.py).
+            try:
+                dob = datetime.strptime(attendee.birthDate, "%Y-%m-%d").date()
+            except (ValueError, TypeError):
+                dob = None
+            residency = resolve_residency(attendee.countryId, attendee.iin, dob)
+            attendee.iin = residency.iin
+            attendee.is_resident = residency.is_resident
+
             if uploaded_photo is not None and attendee.photo.size > 9000000:
                 context_dict["error_message"] = "Photo size exceeds the limit (9MB)"
             elif uploaded_doc_scan is not None and attendee.docScan.size > 9000000:
                 context_dict["error_message"] = (
                     "Document scan size exceeds the limit (9MB)"
                 )
+            elif residency.error:
+                context_dict["error_message"] = residency.error
+                context_dict["iin_error"] = residency.error
             else:
                 attendee.save()
 
@@ -320,6 +363,10 @@ def update_attendee(request, attendee_id):
                     "Attendee information updated successfully"
                 )
 
+            # Story 3.5 review (2026-06-23): сохранить введённые значения при
+            # ошибке валидации — иначе date-поля (dob/docBegin/docEnd) обнуляются,
+            # т.к. шаблон применяет |date к POST-строке. Паритет с add_attendee.
+            context_dict["form_data"] = request.POST
             context_dict.update(_update_attendee_context(attendee))
 
             if "error_message" in context_dict:
@@ -330,5 +377,8 @@ def update_attendee(request, attendee_id):
                 return redirect(f"/show_event/{req.event.id}/")
             else:
                 return redirect(f"/show/{req.id}/")
+    except Operator.DoesNotExist:
+        # P1-1: аутентифицированный пользователь без строки Operator → 403, не 500.
+        return HttpResponseForbidden("Operator profile not found.")
     except Attendee.DoesNotExist:
         return HttpResponse("Could not find attendee")

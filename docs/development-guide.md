@@ -38,7 +38,7 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements-dev.txt   # requirements-dev.txt: black, locust (dev/tooling-only)
 cp .env.example .env                      # указать локальные DB_HOST/Redis
 python manage.py migrate
 python manage.py createsuperuser
@@ -51,6 +51,16 @@ Celery (отдельные терминалы):
 celery -A eventproject worker --loglevel=INFO --concurrency=2
 celery -A eventproject beat --loglevel=INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
 ```
+
+## Frontend (React SPA — Increment 2)
+
+React-кабинет оператора живёт в `frontend/` (React 19 + Vite 8 + TS, TanStack Query v5, Tailwind v4 + shadcn/ui). См. `frontend/README.md`.
+
+```bash
+cd frontend && npm install && npm run dev   # http://localhost:5173 (прокси на Django :8000)
+```
+
+> ⚠️ Для session/CSRF по локальному HTTP задайте в `.env`: `SECURE_SSL_REDIRECT=False`, `SESSION_COOKIE_SECURE=False`, `CSRF_COOKIE_SECURE=False`, `ALLOWED_HOSTS=localhost,127.0.0.1`, `CSRF_TRUSTED_ORIGINS=http://localhost:8000,http://localhost:5173` (иначе secure-cookie не ставятся / запрос 400/403). Подробности — `frontend/README.md`.
 
 ## Наполнение справочников
 

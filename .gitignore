@@ -65,6 +65,11 @@ CLAUDE.local.md
 .swarm/
 .agents/
 _bmad/
+
+# React frontend (Story 5.1) — build output и зависимости не коммитятся
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
 _bmad-output/
 
 # One-off ops scripts (session-PII tooling) — keep out of the repo
