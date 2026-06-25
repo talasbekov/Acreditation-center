@@ -51,9 +51,12 @@ APPEND_SLASH = True
 # CSRF и CORS настройки
 CSRF_TRUSTED_ORIGINS = config("CSRF_TRUSTED_ORIGINS", default="", cast=Csv())
 
-CSRF_COOKIE_SECURE = True
+# Secure-cookie по умолчанию True (прод за TLS). Локальный HTTP-стек (runserver без
+# TLS) переопределяет в False через окружение — иначе браузер не шлёт Secure-cookie
+# по HTTP и логин/CSRF не работают.
+CSRF_COOKIE_SECURE = _env_flag("CSRF_COOKIE_SECURE", default=True)
 CSRF_COOKIE_SAMESITE = 'Strict'
-SESSION_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = _env_flag("SESSION_COOKIE_SECURE", default=True)
 SECURE_HSTS_SECONDS = config("SECURE_HSTS_SECONDS", default=31536000, cast=int)
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_SSL_REDIRECT = _env_flag("SECURE_SSL_REDIRECT", default=True)
@@ -81,6 +84,9 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    # WhiteNoise отдаёт STATIC_ROOT напрямую — и в dev (runserver при DEBUG=False),
+    # и в prod (gunicorn). Без него Django статику не обслуживает (нужен был бы nginx).
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "axes.middleware.AxesMiddleware",  # django-axes middleware

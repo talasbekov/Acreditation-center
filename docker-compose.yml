@@ -8,7 +8,7 @@ services:
     environment:
       - POSTGRES_DB=eventdb
       - POSTGRES_USER=event
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      - POSTGRES_PASSWORD=aktobe
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -43,6 +43,16 @@ services:
       - DB_NAME=eventdb
       - DB_USER=event
       - DB_PASSWORD=${DB_PASSWORD:?Set DB_PASSWORD}
+      # Локальный стек по HTTP (runserver без TLS): без этого SECURE_SSL_REDIRECT
+      # шлёт 301→https (ломает health-check и доступ к приложению), а Secure-cookie
+      # не ходят по HTTP → логин/CSRF не работают. В проде (за TLS) НЕ задавать.
+      - SECURE_SSL_REDIRECT=False
+      - SESSION_COOKIE_SECURE=False
+      - CSRF_COOKIE_SECURE=False
+      # SPA (Vite :5173) проксирует /api → этот сервис (Host=accreditation-center).
+      # Разрешаем оба хоста + доверяем CSRF-origin фронта.
+      - ALLOWED_HOSTS=localhost,127.0.0.1,accreditation-center,0.0.0.0
+      - CSRF_TRUSTED_ORIGINS=http://localhost:5173,http://localhost:8000
     command: >
       bash -c "
       echo 'Waiting for database...' &&
@@ -64,6 +74,25 @@ services:
     depends_on:
       db:
         condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+    image: accr-frontend:latest
+    container_name: accr-frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    environment:
+      # Vite-proxy /api,/user_login → Django по имени сервиса (внутри compose-сети).
+      - VITE_BACKEND=http://accreditation-center:8000
+    volumes:
+      - ./frontend:/app
+      # анонимный том — контейнерные node_modules (npm ci под linux) не затираются
+      # хостовыми (другой arch/платформа).
+      - /app/node_modules
+    depends_on:
+      - accreditation-center
 
 volumes:
   tmp_archives:

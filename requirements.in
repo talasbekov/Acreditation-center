@@ -19,6 +19,7 @@ django-crontab==0.7.1
 django-qrcode==0.3
 python-decouple==3.8
 python-json-logger>=2.0.7,<4.0.0
+whitenoise
 httpx==0.28.1
 requests==2.32.3
 pdf2image==1.17.0
