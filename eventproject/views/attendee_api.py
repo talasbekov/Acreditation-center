@@ -24,7 +24,7 @@ from eventproject.serializers.attendee import (
     AttendeeListSerializer,
     AttendeeSerializer,
 )
-from eventproject.serializers.rbac import get_operator_events
+from eventproject.serializers.rbac import get_operator_attendee_queryset
 from eventproject.state_machine import (
     ATTENDEE_STATUSES,
     AttendeeStatus,
@@ -61,10 +61,10 @@ class AttendeeViewSet(viewsets.ModelViewSet):
         return AttendeeSerializer
 
     def get_queryset(self):
-        # RBAC-изоляция: только участники мероприятий оператора (404 для чужих).
-        events = get_operator_events(self.request.user)
+        # RBAC-изоляция (hd-5.3): единый scope-резолвер events ∩ category (404 для
+        # чужих). Не дублируем фильтр request__event__in — он внутри резолвера.
         qs = (
-            Attendee.objects.filter(request__event__in=events)
+            get_operator_attendee_queryset(self.request.user)
             .select_related("request", "category")
             .order_by("-dateAdd")
         )
