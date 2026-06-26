@@ -12,6 +12,14 @@ from eventproject.models import Attendee, Event, Operator, Request
 
 
 class AuditLogFunctionTest(SimpleTestCase):
+    # Story hd-4.1: audit_log() теперь персистит в DB-AuditLog (durable). Эти
+    # тесты проверяют stdout-зеркало в изоляции — DB-запись замокана (она
+    # покрыта test_auditlog_model.py), поэтому SimpleTestCase остаётся валиден.
+    def setUp(self):
+        patcher = patch("eventproject.audit.AuditLog")
+        self.mock_auditlog = patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_audit_log_authenticated_user(self):
         user = MagicMock()
         user.id = 42

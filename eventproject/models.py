@@ -2,6 +2,7 @@ from django.utils import timezone
 from django.conf import settings
 
 from django.db import models
+from django.db import IntegrityError
 from django.contrib.auth.models import User
 
 from eventproject.fernet_fields import EncryptedCharField
@@ -310,3 +311,70 @@ class ExportLog(models.Model):
     def __str__(self):
         cat = f" / {self.category.name}" if self.category else ""
         return f"ExportLog {self.event}{cat} @ {self.exported_before}"
+
+
+class AuditLogQuerySet(models.QuerySet):
+    """Append-only: блокирует bulk-мутации портируемо (SQLite + Postgres).
+
+    Review hd-4.1 (AC-3): model-level `save`/`delete` ловят только ORM-instance;
+    `QuerySet.update()/.delete()` их минуют. Этот guard закрывает bulk-путь на
+    всех БД (Postgres-триггер — последняя линия против сырого SQL мимо ORM).
+    """
+
+    def update(self, *args, **kwargs):
+        raise IntegrityError("AuditLog is append-only: bulk UPDATE is forbidden")
+
+    def delete(self, *args, **kwargs):
+        raise IntegrityError("AuditLog is append-only: bulk DELETE is forbidden")
+
+
+class AuditLog(models.Model):
+    """Story hd-4.1: append-only журнал значимых действий (FR-12).
+
+    Durable-зеркало stdout-аудита (`eventproject/audit.py`). Append-only на трёх
+    слоях: model-guard (`save`/`delete`) + manager-guard (bulk `update`/`delete`,
+    портируемо) + Postgres-триггер BEFORE UPDATE/DELETE (миграция 0025, raw SQL).
+    `actor_id` — снимок id (НЕ FK): удаление User не трогает журнал и не конфликтует
+    с append-only-триггером. ИИН в `extra` хранится МАСКИРОВАННЫМ (вычистка на write-path).
+    """
+
+    objects = AuditLogQuerySet.as_manager()
+
+    actor_id = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Снимок id актора (НЕ FK — append-only аудит хранит историческую ссылку; удаление User не трогает журнал). null для system/Celery",
+    )
+    role = models.CharField(max_length=32)
+    action = models.CharField(max_length=64, db_index=True)
+    obj_type = models.CharField(max_length=64)
+    obj_id = models.CharField(max_length=64, blank=True, default="")
+    ip = models.CharField(max_length=45, null=True, blank=True)
+    extra = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["obj_type", "obj_id"]),
+        ]
+
+    def __str__(self):
+        return (
+            f"AuditLog {self.action} {self.obj_type}:{self.obj_id} "
+            f"@ {self.created_at:%Y-%m-%dT%H:%M:%S}"
+            if self.created_at
+            else f"AuditLog {self.action} {self.obj_type}:{self.obj_id}"
+        )
+
+    def save(self, *args, **kwargs):
+        # AC-3 append-only: запрещаем UPDATE существующей строки (model-level
+        # guard — портируемо, ловит ORM-путь и на SQLite). Bulk-`QuerySet.update`
+        # минует этот guard — для прода его блокирует Postgres-триггер (миграция).
+        if self.pk is not None:
+            raise IntegrityError("AuditLog is append-only: UPDATE is forbidden")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        # AC-3 append-only: запрещаем DELETE (model-level; bulk — Postgres-триггер).
+        raise IntegrityError("AuditLog is append-only: DELETE is forbidden")
