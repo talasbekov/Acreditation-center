@@ -3,6 +3,7 @@ from django.conf import settings
 
 from django.db import models
 from django.db import IntegrityError
+from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 
 from eventproject.fernet_fields import EncryptedCharField
@@ -43,6 +44,61 @@ class Event(models.Model):
         help_text="Кто создал (Story 2.2)"
     )
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+
+    # Story hd-5.1 (FR-22): иерархия мероприятий — РОВНО один уровень.
+    # parent=NULL → контейнер-кандидат/самостоятельное; parent задан → под-мероприятие (лист).
+    # PROTECT (НЕ CASCADE): каскад удалил бы детей с зашифрованными ИИН → нарушение retention.
+    parent = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="subevents",
+        help_text="Родительское мероприятие-контейнер; NULL = самостоятельное/контейнер. Один уровень (hd-5.1)",
+    )
+    # Денормализованный признак «есть под-мероприятия» (контейнер). Поддержание —
+    # hd-5.2 (leaf-only на путях записи); здесь — поле + валидация i18n-имени контейнера.
+    is_container = models.BooleanField(
+        default=False,
+        help_text="True = контейнер (есть под-мероприятия); участники крепятся только к листу (hd-5.2)",
+    )
+
+    class Meta:
+        constraints = [
+            # hd-5.1 AC-2: anti-self-parent (row-local — БД держит). Один уровень
+            # (parent.parent NULL) — НЕ row-local, держится clean()+data-quality assert.
+            models.CheckConstraint(
+                check=models.Q(parent__isnull=True) | ~models.Q(parent=models.F("id")),
+                name="event_no_self_parent",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.parent_id is not None and self.pk is not None and self.parent_id == self.pk:
+            errors["parent"] = "Мероприятие не может быть своим родителем."
+        elif self.parent_id is not None:
+            parent = self.parent
+            # AC-2: ровно один уровень — родитель обязан быть корнем.
+            if parent.parent_id is not None:
+                errors["parent"] = (
+                    "Иерархия мероприятий — ровно один уровень: нельзя прикрепить "
+                    "под-мероприятие к под-мероприятию."
+                )
+            # AC-3: child ⊆ parent по датам (legacy-пара date_start/date_end — авторитетна).
+            if self.date_start and self.date_end and parent.date_start and parent.date_end:
+                if self.date_start < parent.date_start or self.date_end > parent.date_end:
+                    errors["date_start"] = (
+                        "Даты под-мероприятия должны быть в пределах дат родителя."
+                    )
+        # AC-3: контейнер обязан иметь полное i18n-имя (госотчётность).
+        if self.is_container and not (self.name_rus and self.name_kaz and self.name_eng):
+            errors["is_container"] = (
+                "Контейнер-мероприятие обязано иметь название на ru/kz/en (госотчётность)."
+            )
+        if errors:
+            raise ValidationError(errors)
 
     def __str__(self):
         return self.title or self.name_rus or f"Event {self.id}"
