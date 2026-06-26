@@ -11,12 +11,13 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.filters import SearchFilter
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from eventproject.audit import audit_log
+from eventproject.errors import coded_error
 from eventproject.models import Attendee
 from eventproject.permissions import IsOperator
 from eventproject.validators.iin import mask_iin
@@ -78,15 +79,13 @@ class AttendeeViewSet(viewsets.ModelViewSet):
             try:
                 category_id = int(category_id)
             except (TypeError, ValueError):
-                raise ValidationError({"category_id": "Должно быть целым числом."})
+                raise coded_error("param_not_int", field="category_id")
             qs = qs.filter(category_id=category_id)
 
         status_param = self.request.query_params.get("status")
         if status_param is not None:
             if status_param not in ATTENDEE_STATUSES:
-                raise ValidationError(
-                    {"status": f"Допустимые значения: {sorted(ATTENDEE_STATUSES)}"}
-                )
+                raise coded_error("status_invalid", field="status")
             qs = qs.filter(status=status_param)
 
         return qs
@@ -188,12 +187,13 @@ class AttendeeViewSet(viewsets.ModelViewSet):
             attendee.countryId, attendee.iin, attendee.birthDate
         )
         if result.error:
-            raise ValidationError({"iin": result.error})
+            # fe-1.1: машинный код (iin_checksum/iin_dob_mismatch/…) + params, не generic.
+            raise coded_error(result.code or "unknown", field="iin", **(result.params or {}))
 
         try:
             assert_transition(attendee.status, AttendeeStatus.SUBMITTED)
         except InvalidStatusTransition as exc:
-            raise ValidationError({"status": str(exc)})
+            raise coded_error("status_transition_invalid", field="status")
 
         old_status = attendee.status
         attendee.status = AttendeeStatus.SUBMITTED

@@ -121,7 +121,9 @@ class EventViewTest(TestCase):
             {"start_date": "2026-06-01", "end_date": "2026-06-03"},
         )
         self.assertEqual(response.status_code, 400)
-        self.assertIn("title", response.json())
+        # fe-1.1: машинный контракт — поле + код "required" (не RFC7807-`title`-прозы).
+        self.assertEqual(response.json()["field"], "title")
+        self.assertEqual(response.json()["type"], "required")
 
     def test_create_event_rejects_inverted_dates(self):
         self.client.force_authenticate(user=self.sop_user)
@@ -130,6 +132,7 @@ class EventViewTest(TestCase):
             {"title": "Bad Dates", "start_date": "2026-06-05", "end_date": "2026-06-01"},
         )
         self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()["type"], "event_date_inverted")  # fe-1.1
 
     def test_event_can_have_multiple_categories(self):
         self.client.force_authenticate(user=self.sop_user)
@@ -146,3 +149,5 @@ class EventViewTest(TestCase):
             f"/api/v1/events/{self.event.id}/categories/", {"name": "   "}
         )
         self.assertEqual(resp.status_code, 400)
+        # CharField (trim_whitespace) режет «   » раньше validate_name → код "blank".
+        self.assertEqual(resp.json()["type"], "blank")  # fe-1.1

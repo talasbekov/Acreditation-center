@@ -1,0 +1,52 @@
+[
+  {
+    "type": "iin_dob_mismatch",
+    "field": "iin",
+    "params": {
+      "iin_dob": "05.12.1985",
+      "entered_dob": "12.05.1985"
+    },
+    "detail": "Дата рождения в ИИН (05.12.1985) не совпадает с введённой (12.05.1985). Проверьте дату."
+  },
+  {
+    "type": "iin_checksum",
+    "field": "iin",
+    "params": {},
+    "detail": "ИИН некорректен: неверная контрольная цифра."
+  },
+  {
+    "type": "duplicate_attendee",
+    "field": "iin",
+    "params": {},
+    "detail": "Участник с этим ИИН уже добавлен в это мероприятие."
+  },
+  {
+    "type": "events_not_found",
+    "field": "event_ids",
+    "params": {
+      "missing": [
+        7,
+        9
+      ]
+    },
+    "detail": "Мероприятия не найдены: [7, 9]"
+  },
+  {
+    "type": "photo_too_large",
+    "field": "photo",
+    "params": {},
+    "detail": "photo: Файл слишком большой (максимум 5 МБ)"
+  },
+  {
+    "type": "required",
+    "field": "title",
+    "params": {},
+    "detail": "title: This field is required."
+  },
+  {
+    "type": "permission_denied",
+    "field": null,
+    "params": {},
+    "detail": "You do not have permission to perform this action."
+  }
+]

@@ -1,0 +1,151 @@
+{
+  "blank": {
+    "params": []
+  },
+  "category_name_blank": {
+    "params": []
+  },
+  "category_not_found": {
+    "params": []
+  },
+  "container_name_required": {
+    "params": []
+  },
+  "country_unknown": {
+    "params": []
+  },
+  "date": {
+    "params": []
+  },
+  "datetime": {
+    "params": []
+  },
+  "doc_unreadable": {
+    "params": []
+  },
+  "does_not_exist": {
+    "params": []
+  },
+  "duplicate_attendee": {
+    "params": []
+  },
+  "email_exists": {
+    "params": []
+  },
+  "email_status_invalid": {
+    "params": []
+  },
+  "empty": {
+    "params": []
+  },
+  "event_date_inverted": {
+    "params": []
+  },
+  "event_dates_outside_parent": {
+    "params": []
+  },
+  "event_hierarchy_depth": {
+    "params": []
+  },
+  "event_parent_missing": {
+    "params": []
+  },
+  "event_parent_self": {
+    "params": []
+  },
+  "events_not_found": {
+    "params": [
+      "missing"
+    ]
+  },
+  "iin_checksum": {
+    "params": []
+  },
+  "iin_date_invalid": {
+    "params": []
+  },
+  "iin_dob_mismatch": {
+    "params": [
+      "iin_dob",
+      "entered_dob"
+    ]
+  },
+  "iin_format": {
+    "params": []
+  },
+  "iin_required": {
+    "params": []
+  },
+  "incorrect_type": {
+    "params": []
+  },
+  "invalid": {
+    "params": []
+  },
+  "invalid_choice": {
+    "params": []
+  },
+  "max_length": {
+    "params": []
+  },
+  "max_string_length": {
+    "params": []
+  },
+  "max_value": {
+    "params": []
+  },
+  "min_length": {
+    "params": []
+  },
+  "min_value": {
+    "params": []
+  },
+  "not_authenticated": {
+    "params": []
+  },
+  "not_found": {
+    "params": []
+  },
+  "null": {
+    "params": []
+  },
+  "param_not_int": {
+    "params": []
+  },
+  "parse_error": {
+    "params": []
+  },
+  "permission_denied": {
+    "params": []
+  },
+  "photo_low_res": {
+    "params": []
+  },
+  "photo_not_image": {
+    "params": []
+  },
+  "photo_ratio": {
+    "params": []
+  },
+  "photo_too_large": {
+    "params": []
+  },
+  "photo_too_many_pixels": {
+    "params": []
+  },
+  "required": {
+    "params": []
+  },
+  "status_invalid": {
+    "params": []
+  },
+  "status_transition_invalid": {
+    "params": []
+  },
+  "unique": {
+    "params": []
+  },
+  "unknown": {
+    "params": []
+  }
+}

@@ -9,6 +9,7 @@ from django.http import QueryDict
 from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 
+from eventproject.errors import coded_error
 from eventproject.models import Attendee, Request
 from eventproject.serializers.rbac import get_operator_events
 from eventproject.validators.iin import event_has_iin_duplicate, mask_iin
@@ -150,14 +151,15 @@ class AttendeeSerializer(serializers.ModelSerializer):
         # без сигнала. Сверяем со справочником Country.country_code. Пустой/None
         # countryId пропускаем (нет выбора страны → текущее поведение нерезидента).
         if str(country_id or "").strip() and not is_known_country(country_id):
-            raise serializers.ValidationError(
-                {"countryId": "Неизвестный код страны."}
-            )
+            raise coded_error("country_unknown", field="countryId")
 
         # Residency + ИИН (Story 3.1/3.2): обязательность/валидность/нормализация.
         result = resolve_residency(country_id, iin, birth_date)
         if result.error:
-            raise serializers.ValidationError({"iin": result.error})
+            # fe-1.1: машинный код + динамические params (iin_dob_mismatch) → handler.
+            raise coded_error(
+                result.code or "iin_format", field="iin", **(result.params or {})
+            )
         attrs["is_resident"] = result.is_resident
         attrs["iin"] = result.iin  # None для нерезидента
 
@@ -166,9 +168,7 @@ class AttendeeSerializer(serializers.ModelSerializer):
             existing = Attendee.objects.filter(request__event=req.event)
             exclude_pk = instance.pk if instance is not None else None
             if event_has_iin_duplicate(existing, result.iin, exclude_pk=exclude_pk):
-                raise serializers.ValidationError(
-                    {"iin": "Участник с этим ИИН уже добавлен в это мероприятие."}
-                )
+                raise coded_error("duplicate_attendee", field="iin")
         return attrs
 
 

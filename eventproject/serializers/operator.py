@@ -10,6 +10,8 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from rest_framework import serializers
 
+from eventproject.errors import coded_error
+
 from eventproject.models import Category, Event, Operator
 
 
@@ -39,14 +41,12 @@ class OperatorCreateSerializer(serializers.Serializer):
         )
         missing = [eid for eid in value if eid not in existing]
         if missing:
-            raise serializers.ValidationError(
-                f"Мероприятия не найдены: {missing}"
-            )
+            raise coded_error("events_not_found", field="event_ids", missing=missing)
         return value
 
     def validate_category_id(self, value):
         if value is not None and not Category.objects.filter(id=value).exists():
-            raise serializers.ValidationError("Категория не найдена.")
+            raise serializers.ValidationError("Категория не найдена.", code="category_not_found")
         return value
 
     def validate_email(self, value):
@@ -54,7 +54,7 @@ class OperatorCreateSerializer(serializers.Serializer):
         # с тем же email, но разными логинами/паролями (review finding).
         if User.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError(
-                "Пользователь с таким email уже существует."
+                "Пользователь с таким email уже существует.", code="email_exists"
             )
         return value
 

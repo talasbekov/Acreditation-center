@@ -43,7 +43,11 @@ def protected_media(request, file_path):
     # Медиа лежит в каталогах вида event_<id>/...  Суперпользователь — без ограничений.
     # 404 (а не 403), чтобы не раскрывать существование чужих файлов.
     if not request.user.is_superuser:
-        match = re.match(r"event_(\d+)/", file_path)
+        # event_<id> берём из РЕЗОЛВНУТОГО пути, не из сырого file_path: иначе
+        # within-root traversal event_{own}/../event_{чужой}/ обходит проверку —
+        # сырой ведущий сегмент = own (проходит), а реально отдаётся файл чужого листа.
+        rel_path = os.path.relpath(full_path, media_root)
+        match = re.match(r"event_(\d+)/", rel_path)
         if not match:
             raise Http404
         try:

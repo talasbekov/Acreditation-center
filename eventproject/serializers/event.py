@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from eventproject.errors import coded_error
 from eventproject.models import Event, Category
 
 
@@ -21,7 +22,9 @@ class CategorySerializer(serializers.ModelSerializer):
     def validate_name(self, value):
         value = (value or "").strip()
         if not value:
-            raise serializers.ValidationError("Название категории не может быть пустым.")
+            raise serializers.ValidationError(
+                "Название категории не может быть пустым.", code="category_name_blank"
+            )
         return value
 
 
@@ -42,7 +45,5 @@ class EventSerializer(serializers.ModelSerializer):
         start = attrs.get("start_date")
         end = attrs.get("end_date")
         if start and end and end < start:
-            raise serializers.ValidationError(
-                {"end_date": "Дата окончания не может быть раньше даты начала."}
-            )
+            raise coded_error("event_date_inverted", field="end_date")
         return attrs

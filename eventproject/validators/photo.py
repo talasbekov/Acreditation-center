@@ -46,7 +46,7 @@ def check_upload_size(file):
     max_size = getattr(settings, "PHOTO_MAX_SIZE_BYTES", 5 * 1024 * 1024)
     size = getattr(file, "size", None)
     if size is not None and size > max_size:
-        raise serializers.ValidationError(ERR_TOO_BIG)
+        raise serializers.ValidationError(ERR_TOO_BIG, code="photo_too_large")
 
 
 def validate_image_file(file):
@@ -66,12 +66,12 @@ def validate_image_file(file):
             width, height = img.size
             # Лимит пикселей — ДО декодирования (анти-bomb: 600×200000 и т.п.).
             if width * height > max_pixels:
-                raise serializers.ValidationError(ERR_TOO_MANY_PIXELS)
+                raise serializers.ValidationError(ERR_TOO_MANY_PIXELS, code="photo_too_many_pixels")
             img.load()  # форсируем декод → ловим усечённые/битые изображения
     except serializers.ValidationError:
         raise
     except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
-        raise serializers.ValidationError(ERR_NOT_IMAGE)
+        raise serializers.ValidationError(ERR_NOT_IMAGE, code="photo_not_image")
     finally:
         try:
             file.seek(0)
@@ -79,9 +79,9 @@ def validate_image_file(file):
             pass
 
     if height <= 0 or width / height > max_ratio:
-        raise serializers.ValidationError(ERR_NOT_VERTICAL)
+        raise serializers.ValidationError(ERR_NOT_VERTICAL, code="photo_ratio")
     if width < min_w or height < min_h:
-        raise serializers.ValidationError(ERR_LOW_RES)
+        raise serializers.ValidationError(ERR_LOW_RES, code="photo_low_res")
 
 
 def is_pdf(uploaded):
@@ -114,17 +114,17 @@ def convert_pdf_to_jpeg(uploaded):
         data = uploaded.read()
         pages = convert_from_bytes(data, first_page=1, last_page=1, fmt="jpeg", dpi=dpi)
         if not pages:
-            raise serializers.ValidationError(ERR_PDF_FAILED)
+            raise serializers.ValidationError(ERR_PDF_FAILED, code="doc_unreadable")
         page = pages[0]
         # Анти-bomb: не декодируем гигантскую страницу в RGB.
         if page.width * page.height > max_pixels:
-            raise serializers.ValidationError(ERR_PDF_FAILED)
+            raise serializers.ValidationError(ERR_PDF_FAILED, code="doc_unreadable")
         buf = BytesIO()
         page.convert("RGB").save(buf, format="JPEG", quality=85)
     except serializers.ValidationError:
         raise
     except Exception:  # noqa: BLE001 — poppler/Pillow/bomb → понятное 400, не 500
-        raise serializers.ValidationError(ERR_PDF_FAILED)
+        raise serializers.ValidationError(ERR_PDF_FAILED, code="doc_unreadable")
     finally:
         try:
             uploaded.seek(0)
