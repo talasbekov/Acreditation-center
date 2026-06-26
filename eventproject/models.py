@@ -79,21 +79,44 @@ class Event(models.Model):
         if self.parent_id is not None and self.pk is not None and self.parent_id == self.pk:
             errors["parent"] = "Мероприятие не может быть своим родителем."
         elif self.parent_id is not None:
-            parent = self.parent
-            # AC-2: ровно один уровень — родитель обязан быть корнем.
-            if parent.parent_id is not None:
-                errors["parent"] = (
-                    "Иерархия мероприятий — ровно один уровень: нельзя прикрепить "
-                    "под-мероприятие к под-мероприятию."
-                )
-            # AC-3: child ⊆ parent по датам (legacy-пара date_start/date_end — авторитетна).
-            if self.date_start and self.date_end and parent.date_start and parent.date_end:
-                if self.date_start < parent.date_start or self.date_end > parent.date_end:
-                    errors["date_start"] = (
-                        "Даты под-мероприятия должны быть в пределах дат родителя."
+            try:
+                parent = self.parent
+            except Event.DoesNotExist:
+                parent = None
+                errors["parent"] = "Указанное родительское мероприятие не существует."
+            if parent is not None:
+                # AC-2 (один уровень, ВНИЗ): узел с под-мероприятиями не может сам стать
+                # листом — иначе появится третий уровень (review-фикс: clean() раньше
+                # смотрел только вверх).
+                if self.pk is not None and self.subevents.exists():
+                    errors["parent"] = (
+                        "Мероприятие с под-мероприятиями не может стать под-мероприятием "
+                        "(нарушит один уровень)."
                     )
-        # AC-3: контейнер обязан иметь полное i18n-имя (госотчётность).
-        if self.is_container and not (self.name_rus and self.name_kaz and self.name_eng):
+                # AC-2 (один уровень, ВВЕРХ): родитель обязан быть корнем.
+                elif parent.parent_id is not None:
+                    errors["parent"] = (
+                        "Иерархия мероприятий — ровно один уровень: нельзя прикрепить "
+                        "под-мероприятие к под-мероприятию."
+                    )
+                # AC-3: child ⊆ parent — проверяем ОБЕ пары дат (legacy date_start/date_end
+                # И Story 2.2 start_date/end_date — REST-API пишет вторую).
+                for c_start, c_end, p_start, p_end, field in (
+                    (self.date_start, self.date_end, parent.date_start, parent.date_end, "date_start"),
+                    (self.start_date, self.end_date, parent.start_date, parent.end_date, "start_date"),
+                ):
+                    if c_start and c_end and p_start and p_end and (
+                        c_start < p_start or c_end > p_end
+                    ):
+                        errors[field] = (
+                            "Даты под-мероприятия должны быть в пределах дат родителя."
+                        )
+        # AC-3: контейнер обязан иметь полное i18n-имя (госотчётность; .strip() против пробелов).
+        if self.is_container and not (
+            (self.name_rus or "").strip()
+            and (self.name_kaz or "").strip()
+            and (self.name_eng or "").strip()
+        ):
             errors["is_container"] = (
                 "Контейнер-мероприятие обязано иметь название на ru/kz/en (госотчётность)."
             )
