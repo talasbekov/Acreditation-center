@@ -6,6 +6,10 @@ export interface ProblemDetail {
   title?: string
   detail?: string
   field?: string
+  // fe-1.2: новое поле `params` — машинный `type` (объявлен выше, с fe-1.1) несёт их
+  // для интерполяции i18n (`t('errors:'+type, params)`). Рантайм уже сохранял params
+  // (asProblem кастит всё тело DRF-ответа) — здесь только объявление поля в типе.
+  params?: Record<string, unknown>
 }
 
 export class ApiError extends Error {

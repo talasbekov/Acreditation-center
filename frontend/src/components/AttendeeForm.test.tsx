@@ -121,10 +121,11 @@ describe('AttendeeForm (Story 5.2)', () => {
     await waitFor(() => expect(toastSuccess).toHaveBeenCalled())
   })
 
-  it('AC-4: серверная RFC7807-ошибка с field → под нужным полем', async () => {
+  // fe-1.2: контракт перешёл на машинные коды — `type`, не `detail`. Текст берётся из каталога.
+  it('AC-4: серверный код duplicate_attendee (field=iin) → текст каталога под полем ИИН', async () => {
     const { ApiError } = await import('@/api/client')
     apiFetchMock.mockRejectedValue(
-      new ApiError(400, 'Ошибка', { title: 'Ошибка', detail: 'Дубликат ИИН', field: 'iin' }),
+      new ApiError(400, 'Ошибка', { type: 'duplicate_attendee', field: 'iin', params: {} }),
     )
     renderForm()
     set('Фамилия', 'Тестов')
@@ -135,7 +136,9 @@ describe('AttendeeForm (Story 5.2)', () => {
     set(/Категория/, '1')
     fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
     await waitFor(() =>
-      expect(screen.getByText('Дубликат ИИН')).toBeInTheDocument(),
+      expect(
+        screen.getByText('Участник с этим ИИН уже добавлен в это мероприятие.'),
+      ).toBeInTheDocument(),
     )
   })
 
@@ -160,14 +163,10 @@ describe('AttendeeForm (Story 5.2)', () => {
     expect((sent as File).name).toBe('photo.jpg')
   })
 
-  it('Story 5.3: серверная ошибка field:photo → под зоной фото', async () => {
+  it('Story 5.3 / fe-1.2: серверный код photo_too_large (field=photo) → под зоной фото', async () => {
     const { ApiError } = await import('@/api/client')
     apiFetchMock.mockRejectedValue(
-      new ApiError(400, 'Ошибка', {
-        title: 'Ошибка',
-        detail: 'Файл слишком большой (максимум 5 МБ)',
-        field: 'photo',
-      }),
+      new ApiError(400, 'Ошибка', { type: 'photo_too_large', field: 'photo', params: {} }),
     )
     renderForm()
     set('Фамилия', 'Тестов')
@@ -375,5 +374,83 @@ describe('AttendeeForm — селектор категории (FE-1)', () => {
     await waitFor(() => expect(apiFetchMock).toHaveBeenCalledTimes(1))
     const [, init] = apiFetchMock.mock.calls[0] as [string, RequestInit]
     expect((init.body as FormData).get('request')).toBe('2')
+  })
+})
+
+describe('AttendeeForm — маппер ошибок (Story fe-1.2)', () => {
+  beforeEach(() => {
+    apiFetchMock.mockReset()
+    toastSuccess.mockReset()
+    toastError.mockReset()
+    localStorage.clear()
+  })
+
+  async function fillValidResident() {
+    set('Фамилия', 'Тестов')
+    set('Имя', 'Тест')
+    set('Дата рождения', '1990-05-15')
+    set('ИИН', '900515312349')
+    await screen.findByRole('option', { name: /Категория А/ })
+    set(/Категория/, '1')
+  }
+
+  it('AC-1/AC-4: серверный iin_dob_mismatch с params → интерполированный текст под полем ИИН', async () => {
+    const { ApiError } = await import('@/api/client')
+    apiFetchMock.mockRejectedValue(
+      new ApiError(400, 'Ошибка', {
+        type: 'iin_dob_mismatch',
+        field: 'iin',
+        params: { iin_dob: '05.12.1985', entered_dob: '12.05.1985' },
+      }),
+    )
+    renderForm()
+    await fillValidResident()
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          'Дата рождения в ИИН (05.12.1985) не совпадает с введённой (12.05.1985). Проверьте дату.',
+        ),
+      ).toBeInTheDocument(),
+    )
+  })
+
+  it('AC-2: неизвестный код (без field) → toast с fallback errors:unknown + лог type', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { ApiError } = await import('@/api/client')
+    apiFetchMock.mockRejectedValue(
+      new ApiError(400, 'Ошибка', { type: 'totally_unregistered_xyz', params: {} }),
+    )
+    renderForm()
+    await fillValidResident()
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith('Произошла ошибка. Повторите позже.'),
+    )
+    expect(warn).toHaveBeenCalledWith(
+      '[error-mapper] неизвестный код ошибки:',
+      'totally_unregistered_xyz',
+    )
+    warn.mockRestore()
+  })
+
+  it('AC-4: серверная iin-ошибка при скрытом поле ИИН (нерезидент) → toast, не setError', async () => {
+    const { ApiError } = await import('@/api/client')
+    apiFetchMock.mockRejectedValue(
+      new ApiError(400, 'Ошибка', { type: 'iin_checksum', field: 'iin', params: {} }),
+    )
+    renderForm()
+    set('Страна', '643') // нерезидент → поле ИИН скрыто (isResident=false)
+    await waitFor(() => expect(screen.queryByLabelText('ИИН')).not.toBeInTheDocument())
+    set('Фамилия', 'Тестов')
+    set('Имя', 'Тест')
+    set('Дата рождения', '1990-05-15')
+    await screen.findByRole('option', { name: /Категория А/ })
+    set(/Категория/, '1')
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
+    // field='iin' но поле скрыто → setError на невидимом инпуте не имеет смысла → toast.
+    await waitFor(() =>
+      expect(toastError).toHaveBeenCalledWith('ИИН некорректен: неверная контрольная цифра.'),
+    )
   })
 })

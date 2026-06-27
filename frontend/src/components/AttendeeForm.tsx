@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { attendeeSchema, type AttendeeFormValues } from '@/lib/attendeeSchema'
 import { KZ_COUNTRY_ID } from '@/lib/constants'
 import { apiFetch, ApiError } from '@/api/client'
+import { mapApiError } from '@/errors/mapApiError'
 import { getRequests } from '@/api/requests'
 import { Button } from '@/components/ui/button'
 import { PhotoUpload } from '@/components/PhotoUpload/PhotoUpload'
@@ -72,6 +74,7 @@ export function AttendeeForm({
   initialDocScanUrl,
 }: AttendeeFormProps = {}) {
   const isEdit = attendeeId !== undefined
+  const { t, i18n } = useTranslation()
   const queryClient = useQueryClient()
   const {
     register,
@@ -215,7 +218,8 @@ export function AttendeeForm({
     } catch (e) {
       if (e instanceof ApiError) {
         const field = e.problem?.field
-        const message = e.problem?.detail ?? e.problem?.title ?? 'Ошибка сохранения'
+        // fe-1.2: текст ошибки — из маппера кодов (t('errors:'+type, params)), не из detail/title.
+        const message = mapApiError(e.problem, t, i18n)
         // ИИН-поле скрыто у нерезидента — setError на нём был бы невидим → toast.
         const fieldHidden = field === 'iin' && !isResident
         if (field && SERVER_FIELDS.has(field) && !fieldHidden) {
