@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { getAttendees, type AttendeeListParams } from '@/api/attendees'
@@ -8,22 +9,8 @@ const PAGE_SIZE = 50
 const SEARCH_DEBOUNCE_MS = 300
 const SEARCH_MIN_CHARS = 3
 
-const STATUS_OPTIONS = [
-  { value: '', label: 'Все статусы' },
-  { value: 'draft', label: 'Черновик' },
-  { value: 'submitted', label: 'Отправлен' },
-  { value: 'in_review', label: 'На проверке' },
-  { value: 'ready', label: 'Готов' },
-  { value: 'exported', label: 'Выгружен' },
-] as const
-
-const STATUS_LABELS: Record<string, string> = {
-  draft: 'Черновик',
-  submitted: 'Отправлен',
-  in_review: 'На проверке',
-  ready: 'Готов',
-  exported: 'Выгружен',
-}
+// fe-1.3: значения статусов (стабильные коды); лейблы — через i18n `status` namespace.
+const STATUS_VALUES = ['', 'draft', 'submitted', 'in_review', 'ready', 'exported'] as const
 
 const inputCls =
   'rounded-md border border-neutral-400 px-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700'
@@ -35,6 +22,7 @@ function formatDate(iso: string): string {
 
 /** Список участников с поиском/фильтром/серверной пагинацией (Story 5.5). */
 export function AttendeesPage() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('') // debounced + ≥3 символов
@@ -72,9 +60,9 @@ export function AttendeesPage() {
   return (
     <main className="mx-auto max-w-5xl p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-neutral-900">Участники</h1>
+        <h1 className="text-2xl font-semibold text-neutral-900">{t('common:attendees.title')}</h1>
         <Button type="button" onClick={() => navigate('/add')}>
-          Добавить
+          {t('common:actions.add')}
         </Button>
       </div>
 
@@ -95,13 +83,18 @@ export function AttendeesPage() {
             setPage(1)
           }}
         >
-          {STATUS_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
+          {STATUS_VALUES.map((v) => (
+            <option key={v} value={v}>
+              {v === '' ? t('status:all') : t(`status:${v}`)}
             </option>
           ))}
         </select>
       </div>
+
+      {/* fe-1.3: видимая валидационная подсказка через i18n `validation` namespace (живой ре-рендер). */}
+      {searchInput.trim().length > 0 && searchInput.trim().length < SEARCH_MIN_CHARS && (
+        <p className="mb-4 text-sm text-neutral-500">{t('validation:search_min_chars')}</p>
+      )}
 
       {isError && <p className="text-red-600">Не удалось загрузить список.</p>}
 
@@ -137,7 +130,7 @@ export function AttendeesPage() {
                     {[a.surname, a.firstname, a.patronymic].filter(Boolean).join(' ')}
                   </td>
                   <td className="py-2 pr-3">{a.iin_masked || '—'}</td>
-                  <td className="py-2 pr-3">{STATUS_LABELS[a.status] ?? a.status}</td>
+                  <td className="py-2 pr-3">{t(`status:${a.status}`, { defaultValue: a.status })}</td>
                   <td className="py-2 pr-3">{formatDate(a.dateAdd)}</td>
                   <td className="py-2">
                     <Button
@@ -148,7 +141,7 @@ export function AttendeesPage() {
                         navigate(`/attendees/${a.id}`)
                       }}
                     >
-                      Открыть
+                      {t('common:actions.open')}
                     </Button>
                   </td>
                 </tr>
@@ -158,7 +151,7 @@ export function AttendeesPage() {
 
           <div className="mt-4 flex items-center justify-between">
             <span className="text-sm text-neutral-700">
-              Показано {from}–{to} из {total}
+              {t('common:pagination.showing', { from, to, total })}
             </span>
             <div className="flex gap-2">
               <Button
@@ -167,7 +160,7 @@ export function AttendeesPage() {
                 disabled={isPlaceholderData || !data?.previous}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
-                Назад
+                {t('common:actions.prev')}
               </Button>
               <Button
                 variant="outline"
@@ -178,7 +171,7 @@ export function AttendeesPage() {
                 disabled={isPlaceholderData || !data?.next}
                 onClick={() => setPage((p) => p + 1)}
               >
-                Вперёд
+                {t('common:actions.next')}
               </Button>
             </div>
           </div>

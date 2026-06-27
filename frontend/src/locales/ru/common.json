@@ -1,0 +1,5 @@
+{
+  "attendees": { "title": "Участники" },
+  "actions": { "add": "Добавить", "open": "Открыть", "prev": "Назад", "next": "Вперёд" },
+  "pagination": { "showing": "Показано {{from}}–{{to}} из {{total}}" }
+}

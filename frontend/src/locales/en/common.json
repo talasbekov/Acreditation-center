@@ -1,0 +1,5 @@
+{
+  "attendees": { "title": "Attendees" },
+  "actions": { "add": "Add", "open": "Open", "prev": "Back", "next": "Next" },
+  "pagination": { "showing": "Showing {{from}}–{{to}} of {{total}}" }
+}
