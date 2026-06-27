@@ -31,7 +31,8 @@ export default defineConfig({
     setupFiles: ['./vitest.setup.ts'],
     css: false,
     // Playwright e2e (e2e/*.spec.ts) гоняет `playwright test`, НЕ vitest.
-    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    // fe-2.1: тест токен-lint живёт в scripts/ рядом со скриптом.
+    include: ['src/**/*.{test,spec}.{ts,tsx}', 'scripts/**/*.test.ts'],
     exclude: ['e2e/**', 'node_modules/**'],
   },
 })

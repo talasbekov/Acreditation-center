@@ -7,12 +7,14 @@ const buttonVariants = cva(
   'inline-flex items-center justify-center gap-2 rounded-md text-base font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
+      // fe-2.1: варианты на токен-утилитах «Тихий сланец» (var(--…) через @theme inline) —
+      // читаются из токенов, переключатся под .dark без правки этого файла.
       variant: {
         default:
-          'bg-blue-700 text-white hover:bg-blue-800 focus-visible:ring-blue-700',
+          'bg-primary text-primary-foreground hover:bg-primary-hover focus-visible:ring-primary',
         outline:
-          'border border-neutral-400 bg-white text-neutral-900 hover:bg-neutral-100',
-        ghost: 'text-neutral-900 hover:bg-neutral-100',
+          'border border-border-strong bg-surface text-text hover:bg-surface-muted',
+        ghost: 'text-text hover:bg-surface-muted',
       },
       size: {
         default: 'h-11 px-5 py-2',

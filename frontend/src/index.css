@@ -1,17 +1,115 @@
 @import 'tailwindcss';
 
-/*
- * Anti-fatigue базовая тема (Story 5.1 AC-5): высокий контраст (WCAG AA),
- * шрифт form-labels ≥16px, touch target ≥44px для интерактивных элементов.
- * CSS isolation (AC-4): всё ограничено контейнером #react-root.
- */
+/* fe-2.1: class-стратегия тёмной темы. Сам класс .dark вешает ThemeProvider в fe-2.3 —
+ * здесь только шов (никто пока не переключает). */
+@custom-variant dark (&:where(.dark, .dark *));
 
+/*
+ * Токен-слой «Тихий сланец» (DESIGN.md). LIGHT — полные значения; .dark — [ASSUMPTION]
+ * (выведено, не выбрано; значения/переключатель — fe-2.3+). Компоненты читают токен-утилиты
+ * (bg-surface, text-text, border-input-border, bg-primary, rounded-md), которые через
+ * @theme inline резолвятся в var(--…) и переключаются под .dark — дешёвый дефер тёмной темы.
+ * @theme РАСШИРЯЕТ дефолтную палитру Tailwind (neutral/blue/… остаются доступны).
+ */
+:root {
+  /* surfaces / borders */
+  --canvas: #f4f5f6; /* off-white фон страницы — НИКОГДА не чистый #fff (anti-fatigue) */
+  --surface: #ffffff; /* приподнятый слой: карточки/шапка/nav/строки */
+  --surface-muted: #f7f8f9;
+  --border: #e3e5e8; /* декоративные разделители */
+  --border-strong: #d5d8dc;
+  --input-border: #7c828a; /* интерактивные контролы — WCAG 1.4.11 ≥3:1 (НЕ декоративный border) */
+  /* text */
+  --text: #1b1f24; /* НИКОГДА не чистый #000 (anti-fatigue) */
+  --text-muted: #646a72;
+  /* primary accent (глубокий синий) */
+  --primary: #1e3a5f;
+  --primary-foreground: #ffffff;
+  --primary-hover: #16304f;
+  --primary-tint: #eaf0f6;
+  /* status (цвет + tint) */
+  --status-active: #36704c;
+  --status-active-tint: #ecf3ee;
+  --status-checking: #875412;
+  --status-checking-tint: #f7f0e2;
+  --status-sent: #1e3a5f;
+  --status-sent-tint: #eaf0f6;
+  --status-exported: #5b6470;
+  --status-exported-tint: #eff0f2;
+  --status-rejected: #a6453e;
+  --status-rejected-tint: #f6eceb;
+  /* radius / density */
+  --radius: 6px;
+  --row-y: 11px;
+  --cell-x: 10px;
+  --nav-item-y: 8px;
+  --gutter: 20px;
+  --field-gap: 16px;
+}
+
+/* [ASSUMPTION] DARK — выведено из DESIGN.md, не выбрано пользователем; значения дефер (fe-2.3+). */
+.dark {
+  --canvas: #15181c;
+  --surface: #1b1f24;
+  --surface-muted: #22272e;
+  --border: #2c323a;
+  --border-strong: #3a424c;
+  --input-border: #6a727c;
+  --text: #e6e8eb;
+  --text-muted: #9aa1aa;
+  --primary: #7fa8d4;
+  --primary-foreground: #0e1a28;
+  --primary-hover: #94b6dc;
+  --primary-tint: #1e2a3a;
+  --status-active: #6fb28a;
+  --status-active-tint: #1b2a22;
+  --status-checking: #d6a24e;
+  --status-checking-tint: #2c2415;
+  --status-sent: #7fa8d4;
+  --status-sent-tint: #1e2a3a;
+  --status-exported: #9aa1aa;
+  --status-exported-tint: #23272d;
+  --status-rejected: #d98a82;
+  --status-rejected-tint: #2c1b19;
+}
+
+/* Маппинг токен-var → Tailwind-утилита (shadcn/Tailwind-4 cssVariables; inline → var()). */
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input-border: var(--input-border);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-tint: var(--primary-tint);
+  --color-status-active: var(--status-active);
+  --color-status-active-tint: var(--status-active-tint);
+  --color-status-checking: var(--status-checking);
+  --color-status-checking-tint: var(--status-checking-tint);
+  --color-status-sent: var(--status-sent);
+  --color-status-sent-tint: var(--status-sent-tint);
+  --color-status-exported: var(--status-exported);
+  --color-status-exported-tint: var(--status-exported-tint);
+  --color-status-rejected: var(--status-rejected);
+  --color-status-rejected-tint: var(--status-rejected-tint);
+  --radius-md: var(--radius);
+}
+
+/*
+ * Anti-fatigue база (Story 5.1 AC-5): высокий контраст (WCAG AA), шрифт ≥16px, touch ≥44px.
+ * CSS isolation (AC-4): всё в #react-root. Фон страницы = canvas (off-white, НЕ #fff).
+ */
 #react-root {
   min-height: 100svh;
   font-size: 16px; /* AC-5: базовый шрифт ≥16px */
   line-height: 1.5;
-  color: #171717; /* высокий контраст на белом (WCAG AA) */
-  background: #ffffff;
+  color: var(--text);
+  background: var(--canvas);
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
 }
 
