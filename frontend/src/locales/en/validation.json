@@ -1,3 +1,16 @@
 {
-  "search_min_chars": "Enter at least 3 characters to search"
+  "search_min_chars": "Enter at least 3 characters to search",
+  "required_surname": "Enter the surname",
+  "required_firstname": "Enter the first name",
+  "required_birthdate": "Enter the date of birth",
+  "required_country": "Select a country",
+  "required_category": "Select a category (event ID)",
+  "invalid_photo": "Invalid photo file",
+  "invalid_docscan": "Invalid document file",
+  "iin_required_resident": "Enter the resident's IIN",
+  "iin_invalid": "Invalid IIN",
+  "iin_format": "IIN must contain exactly 12 digits.",
+  "iin_checksum": "Invalid IIN: incorrect control digit.",
+  "iin_date_invalid": "Invalid IIN: invalid date of birth.",
+  "iin_dob_mismatch": "The date of birth in the IIN ({{iin_dob}}) does not match the entered one ({{entered_dob}}). Check the date."
 }

@@ -1,10 +1,25 @@
 // ТОЧНЫЙ TypeScript-порт eventproject/validators/iin.py (Story 3.1).
 // Намеренный дубликат для real-time feedback (Story 5.2). Любое расхождение с
-// Python = баг — алгоритм/сообщения должны совпадать дословно.
+// Python = баг — алгоритм должен совпадать дословно.
+//
+// fe-1.4: код-ификация. Возвращаем СТАБИЛЬНЫЕ коды (не ru-строки) — паттерн контракта
+// ошибок fe-1.1. Текст рендерит вызывающая сторона: t('validation:'+code, params).
+// Алгоритм НЕ менялся — изменилось только возвращаемое значение.
+
+// Коды выровнены с источником правды: eventproject/validators/iin.py + errors/registry.py
+// (iin_checksum / iin_date_invalid) — клиент и сервер используют один вокабуляр.
+export type IinErrorCode =
+  | 'iin_format'
+  | 'iin_checksum'
+  | 'iin_date_invalid'
+  | 'iin_dob_mismatch'
 
 export interface ValidationResult {
   valid: boolean
-  error?: string
+  /** Стабильный код ошибки (i18n-ключ в namespace `validation`). */
+  code?: IinErrorCode
+  /** Параметры интерполяции (для iin_dob_mismatch: даты DD.MM.YYYY). */
+  params?: Record<string, string>
 }
 
 const WEIGHTS_1 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
@@ -18,10 +33,6 @@ const CENTURY_BASE: Record<number, number> = {
   5: 2000,
   6: 2000,
 }
-
-const ERR_FORMAT = 'ИИН должен содержать ровно 12 цифр.'
-const ERR_CONTROL = 'ИИН некорректен: неверная контрольная цифра.'
-const ERR_DATE_INVALID = 'ИИН некорректен: недопустимая дата рождения.'
 
 function ddmmyyyy(y: number, m: number, d: number): string {
   const pad = (n: number, w: number) => String(n).padStart(w, '0')
@@ -72,32 +83,36 @@ export function validateIIN(
     return { valid: true }
   }
   if (!/^\d{12}$/.test(normalized)) {
-    return { valid: false, error: ERR_FORMAT }
+    return { valid: false, code: 'iin_format' }
   }
 
   const digits = normalized.split('').map(Number)
 
   const control = controlDigit(digits)
   if (control === null || control !== digits[11]) {
-    return { valid: false, error: ERR_CONTROL }
+    return { valid: false, code: 'iin_checksum' }
   }
 
   const century = CENTURY_BASE[digits[6]]
   if (century === undefined) {
-    return { valid: false, error: ERR_DATE_INVALID }
+    return { valid: false, code: 'iin_date_invalid' }
   }
   const year = century + digits[0] * 10 + digits[1]
   const month = digits[2] * 10 + digits[3]
   const day = digits[4] * 10 + digits[5]
   if (!isValidDate(year, month, day)) {
-    return { valid: false, error: ERR_DATE_INVALID }
+    return { valid: false, code: 'iin_date_invalid' }
   }
 
   const birth = parseBirthDate(birthDate ?? '')
   if (birth && (birth[0] !== year || birth[1] !== month || birth[2] !== day)) {
     return {
       valid: false,
-      error: `Дата рождения в ИИН (${ddmmyyyy(year, month, day)}) не совпадает с введённой (${ddmmyyyy(birth[0], birth[1], birth[2])}). Проверьте дату.`,
+      code: 'iin_dob_mismatch',
+      params: {
+        iin_dob: ddmmyyyy(year, month, day),
+        entered_dob: ddmmyyyy(birth[0], birth[1], birth[2]),
+      },
     }
   }
 

@@ -1,0 +1,52 @@
+{
+  "page": {
+    "add_title": "Добавить участника",
+    "edit_title": "Участник"
+  },
+  "label": {
+    "surname": "Фамилия",
+    "firstname": "Имя",
+    "patronymic": "Отчество",
+    "birth_date": "Дата рождения",
+    "country": "Страна",
+    "iin": "ИИН",
+    "category": "Категория (мероприятие)"
+  },
+  "country": {
+    "resident": "Казахстан (резидент)",
+    "non_resident": "Другая страна (нерезидент)"
+  },
+  "category": {
+    "placeholder": "— выберите категорию —",
+    "fallback_option": "Категория #{{id}}"
+  },
+  "iin_valid_aria": "ИИН корректен",
+  "submit": "Сохранить",
+  "submit_edit": "Сохранить изменения",
+  "readonly_banner": "Редактирование заблокировано",
+  "draft": {
+    "restore_prompt": "Найден несохранённый черновик. Восстановить?",
+    "restore": "Да",
+    "discard": "Начать заново",
+    "saved": "Черновик сохранён",
+    "isolation_note": "Черновик сохраняется только в этом браузере"
+  },
+  "toast": {
+    "added": "Участник добавлен",
+    "updated": "Изменения сохранены"
+  },
+  "photo": {
+    "label": "ФОТО УЧАСТНИКА (3×4)",
+    "instruction": "Анфас, светлый фон, без очков"
+  },
+  "document": {
+    "label": "ФОТО ДОКУМЕНТА",
+    "instruction": "Вертикально, формат 3×4 (можно PDF)"
+  },
+  "upload": {
+    "preview_alt": "Превью: {{label}}",
+    "current_alt": "Текущее: {{label}}",
+    "current_label": "Текущее изображение:",
+    "pdf_badge": "PDF: {{name}}"
+  }
+}

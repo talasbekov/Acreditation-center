@@ -40,9 +40,16 @@ describe('i18n bootstrap (Story fe-1.3)', () => {
     expect(i18n.t('common:attendees.title')).toBe('Attendees')
   })
 
-  it('AC-1: kz (каркас) → фолбэк на ru для непереведённых ключей', async () => {
+  it('fe-1.4: kz-каталог заполнен → возвращает kk (не ru-фолбэк)', async () => {
     await i18n.changeLanguage('kz')
-    expect(i18n.t('common:attendees.title')).toBe('Участники')
+    expect(i18n.t('common:attendees.title')).toBe('Қатысушылар')
+    expect(i18n.t('operatorForm:submit')).toBe('Сақтау')
+  })
+
+  it('AC-1: пустой namespace (errors kz) → фолбэк на ru', async () => {
+    // errors kz пуст (errorsResource отбрасывает [ASSUMPTION]-плейсхолдеры) → фолбэк ru.
+    await i18n.changeLanguage('kz')
+    expect(i18n.t('errors:blank')).toBe('Поле не может быть пустым.')
   })
 
   it('AC-5a: ru — эффективный дефолт/фолбэк (неподдерживаемый язык → ru)', async () => {

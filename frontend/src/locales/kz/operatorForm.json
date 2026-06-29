@@ -1,0 +1,52 @@
+{
+  "page": {
+    "add_title": "Қатысушы қосу",
+    "edit_title": "Қатысушы"
+  },
+  "label": {
+    "surname": "Тегі",
+    "firstname": "Аты",
+    "patronymic": "Әкесінің аты",
+    "birth_date": "Туған күні",
+    "country": "Ел",
+    "iin": "ЖСН",
+    "category": "Санат (іс-шара)"
+  },
+  "country": {
+    "resident": "Қазақстан (резидент)",
+    "non_resident": "Басқа ел (резидент емес)"
+  },
+  "category": {
+    "placeholder": "— санатты таңдаңыз —",
+    "fallback_option": "Санат #{{id}}"
+  },
+  "iin_valid_aria": "ЖСН дұрыс",
+  "submit": "Сақтау",
+  "submit_edit": "Өзгерістерді сақтау",
+  "readonly_banner": "Өңдеу бұғатталған",
+  "draft": {
+    "restore_prompt": "Сақталмаған жоба табылды. Қалпына келтіру керек пе?",
+    "restore": "Иә",
+    "discard": "Қайта бастау",
+    "saved": "Жоба сақталды",
+    "isolation_note": "Жоба тек осы браузерде сақталады"
+  },
+  "toast": {
+    "added": "Қатысушы қосылды",
+    "updated": "Өзгерістер сақталды"
+  },
+  "photo": {
+    "label": "ҚАТЫСУШЫНЫҢ ФОТОСЫ (3×4)",
+    "instruction": "Анфас, ашық фон, көзілдіріксіз"
+  },
+  "document": {
+    "label": "ҚҰЖАТТЫҢ ФОТОСЫ",
+    "instruction": "Тігінен, 3×4 форматы (PDF болуы мүмкін)"
+  },
+  "upload": {
+    "preview_alt": "Алдын ала қарау: {{label}}",
+    "current_alt": "Ағымдағы: {{label}}",
+    "current_label": "Ағымдағы сурет:",
+    "pdf_badge": "PDF: {{name}}"
+  }
+}

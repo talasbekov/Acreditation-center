@@ -19,14 +19,17 @@ import ruCommon from '@/locales/ru/common.json'
 import ruValidation from '@/locales/ru/validation.json'
 import ruStatus from '@/locales/ru/status.json'
 import ruNav from '@/locales/ru/nav.json'
+import ruOperatorForm from '@/locales/ru/operatorForm.json'
 import kzCommon from '@/locales/kz/common.json'
 import kzValidation from '@/locales/kz/validation.json'
 import kzStatus from '@/locales/kz/status.json'
 import kzNav from '@/locales/kz/nav.json'
+import kzOperatorForm from '@/locales/kz/operatorForm.json'
 import enCommon from '@/locales/en/common.json'
 import enValidation from '@/locales/en/validation.json'
 import enStatus from '@/locales/en/status.json'
 import enNav from '@/locales/en/nav.json'
+import enOperatorForm from '@/locales/en/operatorForm.json'
 
 export const SUPPORTED_LNGS = ['ru', 'kz', 'en'] as const
 export const FALLBACK_LNG = 'ru'
@@ -36,9 +39,9 @@ export const LANG_STORAGE_KEY = 'accreditation.lng'
 const errorsResource = buildErrorsResource(SUPPORTED_LNGS)
 
 const resources = {
-  ru: { common: ruCommon, validation: ruValidation, status: ruStatus, nav: ruNav, errors: errorsResource.ru },
-  kz: { common: kzCommon, validation: kzValidation, status: kzStatus, nav: kzNav, errors: errorsResource.kz },
-  en: { common: enCommon, validation: enValidation, status: enStatus, nav: enNav, errors: errorsResource.en },
+  ru: { common: ruCommon, validation: ruValidation, status: ruStatus, nav: ruNav, operatorForm: ruOperatorForm, errors: errorsResource.ru },
+  kz: { common: kzCommon, validation: kzValidation, status: kzStatus, nav: kzNav, operatorForm: kzOperatorForm, errors: errorsResource.kz },
+  en: { common: enCommon, validation: enValidation, status: enStatus, nav: enNav, operatorForm: enOperatorForm, errors: errorsResource.en },
 }
 
 i18n.use(LanguageDetector).use(initReactI18next)
@@ -49,7 +52,7 @@ if (!i18n.isInitialized) {
     supportedLngs: [...SUPPORTED_LNGS],
     fallbackLng: FALLBACK_LNG,
     load: 'languageOnly', // 'ru-RU' → 'ru'; 'en-US' → 'en'
-    ns: ['common', 'validation', 'errors', 'status', 'nav'],
+    ns: ['common', 'validation', 'errors', 'status', 'nav', 'operatorForm'],
     defaultNS: 'common',
     interpolation: { escapeValue: false }, // React уже экранирует — иначе двойное экранирование
     returnEmptyString: false, // пустое значение в каталоге → фолбэк на ru, а не пустой рендер

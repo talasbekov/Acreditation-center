@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { UploadZone } from '@/components/upload/UploadZone'
 
 export interface DocumentUploadProps {
@@ -14,11 +15,12 @@ export interface DocumentUploadProps {
  * 3×4-валидация, что и у фото — решение Erda 2026-06-24).
  */
 export function DocumentUpload(props: DocumentUploadProps) {
+  const { t } = useTranslation()
   return (
     <UploadZone
       id="docScan"
-      label="ФОТО ДОКУМЕНТА"
-      instruction="Вертикально, формат 3×4 (можно PDF)"
+      label={t('operatorForm:document.label')}
+      instruction={t('operatorForm:document.instruction')}
       accept="image/jpeg,image/png,application/pdf"
       {...props}
     />

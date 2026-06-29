@@ -428,7 +428,7 @@ describe('AttendeeForm — маппер ошибок (Story fe-1.2)', () => {
       expect(toastError).toHaveBeenCalledWith('Произошла ошибка. Повторите позже.'),
     )
     expect(warn).toHaveBeenCalledWith(
-      '[error-mapper] неизвестный код ошибки:',
+      '[error-mapper] unknown error code:',
       'totally_unregistered_xyz',
     )
     warn.mockRestore()

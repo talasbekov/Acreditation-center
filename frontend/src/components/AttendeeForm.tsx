@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { attendeeSchema, type AttendeeFormValues } from '@/lib/attendeeSchema'
+import { translateFieldError } from '@/lib/validationError'
 import { KZ_COUNTRY_ID } from '@/lib/constants'
 import { apiFetch, ApiError } from '@/api/client'
 import { mapApiError } from '@/errors/mapApiError'
@@ -75,6 +76,8 @@ export function AttendeeForm({
 }: AttendeeFormProps = {}) {
   const isEdit = attendeeId !== undefined
   const { t, i18n } = useTranslation()
+  // fe-1.4: zod-ошибки приходят как i18n-ключи → переводим в текст поля.
+  const fe = (m?: string) => translateFieldError(t, m)
   const queryClient = useQueryClient()
   const {
     register,
@@ -208,9 +211,9 @@ export function AttendeeForm({
         // Edit: инвалидируем и detail-кэш (EditAttendeePage: ['attendee', id]),
         // иначе после сохранения на странице остался бы устаревший detail.
         void queryClient.invalidateQueries({ queryKey: ['attendee', attendeeId] })
-        toast.success('Изменения сохранены')
+        toast.success(t('operatorForm:toast.updated'))
       } else {
-        toast.success('Участник добавлен')
+        toast.success(t('operatorForm:toast.added'))
         clearDraft() // AC-4: успех → черновик удаляется (reset→пустая форма не пересоздаёт его)
         setDraftSaved(false)
         reset()
@@ -228,7 +231,7 @@ export function AttendeeForm({
           toast.error(message)
         }
       } else {
-        toast.error('Сеть недоступна. Повторите.')
+        toast.error(t('common:network_error'))
       }
     } finally {
       suppressSaveRef.current = false // возобновляем автосейв (на ошибке черновик сохранён)
@@ -241,14 +244,14 @@ export function AttendeeForm({
       {showRestore && (
         <div role="alert" className="rounded-md border border-amber-400 bg-amber-50 p-3">
           <p className="mb-2 font-medium text-neutral-900">
-            Найден несохранённый черновик. Восстановить?
+            {t('operatorForm:draft.restore_prompt')}
           </p>
           <div className="flex gap-2">
             <Button type="button" onClick={handleRestoreDraft}>
-              Да
+              {t('operatorForm:draft.restore')}
             </Button>
             <Button type="button" variant="outline" onClick={handleDiscardDraft}>
-              Начать заново
+              {t('operatorForm:draft.discard')}
             </Button>
           </div>
         </div>
@@ -256,40 +259,40 @@ export function AttendeeForm({
       {/* Story 5.4 — ненавязчивый индикатор автосохранения (AC-1) */}
       {draftSaved && (
         <p aria-live="polite" className="text-sm text-green-700">
-          Черновик сохранён
+          {t('operatorForm:draft.saved')}
         </p>
       )}
       {/* Story 5.5 — read-only баннер (статус ready/exported) */}
       {readOnly && (
         <div role="alert" className="rounded-md border border-neutral-400 bg-neutral-100 p-3 text-neutral-900">
-          Редактирование заблокировано
+          {t('operatorForm:readonly_banner')}
         </div>
       )}
 
       {/* Поля блокируются: пока открыт баннер черновика (5.4) или read-only (5.5). */}
       <fieldset disabled={showRestore || readOnly} className="m-0 space-y-4 border-0 p-0">
-      <Field label="Фамилия" error={errors.surname?.message}>
+      <Field label={t('operatorForm:label.surname')} error={fe(errors.surname?.message)}>
         <input id="surname" className={inputCls} {...register('surname')} />
       </Field>
-      <Field label="Имя" error={errors.firstname?.message}>
+      <Field label={t('operatorForm:label.firstname')} error={fe(errors.firstname?.message)}>
         <input id="firstname" className={inputCls} {...register('firstname')} />
       </Field>
-      <Field label="Отчество" error={errors.patronymic?.message}>
+      <Field label={t('operatorForm:label.patronymic')} error={fe(errors.patronymic?.message)}>
         <input id="patronymic" className={inputCls} {...register('patronymic')} />
       </Field>
-      <Field label="Дата рождения" error={errors.birthDate?.message}>
+      <Field label={t('operatorForm:label.birth_date')} error={fe(errors.birthDate?.message)}>
         <input id="birthDate" type="date" className={inputCls} {...register('birthDate')} />
       </Field>
 
-      <Field label="Страна" error={errors.countryId?.message}>
+      <Field label={t('operatorForm:label.country')} error={fe(errors.countryId?.message)}>
         <select id="countryId" className={inputCls} {...register('countryId')}>
-          <option value={KZ_COUNTRY_ID}>Казахстан (резидент)</option>
-          <option value="643">Другая страна (нерезидент)</option>
+          <option value={KZ_COUNTRY_ID}>{t('operatorForm:country.resident')}</option>
+          <option value="643">{t('operatorForm:country.non_resident')}</option>
         </select>
       </Field>
 
       {isResident && (
-        <Field label="ИИН" error={errors.iin?.message}>
+        <Field label={t('operatorForm:label.iin')} error={fe(errors.iin?.message)}>
           <div className="flex items-center gap-2">
             <input
               id="iin"
@@ -300,7 +303,7 @@ export function AttendeeForm({
               {...register('iin')}
             />
             {iinLooksValid && (
-              <span aria-label="ИИН корректен" className="text-green-600 text-xl">
+              <span aria-label={t('operatorForm:iin_valid_aria')} className="text-green-600 text-xl">
                 ✅
               </span>
             )}
@@ -308,7 +311,7 @@ export function AttendeeForm({
         </Field>
       )}
 
-      <Field label="Категория (мероприятие)" error={errors.request?.message}>
+      <Field label={t('operatorForm:label.category')} error={fe(errors.request?.message)}>
         {/* FE-1: выбор Request из RBAC-scoped списка вместо ручного PK.
             P2-6: в edit поле disabled — оператор не должен «переселять» участника
             в другое событие (сервер тоже ограничивает RBAC, но UI не предлагает). */}
@@ -319,7 +322,7 @@ export function AttendeeForm({
           className={`${inputCls} ${isEdit ? 'bg-neutral-100 text-neutral-600' : ''}`}
           {...register('request')}
         >
-          <option value="">— выберите категорию —</option>
+          <option value="">{t('operatorForm:category.placeholder')}</option>
           {requestOptions.map((r) => (
             <option key={r.id} value={String(r.id)}>
               {r.name} — {r.event_name}
@@ -329,7 +332,7 @@ export function AttendeeForm({
               fallback-опция, чтобы select не сбрасывал предзаполненный request. */}
           {currentRequest && !currentRequestInList && (
             <option value={String(currentRequest)}>
-              Категория #{currentRequest}
+              {t('operatorForm:category.fallback_option', { id: currentRequest })}
             </option>
           )}
         </select>
@@ -340,18 +343,18 @@ export function AttendeeForm({
         file={photo ?? null}
         existingUrl={initialPhotoUrl}
         onFileChange={(f) => setValue('photo', f ?? undefined, { shouldValidate: true })}
-        error={errors.photo?.message}
+        error={fe(errors.photo?.message)}
       />
       <DocumentUpload
         file={docScan ?? null}
         existingUrl={initialDocScanUrl}
         onFileChange={(f) => setValue('docScan', f ?? undefined, { shouldValidate: true })}
-        error={errors.docScan?.message}
+        error={fe(errors.docScan?.message)}
       />
 
       {!readOnly && (
         <Button type="submit" disabled={isSubmitting}>
-          {isEdit ? 'Сохранить изменения' : 'Сохранить'}
+          {isEdit ? t('operatorForm:submit_edit') : t('operatorForm:submit')}
         </Button>
       )}
       </fieldset>
@@ -359,7 +362,7 @@ export function AttendeeForm({
       {/* Story 5.4 — постоянная подпись изоляции (только в режиме добавления) */}
       {!isEdit && (
         <p className="text-xs text-neutral-500">
-          Черновик сохраняется только в этом браузере
+          {t('operatorForm:draft.isolation_note')}
         </p>
       )}
     </form>

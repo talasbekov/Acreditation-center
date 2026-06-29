@@ -18,8 +18,8 @@ export function mapApiError(
     if (text && text !== `errors:${type}`) return text
   }
   if (type) {
-    // Лог в консоль/телеметрию — НЕ в UI.
-    console.warn('[error-mapper] неизвестный код ошибки:', type)
+    // Лог в консоль/телеметрию — НЕ в UI (dev-диагностика, поэтому английский).
+    console.warn('[error-mapper] unknown error code:', type)
   }
   return t('errors:unknown')
 }

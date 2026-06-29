@@ -71,14 +71,14 @@ export function AttendeesPage() {
 
       <div className="mb-4 flex flex-wrap gap-3">
         <input
-          aria-label="Поиск по ФИО"
-          placeholder="Поиск по ФИО (от 3 символов)"
+          aria-label={t('common:attendees.search_aria')}
+          placeholder={t('common:attendees.search_placeholder')}
           className={`${inputCls} flex-1`}
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
         />
         <select
-          aria-label="Фильтр по статусу"
+          aria-label={t('common:attendees.filter_status_aria')}
           className={status ? `${inputCls} border-blue-700 ring-2 ring-blue-700` : inputCls}
           value={status}
           onChange={(e) => {
@@ -99,7 +99,7 @@ export function AttendeesPage() {
         <p className="mb-4 text-sm text-neutral-500">{t('validation:search_min_chars')}</p>
       )}
 
-      {isError && <p className="text-red-600">Не удалось загрузить список.</p>}
+      {isError && <p className="text-red-600">{t('common:attendees.load_error')}</p>}
 
       {isPending ? (
         <SkeletonTable />
@@ -108,18 +108,18 @@ export function AttendeesPage() {
           <table className="w-full border-collapse text-base">
             <thead>
               <tr className="border-b border-neutral-300 text-left text-neutral-700">
-                <th className="py-2 pr-3">ФИО</th>
-                <th className="py-2 pr-3">ИИН</th>
-                <th className="py-2 pr-3">Статус</th>
-                <th className="py-2 pr-3">Добавлен</th>
-                <th className="py-2">Действия</th>
+                <th className="py-2 pr-3">{t('common:attendees.col_name')}</th>
+                <th className="py-2 pr-3">{t('common:attendees.col_iin')}</th>
+                <th className="py-2 pr-3">{t('common:attendees.col_status')}</th>
+                <th className="py-2 pr-3">{t('common:attendees.col_added')}</th>
+                <th className="py-2">{t('common:attendees.col_actions')}</th>
               </tr>
             </thead>
             <tbody>
               {data && data.results.length === 0 && (
                 <tr>
                   <td colSpan={5} className="py-4 text-neutral-500">
-                    Ничего не найдено
+                    {t('common:attendees.empty')}
                   </td>
                 </tr>
               )}
@@ -185,8 +185,9 @@ export function AttendeesPage() {
 }
 
 function SkeletonTable() {
+  const { t } = useTranslation()
   return (
-    <div aria-label="Загрузка списка" className="space-y-2">
+    <div aria-label={t('common:attendees.loading_list')} className="space-y-2">
       {Array.from({ length: 8 }).map((_, i) => (
         <div key={i} className="h-10 animate-pulse rounded bg-neutral-200" />
       ))}

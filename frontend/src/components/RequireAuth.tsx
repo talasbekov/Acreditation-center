@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { checkSession } from '@/api/auth'
 import { ApiError } from '@/api/client'
@@ -14,6 +15,7 @@ import { Button } from '@/components/ui/button'
  * не дублировать загрузку списка участников (AttendeesPage грузит его сам).
  */
 export function RequireAuth({ children }: { children: ReactNode }) {
+  const { t } = useTranslation()
   const { isPending, error, refetch } = useQuery({
     queryKey: ['session-check'],
     queryFn: checkSession,
@@ -32,20 +34,18 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   }, [isAuthError])
 
   if (isPending) {
-    return <div className="p-6 text-base text-neutral-700">Загрузка…</div>
+    return <div className="p-6 text-base text-neutral-700">{t('common:loading')}</div>
   }
   if (isAuthError) {
     return (
-      <div className="p-6 text-base text-neutral-700">Перенаправление на вход…</div>
+      <div className="p-6 text-base text-neutral-700">{t('common:auth.redirecting')}</div>
     )
   }
   if (error) {
     return (
       <div className="p-6 text-base text-neutral-700">
-        <p className="mb-4">
-          Не удалось связаться с сервером. Проверьте подключение и повторите.
-        </p>
-        <Button onClick={() => void refetch()}>Повторить</Button>
+        <p className="mb-4">{t('common:auth.connection_error')}</p>
+        <Button onClick={() => void refetch()}>{t('common:actions.retry')}</Button>
       </div>
     )
   }

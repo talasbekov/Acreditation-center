@@ -1,1 +1,16 @@
-{}
+{
+  "search_min_chars": "Іздеу үшін кемінде 3 таңба енгізіңіз",
+  "required_surname": "Тегіңізді көрсетіңіз",
+  "required_firstname": "Атыңызды көрсетіңіз",
+  "required_birthdate": "Туған күніңізді көрсетіңіз",
+  "required_country": "Елді таңдаңыз",
+  "required_category": "Санатты көрсетіңіз (іс-шара ID)",
+  "invalid_photo": "Фото файлы қате",
+  "invalid_docscan": "Құжат файлы қате",
+  "iin_required_resident": "Резиденттің ЖСН-ін көрсетіңіз",
+  "iin_invalid": "ЖСН қате",
+  "iin_format": "ЖСН дәл 12 цифрдан тұруы тиіс.",
+  "iin_checksum": "ЖСН қате: бақылау цифры дұрыс емес.",
+  "iin_date_invalid": "ЖСН қате: туған күні жарамсыз.",
+  "iin_dob_mismatch": "ЖСН-дегі туған күні ({{iin_dob}}) енгізілген күнмен ({{entered_dob}}) сәйкес келмейді. Күнді тексеріңіз."
+}

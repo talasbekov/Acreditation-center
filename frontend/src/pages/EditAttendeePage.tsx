@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useQuery } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 import { getAttendee } from '@/api/attendees'
@@ -9,19 +10,21 @@ import { AttendeeForm } from '@/components/AttendeeForm'
 // Статусы, после которых редактирование заблокировано (сервер тоже отдаёт 403).
 const LOCKED_STATUSES = new Set(['ready', 'exported'])
 
-// P2-2: различаем ошибки detail-загрузки вместо одного общего сообщения.
-function detailErrorMessage(error: unknown): string {
+// P2-2: различаем ошибки detail-загрузки вместо одного общего сообщения. fe-1.4:
+// возвращаем i18n-ключ (common namespace); статус-маппинг здесь, не серверный код-контракт.
+function detailErrorKey(error: unknown): string {
   if (error instanceof ApiError) {
-    if (error.status === 404) return 'Участник не найден.'
-    if (error.status === 403) return 'Нет доступа к этому участнику.'
-    if (error.status === 401) return 'Сессия истекла. Перенаправление на вход…'
+    if (error.status === 404) return 'common:attendee.not_found'
+    if (error.status === 403) return 'common:attendee.no_access'
+    if (error.status === 401) return 'common:attendee.session_expired'
   }
-  return 'Не удалось загрузить участника.'
+  return 'common:attendee.load_error'
 }
 
 /** Страница редактирования участника (Story 5.5). Предзаполняет AttendeeForm;
  *  read-only при статусе ready/exported. */
 export function EditAttendeePage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const attendeeId = Number(id)
   // Валидируем СЫРУЮ строку как чистые цифры: `Number('1e3')`=1000 и `Number('1.5')`
@@ -43,12 +46,12 @@ export function EditAttendeePage() {
   return (
     <div className="mx-auto max-w-2xl p-6">
       <h1 className="mb-6 text-2xl font-semibold text-neutral-900">
-        Участник
+        {t('operatorForm:page.edit_title')}
       </h1>
-      {!valid && <p className="text-red-600">Некорректный идентификатор участника.</p>}
-      {valid && isPending && <p className="text-neutral-700">Загрузка…</p>}
+      {!valid && <p className="text-red-600">{t('common:attendee.invalid_id')}</p>}
+      {valid && isPending && <p className="text-neutral-700">{t('common:loading')}</p>}
       {valid && isError && (
-        <p className="text-red-600">{detailErrorMessage(error)}</p>
+        <p className="text-red-600">{t(detailErrorKey(error))}</p>
       )}
       {data && (
         <AttendeeForm

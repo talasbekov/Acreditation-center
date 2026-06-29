@@ -70,7 +70,7 @@ describe('mapApiError (Story fe-1.2)', () => {
     expect(text).toBe(i18n.t('errors:unknown'))
     expect(text.length).toBeGreaterThan(0)
     expect(text).not.toContain('totally_unregistered_code_xyz') // сырой код не показан
-    expect(warn).toHaveBeenCalledWith('[error-mapper] неизвестный код ошибки:', 'totally_unregistered_code_xyz')
+    expect(warn).toHaveBeenCalledWith('[error-mapper] unknown error code:', 'totally_unregistered_code_xyz')
   })
 
   it('AC-2: problem=undefined → fallback без лога', () => {

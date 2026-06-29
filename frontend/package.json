@@ -6,8 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "oxlint && node scripts/lint-tokens.mjs",
+    "lint": "oxlint && node scripts/lint-tokens.mjs && node scripts/lint-i18n.mjs && node scripts/check-kz-review.mjs",
     "lint:tokens": "node scripts/lint-tokens.mjs",
+    "lint:i18n": "node scripts/lint-i18n.mjs",
+    "lint:kz-review": "node scripts/check-kz-review.mjs",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",

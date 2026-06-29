@@ -1,5 +1,37 @@
 {
-  "attendees": { "title": "Attendees" },
-  "actions": { "add": "Add", "open": "Open", "prev": "Back", "next": "Next" },
-  "pagination": { "showing": "Showing {{from}}–{{to}} of {{total}}" }
+  "attendees": {
+    "title": "Attendees",
+    "search_aria": "Search by full name",
+    "search_placeholder": "Search by full name (3+ characters)",
+    "filter_status_aria": "Filter by status",
+    "load_error": "Failed to load the list.",
+    "loading_list": "Loading list",
+    "empty": "Nothing found",
+    "col_name": "Full name",
+    "col_iin": "IIN",
+    "col_status": "Status",
+    "col_added": "Added",
+    "col_actions": "Actions"
+  },
+  "attendee": {
+    "invalid_id": "Invalid attendee identifier.",
+    "not_found": "Attendee not found.",
+    "no_access": "No access to this attendee.",
+    "session_expired": "Session expired. Redirecting to sign-in…",
+    "load_error": "Failed to load the attendee."
+  },
+  "auth": {
+    "redirecting": "Redirecting to sign-in…",
+    "connection_error": "Could not reach the server. Check your connection and try again."
+  },
+  "actions": {
+    "add": "Add",
+    "open": "Open",
+    "prev": "Back",
+    "next": "Next",
+    "retry": "Retry"
+  },
+  "pagination": { "showing": "Showing {{from}}–{{to}} of {{total}}" },
+  "loading": "Loading…",
+  "network_error": "Network unavailable. Try again."
 }

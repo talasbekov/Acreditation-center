@@ -1,0 +1,52 @@
+{
+  "page": {
+    "add_title": "Add attendee",
+    "edit_title": "Attendee"
+  },
+  "label": {
+    "surname": "Surname",
+    "firstname": "First name",
+    "patronymic": "Patronymic",
+    "birth_date": "Date of birth",
+    "country": "Country",
+    "iin": "IIN",
+    "category": "Category (event)"
+  },
+  "country": {
+    "resident": "Kazakhstan (resident)",
+    "non_resident": "Other country (non-resident)"
+  },
+  "category": {
+    "placeholder": "— select a category —",
+    "fallback_option": "Category #{{id}}"
+  },
+  "iin_valid_aria": "IIN is valid",
+  "submit": "Save",
+  "submit_edit": "Save changes",
+  "readonly_banner": "Editing is locked",
+  "draft": {
+    "restore_prompt": "An unsaved draft was found. Restore it?",
+    "restore": "Yes",
+    "discard": "Start over",
+    "saved": "Draft saved",
+    "isolation_note": "The draft is stored only in this browser"
+  },
+  "toast": {
+    "added": "Attendee added",
+    "updated": "Changes saved"
+  },
+  "photo": {
+    "label": "ATTENDEE PHOTO (3×4)",
+    "instruction": "Front view, light background, no glasses"
+  },
+  "document": {
+    "label": "DOCUMENT PHOTO",
+    "instruction": "Vertical, 3×4 format (PDF allowed)"
+  },
+  "upload": {
+    "preview_alt": "Preview: {{label}}",
+    "current_alt": "Current: {{label}}",
+    "current_label": "Current image:",
+    "pdf_badge": "PDF: {{name}}"
+  }
+}

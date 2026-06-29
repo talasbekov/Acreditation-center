@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export interface UploadZoneProps {
   /** id input'а (совпадает с именем поля FormData: photo / docScan). */
@@ -32,6 +33,7 @@ export function UploadZone({
   error,
   existingUrl,
 }: UploadZoneProps) {
+  const { t } = useTranslation()
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -72,13 +74,13 @@ export function UploadZone({
           {previewUrl ? (
             <img
               src={previewUrl}
-              alt={`Превью: ${label}`}
+              alt={t('operatorForm:upload.preview_alt', { label })}
               className="rounded border border-neutral-300"
               style={{ minWidth: 150, minHeight: 200, maxHeight: 320, objectFit: 'contain' }}
             />
           ) : (
             <span className="inline-block rounded bg-neutral-200 px-2 py-1 text-sm">
-              PDF: {file.name}
+              {t('operatorForm:upload.pdf_badge', { name: file.name })}
             </span>
           )}
         </div>
@@ -87,10 +89,10 @@ export function UploadZone({
           хранит docScan как JPEG (PDF конвертируется при сохранении) → всегда <img>. */}
       {!file && existingUrl && (
         <div className="mt-3">
-          <p className="mb-1 text-sm text-neutral-600">Текущее изображение:</p>
+          <p className="mb-1 text-sm text-neutral-600">{t('operatorForm:upload.current_label')}</p>
           <img
             src={existingUrl}
-            alt={`Текущее: ${label}`}
+            alt={t('operatorForm:upload.current_alt', { label })}
             className="rounded border border-neutral-300"
             style={{ minWidth: 150, minHeight: 200, maxHeight: 320, objectFit: 'contain' }}
           />
