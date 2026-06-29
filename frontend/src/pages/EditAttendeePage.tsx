@@ -41,7 +41,7 @@ export function EditAttendeePage() {
   }, [error])
 
   return (
-    <main className="mx-auto max-w-2xl p-6">
+    <div className="mx-auto max-w-2xl p-6">
       <h1 className="mb-6 text-2xl font-semibold text-neutral-900">
         Участник
       </h1>
@@ -67,6 +67,6 @@ export function EditAttendeePage() {
           }}
         />
       )}
-    </main>
+    </div>
   )
 }

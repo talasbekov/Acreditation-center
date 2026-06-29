@@ -3,8 +3,8 @@ import { useTranslation } from 'react-i18next'
 /**
  * Story fe-1.3 (AC-2) — переключатель языка ru/kz/en.
  *
- * Временно живёт в минимальной шапке App. Полноценный app-shell + role-filtered nav —
- * fe-2-2; финальный визуал и место свитчера в шапке — fe-2-3.
+ * fe-2.3: финализирован в шапке app-shell (AppShell) на токенах «Тихий сланец». Видимый
+ * ThemeToggle — отложен до утверждения dark-палитры (ThemeProvider-шов уже стоит).
  */
 const LANGS = [
   { code: 'ru', label: 'RU' },
@@ -31,10 +31,10 @@ export function LanguageSwitcher() {
             disabled={isActive}
             onClick={() => void i18n.changeLanguage(code)}
             className={
-              'rounded px-2 py-1 text-sm font-medium ' +
+              'rounded px-2 py-1 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ' +
               (isActive
-                ? 'bg-neutral-200 text-neutral-900'
-                : 'text-neutral-600 hover:bg-neutral-100')
+                ? 'bg-primary-tint text-primary'
+                : 'text-text-muted hover:bg-surface-muted')
             }
           >
             {label}

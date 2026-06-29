@@ -18,6 +18,10 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     queryKey: ['session-check'],
     queryFn: checkSession,
     retry: false,
+    // fe-2.2: роль в рамках сессии стабильна → staleTime Infinity. Делит кэш с useRole
+    // (тот же ключ) без повторного rbac-check при монтировании shell. 401 на реальных
+    // запросах по-прежнему уводит на логин.
+    staleTime: Infinity,
   })
 
   const isAuthError =

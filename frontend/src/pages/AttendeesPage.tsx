@@ -4,13 +4,16 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { getAttendees, type AttendeeListParams } from '@/api/attendees'
 import { Button } from '@/components/ui/button'
+import { StatusBadge } from '@/components/StatusBadge'
+import { ATTENDEE_STATUSES } from '@/types/status'
 
 const PAGE_SIZE = 50
 const SEARCH_DEBOUNCE_MS = 300
 const SEARCH_MIN_CHARS = 3
 
-// fe-1.3: значения статусов (стабильные коды); лейблы — через i18n `status` namespace.
-const STATUS_VALUES = ['', 'draft', 'submitted', 'in_review', 'ready', 'exported'] as const
+// fe-2.4: значения фильтра выводятся из единого источника статусов (types/status.ts ←
+// зеркало backend state_machine.py); '' = «Все статусы». Лейблы — i18n `status` namespace.
+const STATUS_VALUES = ['', ...ATTENDEE_STATUSES] as const
 
 const inputCls =
   'rounded-md border border-neutral-400 px-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700'
@@ -58,7 +61,7 @@ export function AttendeesPage() {
   const to = Math.min(page * PAGE_SIZE, total)
 
   return (
-    <main className="mx-auto max-w-5xl p-6">
+    <div className="mx-auto max-w-5xl p-6">
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-neutral-900">{t('common:attendees.title')}</h1>
         <Button type="button" onClick={() => navigate('/add')}>
@@ -130,7 +133,7 @@ export function AttendeesPage() {
                     {[a.surname, a.firstname, a.patronymic].filter(Boolean).join(' ')}
                   </td>
                   <td className="py-2 pr-3">{a.iin_masked || '—'}</td>
-                  <td className="py-2 pr-3">{t(`status:${a.status}`, { defaultValue: a.status })}</td>
+                  <td className="py-2 pr-3"><StatusBadge status={a.status} /></td>
                   <td className="py-2 pr-3">{formatDate(a.dateAdd)}</td>
                   <td className="py-2">
                     <Button
@@ -177,7 +180,7 @@ export function AttendeesPage() {
           </div>
         </>
       )}
-    </main>
+    </div>
   )
 }
 
