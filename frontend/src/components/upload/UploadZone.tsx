@@ -54,11 +54,11 @@ export function UploadZone({
   }, [file])
 
   return (
-    <div className="rounded-md border border-neutral-400 p-4">
+    <div className="rounded-md border border-input-border p-4">
       <label htmlFor={id} className="block">
-        <span className="mb-1 block text-lg font-bold text-neutral-900">{label}</span>
+        <span className="mb-1 block text-lg font-bold text-text">{label}</span>
         {instruction && (
-          <span className="mb-2 block text-sm text-neutral-700">{instruction}</span>
+          <span className="mb-2 block text-sm text-text">{instruction}</span>
         )}
       </label>
       <input
@@ -66,6 +66,10 @@ export function UploadZone({
         ref={inputRef}
         type="file"
         accept={accept}
+        // fe-2.7 (AC-3): причина Pillow-отказа связана с зоной для SR — aria-describedby
+        // указывает на текст ошибки, aria-invalid помечает контрол невалидным.
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${id}-error` : undefined}
         className="block w-full text-base"
         onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
       />
@@ -75,11 +79,11 @@ export function UploadZone({
             <img
               src={previewUrl}
               alt={t('operatorForm:upload.preview_alt', { label })}
-              className="rounded border border-neutral-300"
+              className="rounded border border-input-border"
               style={{ minWidth: 150, minHeight: 200, maxHeight: 320, objectFit: 'contain' }}
             />
           ) : (
-            <span className="inline-block rounded bg-neutral-200 px-2 py-1 text-sm">
+            <span className="inline-block rounded bg-surface-muted px-2 py-1 text-sm">
               {t('operatorForm:upload.pdf_badge', { name: file.name })}
             </span>
           )}
@@ -89,17 +93,17 @@ export function UploadZone({
           хранит docScan как JPEG (PDF конвертируется при сохранении) → всегда <img>. */}
       {!file && existingUrl && (
         <div className="mt-3">
-          <p className="mb-1 text-sm text-neutral-600">{t('operatorForm:upload.current_label')}</p>
+          <p className="mb-1 text-sm text-text-muted">{t('operatorForm:upload.current_label')}</p>
           <img
             src={existingUrl}
             alt={t('operatorForm:upload.current_alt', { label })}
-            className="rounded border border-neutral-300"
+            className="rounded border border-input-border"
             style={{ minWidth: 150, minHeight: 200, maxHeight: 320, objectFit: 'contain' }}
           />
         </div>
       )}
       {error && (
-        <p role="alert" className="mt-1 text-sm text-red-600">
+        <p id={`${id}-error`} role="alert" className="mt-1 text-sm text-status-rejected">
           {error}
         </p>
       )}

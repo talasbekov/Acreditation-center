@@ -48,6 +48,9 @@ const DEFAULT_VALUES: AttendeeFormValues = {
 
 const DRAFT_AUTOSAVE_MS = 2000
 const DRAFT_INDICATOR_MS = 2500
+// fe-2.7 (AC-2): debounce SR-анонса статуса ИИН — при быстром вводе 12 цифр live-регион
+// мутирует ровно 1 раз на settle (визуал ✅/границы — мгновенный, не debounce'ится).
+const IIN_ANNOUNCE_MS = 500
 
 export interface AttendeeFormProps {
   /** Story 5.5: задан → режим РЕДАКТИРОВАНИЯ (PATCH /{id}/), иначе — добавление (POST). */
@@ -103,6 +106,23 @@ export function AttendeeForm({
   const isResident = countryId === KZ_COUNTRY_ID
   const iinLooksValid = isResident && iin.trim() !== '' && !errors.iin
 
+  // fe-2.7 (AC-1): единая обвязка a11y контрола — обязательность + связка ошибки по id.
+  const ariaFor = (name: keyof AttendeeFormValues, required: boolean) => ({
+    'aria-required': required || undefined,
+    'aria-invalid': errors[name] ? true : undefined,
+    'aria-describedby': errors[name] ? `${name}-error` : undefined,
+  })
+
+  // fe-2.7 (AC-2): целевой текст SR-анонса ИИН — строка (не объект), чтобы эффект ниже
+  // зависел от значения и сбрасывал debounce-таймер только на реальном изменении статуса.
+  const [iinAnnounce, setIinAnnounce] = useState('')
+  const iinAnnounceTarget =
+    isResident && iin.trim() !== ''
+      ? errors.iin
+        ? fe(errors.iin.message) ?? ''
+        : t('operatorForm:iin_valid_aria')
+      : ''
+
   // FE-1: RBAC-scoped список Request («категория») для селектора. В edit поле
   // read-only (P2-6) → список не нужен (enabled:false); текущее значение показываем
   // fallback-опцией, чтобы select не терял предзаполненный/draft request.
@@ -121,6 +141,13 @@ export function AttendeeForm({
   useEffect(() => {
     if (isResident && iin.trim() !== '') void trigger('iin')
   }, [birthDate, isResident, iin, trigger])
+
+  // fe-2.7 (AC-2): коммит анонса ИИН с debounce. Эффект перезапускается на каждое изменение
+  // target и сбрасывает прежний таймер → при быстром вводе пишется единожды (мутация=1).
+  useEffect(() => {
+    const id = setTimeout(() => setIinAnnounce(iinAnnounceTarget), IIN_ANNOUNCE_MS)
+    return () => clearTimeout(id)
+  }, [iinAnnounceTarget])
 
   // ── Story 5.4: автосохранение черновика (localStorage) ─────────────────
   const [showRestore, setShowRestore] = useState(false)
@@ -242,8 +269,8 @@ export function AttendeeForm({
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
       {/* Story 5.4 — баннер восстановления черновика */}
       {showRestore && (
-        <div role="alert" className="rounded-md border border-amber-400 bg-amber-50 p-3">
-          <p className="mb-2 font-medium text-neutral-900">
+        <div role="alert" className="rounded-md border border-status-checking bg-status-checking-tint p-3">
+          <p className="mb-2 font-medium text-text">
             {t('operatorForm:draft.restore_prompt')}
           </p>
           <div className="flex gap-2">
@@ -258,60 +285,76 @@ export function AttendeeForm({
       )}
       {/* Story 5.4 — ненавязчивый индикатор автосохранения (AC-1) */}
       {draftSaved && (
-        <p aria-live="polite" className="text-sm text-green-700">
+        <p aria-live="polite" className="text-sm text-status-active">
           {t('operatorForm:draft.saved')}
         </p>
       )}
       {/* Story 5.5 — read-only баннер (статус ready/exported) */}
       {readOnly && (
-        <div role="alert" className="rounded-md border border-neutral-400 bg-neutral-100 p-3 text-neutral-900">
+        <div role="alert" className="rounded-md border border-border-strong bg-surface-muted p-3 text-text">
           {t('operatorForm:readonly_banner')}
         </div>
       )}
 
       {/* Поля блокируются: пока открыт баннер черновика (5.4) или read-only (5.5). */}
       <fieldset disabled={showRestore || readOnly} className="m-0 space-y-4 border-0 p-0">
-      <Field label={t('operatorForm:label.surname')} error={fe(errors.surname?.message)}>
-        <input id="surname" className={inputCls} {...register('surname')} />
+      <Field label={t('operatorForm:label.surname')} fieldId="surname" required error={fe(errors.surname?.message)}>
+        <input id="surname" className={inputCls} {...ariaFor('surname', true)} {...register('surname')} />
       </Field>
-      <Field label={t('operatorForm:label.firstname')} error={fe(errors.firstname?.message)}>
-        <input id="firstname" className={inputCls} {...register('firstname')} />
+      <Field label={t('operatorForm:label.firstname')} fieldId="firstname" required error={fe(errors.firstname?.message)}>
+        <input id="firstname" className={inputCls} {...ariaFor('firstname', true)} {...register('firstname')} />
       </Field>
-      <Field label={t('operatorForm:label.patronymic')} error={fe(errors.patronymic?.message)}>
-        <input id="patronymic" className={inputCls} {...register('patronymic')} />
+      <Field label={t('operatorForm:label.patronymic')} fieldId="patronymic" error={fe(errors.patronymic?.message)}>
+        <input id="patronymic" className={inputCls} {...ariaFor('patronymic', false)} {...register('patronymic')} />
       </Field>
-      <Field label={t('operatorForm:label.birth_date')} error={fe(errors.birthDate?.message)}>
-        <input id="birthDate" type="date" className={inputCls} {...register('birthDate')} />
+      <Field label={t('operatorForm:label.birth_date')} fieldId="birthDate" required error={fe(errors.birthDate?.message)}>
+        <input id="birthDate" type="date" className={inputCls} {...ariaFor('birthDate', true)} {...register('birthDate')} />
       </Field>
 
-      <Field label={t('operatorForm:label.country')} error={fe(errors.countryId?.message)}>
-        <select id="countryId" className={inputCls} {...register('countryId')}>
+      <Field label={t('operatorForm:label.country')} fieldId="countryId" required error={fe(errors.countryId?.message)}>
+        <select id="countryId" className={inputCls} {...ariaFor('countryId', true)} {...register('countryId')}>
           <option value={KZ_COUNTRY_ID}>{t('operatorForm:country.resident')}</option>
           <option value="643">{t('operatorForm:country.non_resident')}</option>
         </select>
       </Field>
 
       {isResident && (
-        <Field label={t('operatorForm:label.iin')} error={fe(errors.iin?.message)}>
-          <div className="flex items-center gap-2">
-            <input
-              id="iin"
-              inputMode="numeric"
-              maxLength={12}
-              aria-invalid={errors.iin ? true : undefined}
-              className={`${inputCls} ${errors.iin ? 'border-red-600' : ''}`}
-              {...register('iin')}
-            />
-            {iinLooksValid && (
-              <span aria-label={t('operatorForm:iin_valid_aria')} className="text-green-600 text-xl">
-                ✅
-              </span>
-            )}
-          </div>
-        </Field>
+        <>
+          <Field
+            label={t('operatorForm:label.iin')}
+            fieldId="iin"
+            required
+            suppressErrorLive
+            error={fe(errors.iin?.message)}
+          >
+            <div className="flex items-center gap-2">
+              <input
+                id="iin"
+                inputMode="numeric"
+                maxLength={12}
+                className={`${inputCls} ${errors.iin ? 'border-status-rejected' : ''}`}
+                {...ariaFor('iin', true)}
+                {...register('iin')}
+              />
+              {/* fe-2.7: ✅ декоративна (aria-hidden) — статус озвучивает live-регион ниже,
+                  и accessible name поля ИИН не загрязняется (снимает воркэраунд fe-2.6). */}
+              {iinLooksValid && (
+                <span aria-hidden="true" className="text-status-active text-xl">
+                  ✅
+                </span>
+              )}
+            </div>
+          </Field>
+          {/* fe-2.7 (AC-2): единый polite live-регион ИИН (debounced → мутация=1 на settle).
+              suppressErrorLive выше убирает role=alert у видимой ошибки, чтобы не было
+              ассертивного спама на каждой цифре. */}
+          <p aria-live="polite" className="sr-only" data-testid="iin-live">
+            {iinAnnounce}
+          </p>
+        </>
       )}
 
-      <Field label={t('operatorForm:label.category')} error={fe(errors.request?.message)}>
+      <Field label={t('operatorForm:label.category')} fieldId="request" required error={fe(errors.request?.message)}>
         {/* FE-1: выбор Request из RBAC-scoped списка вместо ручного PK.
             P2-6: в edit поле disabled — оператор не должен «переселять» участника
             в другое событие (сервер тоже ограничивает RBAC, но UI не предлагает). */}
@@ -319,7 +362,8 @@ export function AttendeeForm({
           id="request"
           disabled={isEdit || readOnly}
           aria-readonly={isEdit || undefined}
-          className={`${inputCls} ${isEdit ? 'bg-neutral-100 text-neutral-600' : ''}`}
+          className={`${inputCls} ${isEdit ? 'bg-surface-muted text-text-muted' : ''}`}
+          {...ariaFor('request', true)}
           {...register('request')}
         >
           <option value="">{t('operatorForm:category.placeholder')}</option>
@@ -361,7 +405,7 @@ export function AttendeeForm({
 
       {/* Story 5.4 — постоянная подпись изоляции (только в режиме добавления) */}
       {!isEdit && (
-        <p className="text-xs text-neutral-500">
+        <p className="text-xs text-text-muted">
           {t('operatorForm:draft.isolation_note')}
         </p>
       )}
@@ -370,26 +414,53 @@ export function AttendeeForm({
 }
 
 const inputCls =
-  'w-full rounded-md border border-neutral-400 px-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700'
+  'w-full rounded-md border border-input-border px-3 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
 
 function Field({
   label,
+  fieldId,
   error,
+  required = false,
+  suppressErrorLive = false,
   children,
 }: {
   label: string
+  /** id связанного контрола — из него детерминируется id текста ошибки (`${fieldId}-error`). */
+  fieldId: string
   error?: string
+  required?: boolean
+  /** fe-2.7: ИИН ставит true — анонс ошибки идёт через debounced polite live-регион, не role=alert. */
+  suppressErrorLive?: boolean
   children: ReactNode
 }) {
+  const { t } = useTranslation()
   return (
-    <label className="block">
-      <span className="mb-1 block text-neutral-900">{label}</span>
+    <div className="block">
+      <span className="mb-1 block text-text">
+        {/* htmlFor-ассоциация: <label> содержит ТОЛЬКО текст метки → accessible name контрола
+            остаётся чистым ("Фамилия"), а маркеры обязательности — вне <label>. */}
+        <label htmlFor={fieldId}>{label}</label>
+        {/* fe-2.7 (AC-1): обязательность не только цветом — звёздочка + «(обязательно)».
+            aria-hidden: SR узнаёт обязательность из aria-required контрола (без дублей). */}
+        {required && (
+          <span aria-hidden="true" className="text-status-rejected"> *</span>
+        )}
+        {required && (
+          <span aria-hidden="true" className="ml-1 text-sm font-normal text-text-muted">
+            {t('operatorForm:a11y.required_suffix')}
+          </span>
+        )}
+      </span>
       {children}
       {error && (
-        <p role="alert" className="mt-1 text-sm text-red-600">
+        <p
+          id={`${fieldId}-error`}
+          role={suppressErrorLive ? undefined : 'alert'}
+          className="mt-1 text-sm text-status-rejected"
+        >
           {error}
         </p>
       )}
-    </label>
+    </div>
   )
 }

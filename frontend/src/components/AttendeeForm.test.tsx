@@ -454,3 +454,73 @@ describe('AttendeeForm — маппер ошибок (Story fe-1.2)', () => {
     )
   })
 })
+
+// fe-2.6 (AC-3): черновик восстанавливает ТОЛЬКО текстовые поля — фото/документ
+// (ПДн/биометрия) никогда не возвращаются из localStorage. Механизм уже в draftStorage
+// (whitelist + File-exclusion, Story 5.4) — это фиксирующий regression-тест ЧЕРЕЗ форму.
+describe('AttendeeForm — фото не восстанавливается из черновика (fe-2.6, AC-3)', () => {
+  const KEY = 'attendee_draft_v1'
+
+  beforeEach(() => {
+    apiFetchMock.mockReset()
+    toastSuccess.mockReset()
+    toastError.mockReset()
+    localStorage.clear()
+  })
+
+  it('AC-3: restore возвращает текстовые поля, но photo/docScan остаются пустыми', async () => {
+    // Черновик с текстовыми полями + ИНЪЕКЦИЕЙ photo/docScan (легаси/подделанный draft):
+    // даже если такие ключи попали в localStorage, restore их НЕ возвращает.
+    const textDraft = {
+      surname: 'Биометриев',
+      firstname: 'Тест',
+      patronymic: 'Тестович',
+      birthDate: '1990-05-15',
+      countryId: '1000000105',
+      iin: '900515312349',
+      request: '1',
+    }
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({ ...textDraft, photo: 'leaked.jpg', docScan: 'leaked.pdf' }),
+    )
+
+    const { container } = renderForm()
+    // Дожидаемся RBAC-опций категорий, чтобы restore request='1' лёг на реальный
+    // <option> (иначе RHF.reset выставит value до появления опции — гонка).
+    await screen.findByRole('option', { name: /Категория А/ })
+    // Регресс fe-5.4: баннер восстановления сохранён и работает.
+    expect(screen.getByText(/Найден несохранённый черновик/)).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Да' }))
+
+    // Текстовые поля восстановлены == сохранённым.
+    await waitFor(() =>
+      expect((screen.getByLabelText('Фамилия') as HTMLInputElement).value).toBe('Биометриев'),
+    )
+    expect((screen.getByLabelText('Имя') as HTMLInputElement).value).toBe('Тест')
+    expect((screen.getByLabelText('Отчество') as HTMLInputElement).value).toBe('Тестович')
+    expect((screen.getByLabelText('Дата рождения') as HTMLInputElement).value).toBe('1990-05-15')
+    // ИИН — по id (#iin): валидный ИИН рисует ✅ aria-label «ИИН корректен» в той же
+    // <label>, из-за чего getByLabelText('ИИН') стал бы неоднозначным.
+    expect((container.querySelector('#iin') as HTMLInputElement).value).toBe('900515312349')
+    expect((screen.getByLabelText(/Категория/) as HTMLInputElement).value).toBe('1')
+    // Превью биометрии в восстановленной форме не отрисовано (нет ни File, ни existingUrl).
+    expect(screen.queryByRole('img')).not.toBeInTheDocument()
+
+    // fe-2.6 review (AC-3): фото/документ НЕ восстановлены — проверяем РЕАЛЬНЫЙ вектор.
+    // Прямой DOM-ассерт пустоты file-input невозможен: <input type=file>.value нельзя
+    // выставить из строки (всегда '') — он прошёл бы и при утечке. Авторитетная проверка —
+    // submit-payload: onSubmit делает fd.append('photo'|'docScan', …) ТОЛЬКО при truthy
+    // значении (AttendeeForm.tsx:201-202). Сабмитим восстановленную форму → ключей
+    // photo/docScan в FormData быть НЕ должно (зеркало позитива «Story 5.3: фото уходит»).
+    apiFetchMock.mockResolvedValue({ id: 1 })
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
+    await waitFor(() => expect(apiFetchMock).toHaveBeenCalledTimes(1))
+    const [, init] = apiFetchMock.mock.calls[0] as [string, RequestInit]
+    const body = init.body as FormData
+    expect(body.get('photo')).toBeNull()
+    expect(body.get('docScan')).toBeNull()
+    // Sanity: текстовые поля реально ушли (payload не пуст из-за гонки restore).
+    expect(body.get('iin')).toBe('900515312349')
+  })
+})

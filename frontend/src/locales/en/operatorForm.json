@@ -48,5 +48,8 @@
     "current_alt": "Current: {{label}}",
     "current_label": "Current image:",
     "pdf_badge": "PDF: {{name}}"
+  },
+  "a11y": {
+    "required_suffix": "(required)"
   }
 }

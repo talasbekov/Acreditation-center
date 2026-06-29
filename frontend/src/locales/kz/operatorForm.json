@@ -48,5 +48,8 @@
     "current_alt": "Ағымдағы: {{label}}",
     "current_label": "Ағымдағы сурет:",
     "pdf_badge": "PDF: {{name}}"
+  },
+  "a11y": {
+    "required_suffix": "(міндетті)"
   }
 }
