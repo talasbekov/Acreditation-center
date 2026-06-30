@@ -18,6 +18,7 @@
   --surface-muted: #f7f8f9;
   --border: #e3e5e8; /* декоративные разделители */
   --border-strong: #d5d8dc;
+  --overlay: rgba(20, 23, 28, 0.45); /* fe-3.5: scrim модалок — тёмный полупрозрачный (обе темы) */
   --input-border: #7c828a; /* интерактивные контролы — WCAG 1.4.11 ≥3:1 (НЕ декоративный border) */
   /* text */
   --text: #1b1f24; /* НИКОГДА не чистый #000 (anti-fatigue) */
@@ -54,6 +55,7 @@
   --surface-muted: #22272e;
   --border: #2c323a;
   --border-strong: #3a424c;
+  --overlay: rgba(0, 0, 0, 0.6); /* fe-3.5: scrim модалок — глубже для тёмной темы */
   --input-border: #6a727c;
   --text: #e6e8eb;
   --text-muted: #9aa1aa;
@@ -80,6 +82,7 @@
   --color-surface-muted: var(--surface-muted);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
+  --color-overlay: var(--overlay);
   --color-input-border: var(--input-border);
   --color-text: var(--text);
   --color-text-muted: var(--text-muted);

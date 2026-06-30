@@ -1,0 +1,22 @@
+{
+  "birth_date": "1985-12-05",
+  "country": "Казахстан",
+  "created_at": "2026-06-20T14:30:00+05:00",
+  "doc_scan": "/media/event_5/attendee_documents/sample.jpg",
+  "doc_type": "passport",
+  "full_name": "Алиев Бахыт Серикулы",
+  "id": 101,
+  "iin_masked": "********1234",
+  "is_resident": true,
+  "last_return_reason": null,
+  "photo": "/media/event_5/attendee_photos/sample.jpg",
+  "post": "Корреспондент",
+  "problem_flags": [
+    "no_photo"
+  ],
+  "return_count": 0,
+  "status": "in_review",
+  "sub_event_id": 5,
+  "sub_event_name": "Пресс-центр",
+  "transcription": "Aliyev Bakhyt Serikuly"
+}

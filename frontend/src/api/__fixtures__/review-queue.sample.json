@@ -1,0 +1,48 @@
+{
+  "count": 3,
+  "next": null,
+  "previous": null,
+  "results": [
+    {
+      "full_name": "Алиев Бахыт Серикулы",
+      "id": 101,
+      "iin_masked": "********1234",
+      "last_return_reason": null,
+      "problem_flags": [
+        "no_photo"
+      ],
+      "return_count": 0,
+      "status": "submitted",
+      "sub_event_id": 5,
+      "sub_event_name": "Пресс-центр"
+    },
+    {
+      "full_name": "Иванова Мария",
+      "id": 102,
+      "iin_masked": "********0078",
+      "last_return_reason": null,
+      "problem_flags": [],
+      "return_count": 0,
+      "status": "in_review",
+      "sub_event_id": 6,
+      "sub_event_name": "Главный зал"
+    },
+    {
+      "full_name": "Нурланов Тимур Асланулы",
+      "id": 103,
+      "iin_masked": "********2349",
+      "last_return_reason": null,
+      "problem_flags": [
+        "no_photo",
+        "doc_unreadable",
+        "photo_ratio",
+        "duplicate_attendee",
+        "iin_invalid"
+      ],
+      "return_count": 0,
+      "status": "submitted",
+      "sub_event_id": null,
+      "sub_event_name": null
+    }
+  ]
+}

@@ -107,11 +107,17 @@ export function AttendeeForm({
   const iinLooksValid = isResident && iin.trim() !== '' && !errors.iin
 
   // fe-2.7 (AC-1): единая обвязка a11y контрола — обязательность + связка ошибки по id.
-  const ariaFor = (name: keyof AttendeeFormValues, required: boolean) => ({
-    'aria-required': required || undefined,
-    'aria-invalid': errors[name] ? true : undefined,
-    'aria-describedby': errors[name] ? `${name}-error` : undefined,
-  })
+  // Гейт по ПЕРЕВЕДЁННОМУ тексту (как у <Field error={fe(...)}>): aria-describedby ставим
+  // только когда Field реально отрендерит узел `${name}-error` — иначе ссылка повисла бы
+  // на несуществующем узле при пустом/непереводимом message.
+  const ariaFor = (name: keyof AttendeeFormValues, required: boolean) => {
+    const hasError = !!fe(errors[name]?.message)
+    return {
+      'aria-required': required || undefined,
+      'aria-invalid': hasError ? true : undefined,
+      'aria-describedby': hasError ? `${name}-error` : undefined,
+    }
+  }
 
   // fe-2.7 (AC-2): целевой текст SR-анонса ИИН — строка (не объект), чтобы эффект ниже
   // зависел от значения и сбрасывал debounce-таймер только на реальном изменении статуса.
@@ -142,12 +148,14 @@ export function AttendeeForm({
     if (isResident && iin.trim() !== '') void trigger('iin')
   }, [birthDate, isResident, iin, trigger])
 
-  // fe-2.7 (AC-2): коммит анонса ИИН с debounce. Эффект перезапускается на каждое изменение
-  // target и сбрасывает прежний таймер → при быстром вводе пишется единожды (мутация=1).
+  // fe-2.7 (AC-2): коммит анонса ИИН с debounce. Таймер сбрасывается на КАЖДОМ изменении iin
+  // (а не только при смене текста статуса) → анонс единожды после реальной паузы ввода (на
+  // settle), независимо от скорости набора: при медленном вводе промежуточный статус
+  // («нужно 12 цифр») больше не «прорывается» в live-регион до завершения ввода.
   useEffect(() => {
     const id = setTimeout(() => setIinAnnounce(iinAnnounceTarget), IIN_ANNOUNCE_MS)
     return () => clearTimeout(id)
-  }, [iinAnnounceTarget])
+  }, [iin, iinAnnounceTarget])
 
   // ── Story 5.4: автосохранение черновика (localStorage) ─────────────────
   const [showRestore, setShowRestore] = useState(false)

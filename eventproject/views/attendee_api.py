@@ -17,9 +17,10 @@ from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from eventproject.audit import audit_log
-from eventproject.errors import coded_error
+from eventproject.errors import coded_error, conflict_error
 from eventproject.models import Attendee
-from eventproject.permissions import IsOperator
+from eventproject.permissions import IsOperator, IsSuperoperator
+from eventproject.problem_flags import compute_problem_flags
 from eventproject.validators.iin import mask_iin
 from eventproject.serializers.attendee import (
     AttendeeListSerializer,
@@ -197,7 +198,10 @@ class AttendeeViewSet(viewsets.ModelViewSet):
 
         old_status = attendee.status
         attendee.status = AttendeeStatus.SUBMITTED
-        attendee.save(update_fields=["status"])
+        # Story fe-3.1: фиксируем проблемные флаги при submit → DTO очереди читает
+        # хранимое поле, ?problem=-фильтр работает с серверной пагинацией.
+        attendee.problem_flags = compute_problem_flags(attendee)
+        attendee.save(update_fields=["status", "problem_flags"])
         audit_log(
             user=request.user,
             action="attendee.status_change",
@@ -207,3 +211,104 @@ class AttendeeViewSet(viewsets.ModelViewSet):
             extra={"from": old_status, "to": AttendeeStatus.SUBMITTED},
         )
         return Response(AttendeeSerializer(attendee).data)
+
+    # ── Anti-churn audit-хелпер решений проверяющего (fe-3.4 реш.#3) ──────
+    def _record_decision(self, attendee, action, actor, *, from_status=None,
+                         to_status=None, reason=None):
+        """Единая точка записи решения проверяющего (approve/return) в аудит.
+
+        fe-3.4 (approve) и fe-3.5 (return) идут через ЭТОТ хелпер, чтобы fe-3.6
+        (durable AuditLog + concurrency-guard) менял ТОЛЬКО его внутренности, не трогая
+        call-sites. Sink сейчас = текущий `audit_log()` (durable DB-`AuditLog` с hd-4.1 +
+        stdout-зеркало; PII-скраб внутри). `from_status`/`to_status` → extra ({from,to});
+        `reason` (fe-3.5 возврат) — тоже в extra, если задан.
+        """
+        extra = {}
+        if from_status is not None or to_status is not None:
+            extra["from"] = from_status
+            extra["to"] = to_status
+        if reason is not None:
+            extra["reason"] = reason
+        audit_log(
+            user=actor,
+            action=action,
+            obj_type="Attendee",
+            obj_id=str(attendee.id),
+            ip=self.request.META.get("REMOTE_ADDR", ""),
+            extra=extra or None,
+        )
+
+    # ── Переход in_review → ready (решение «Одобрить», fe-3.4) ────────────
+    @action(detail=True, methods=["post"], permission_classes=[IsSuperoperator])
+    def approve(self, request, pk=None):
+        """fe-3.4: одобрение заявки админом-проверяющим (in_review → ready).
+
+        Mirror submit-экшена, но: (1) FSM-цель READY (вперёд, к экспорту — НЕ submitted,
+        это возврат fe-3.5); (2) guard не-in_review → 409 Conflict (`conflict_error`, НЕ
+        400 — нельзя двойной/нелегальный переход); (3) audit через anti-churn
+        `_record_decision` (fe-3.6 меняет ТОЛЬКО внутрь); (4) ответ masked-safe `{id, status}`
+        — НЕ `AttendeeSerializer` (он отдаёт сырой ИИН на admin-поверхность, реш.#6).
+        scope/RBAC/404 наследуются (IsSuperoperator + get_operator_attendee_queryset).
+        """
+        attendee = self.get_object()
+        with transaction.atomic():
+            try:
+                assert_transition(attendee.status, AttendeeStatus.READY)
+            except InvalidStatusTransition:
+                raise conflict_error("status_transition_invalid", field="status")
+            old_status = attendee.status
+            attendee.status = AttendeeStatus.READY
+            attendee.save(update_fields=["status"])
+            self._record_decision(
+                attendee,
+                "attendee.approved",
+                request.user,
+                from_status=old_status,
+                to_status=AttendeeStatus.READY,
+            )
+        return Response({"id": attendee.id, "status": attendee.status})
+
+    # ── Переход in_review → submitted (решение «Вернуть с причиной», fe-3.5) ──
+    @action(
+        detail=True,
+        methods=["post"],
+        permission_classes=[IsSuperoperator],
+        url_path="return",
+    )
+    def return_to_operator(self, request, pk=None):
+        """fe-3.5: возврат заявки оператору админом-проверяющим (in_review → submitted).
+
+        Mirror approve, но: (1) FSM-цель SUBMITTED (назад к оператору — НЕ новый статус
+        «Возвращена»: это submitted+return_count>0; FSM не имеет RETURNED, state_machine.py);
+        (2) `reason` ОБЯЗАТЕЛЕН → 400 при пустом (отдельно от 409-guard); (3) пишем хранимые
+        last_return_reason + return_count (continuity 3.3/3.7); (4) audit action="attendee.returned"
+        с reason через `_record_decision`; (5) ответ masked-safe {id, status} (реш.#6).
+        ⚠ метод НЕ `def return` — Python keyword → url_path="return".
+        """
+        attendee = self.get_object()
+        reason = (request.data.get("reason") or "").strip()
+        if not reason:
+            # reason обязателен (AC, UX-DR9). Это 400 (валидация ввода), НЕ 409 (статус-guard).
+            raise coded_error("required", field="reason")
+        with transaction.atomic():
+            # ⚠ Guard = ИМЕННО in_review, НЕ assert_transition(status, SUBMITTED): FSM
+            # разрешает и draft→submitted (это submit ОПЕРАТОРА, не возврат проверяющего),
+            # поэтому одной проверки перехода мало. Возврат легален только из «На проверке».
+            if attendee.status != AttendeeStatus.IN_REVIEW:
+                raise conflict_error("status_transition_invalid", field="status")
+            old_status = attendee.status
+            attendee.status = AttendeeStatus.SUBMITTED
+            attendee.last_return_reason = reason
+            attendee.return_count = (attendee.return_count or 0) + 1
+            attendee.save(
+                update_fields=["status", "last_return_reason", "return_count"]
+            )
+            self._record_decision(
+                attendee,
+                "attendee.returned",
+                request.user,
+                from_status=old_status,
+                to_status=AttendeeStatus.SUBMITTED,
+                reason=reason,
+            )
+        return Response({"id": attendee.id, "status": attendee.status})

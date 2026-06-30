@@ -133,6 +133,9 @@
   "photo_too_many_pixels": {
     "params": []
   },
+  "problem_invalid": {
+    "params": []
+  },
   "required": {
     "params": []
   },

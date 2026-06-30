@@ -9,6 +9,7 @@ from eventproject.views.event import EventViewSet
 from eventproject.views.operator_api import OperatorViewSet
 from eventproject.views.attendee_api import AttendeeViewSet
 from eventproject.views.request_api import RequestViewSet
+from eventproject.views.review_queue_api import ReviewQueueViewSet
 
 
 @ensure_csrf_cookie
@@ -22,6 +23,8 @@ router.register(r"events", EventViewSet, basename="event")
 router.register(r"operators", OperatorViewSet, basename="operator")
 router.register(r"attendees", AttendeeViewSet, basename="attendee")
 router.register(r"requests", RequestViewSet, basename="request")
+# Story fe-3.1: scope-aware очередь проверки админа (read-only, IsSuperoperator).
+router.register(r"review-queue", ReviewQueueViewSet, basename="review-queue")
 
 
 @api_view(["GET"])

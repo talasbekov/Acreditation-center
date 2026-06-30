@@ -38,6 +38,18 @@ describe('navConfig (fe-2.2 AC-2/3)', () => {
     expect(su.find((i) => i.path === '/queue')).toBeDefined()
   })
 
+  // fe-3.2 (AC-6 / R6): очередь проверки выровнена под backend IsSuperoperator
+  // (= superoperator+superuser, permissions.py:13). superoperator ОБЯЗАН видеть /queue;
+  // operator/user — нет (queue = admin-агрегат).
+  it('superoperator видит /queue (выравнивание под backend IsSuperoperator)', () => {
+    const so = visibleNavItems('superoperator')
+    expect(so.find((i) => i.path === '/queue')).toBeDefined()
+  })
+
+  it('operator не видит /queue (admin-агрегат)', () => {
+    expect(visibleNavItems('operator').find((i) => i.path === '/queue')).toBeUndefined()
+  })
+
   it('роль user / неизвестная / undefined → пустой nav (fail-closed)', () => {
     expect(visibleNavItems('user')).toHaveLength(0)
     expect(visibleNavItems('nonsense')).toHaveLength(0)

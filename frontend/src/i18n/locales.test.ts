@@ -10,11 +10,14 @@ import kzValidation from '@/locales/kz/validation.json'
 import kzStatus from '@/locales/kz/status.json'
 import kzNav from '@/locales/kz/nav.json'
 import kzOperatorForm from '@/locales/kz/operatorForm.json'
+import kzReviewQueue from '@/locales/kz/reviewQueue.json'
 import enCommon from '@/locales/en/common.json'
 import enValidation from '@/locales/en/validation.json'
 import enStatus from '@/locales/en/status.json'
 import enNav from '@/locales/en/nav.json'
 import enOperatorForm from '@/locales/en/operatorForm.json'
+import enReviewQueue from '@/locales/en/reviewQueue.json'
+import ruReviewQueue from '@/locales/ru/reviewQueue.json'
 
 type Catalog = Record<string, unknown>
 
@@ -39,6 +42,7 @@ const NAMESPACES: Array<[string, Catalog, Catalog, Catalog]> = [
   ['status', ruStatus, kzStatus, enStatus],
   ['nav', ruNav, kzNav, enNav],
   ['operatorForm', ruOperatorForm, kzOperatorForm, enOperatorForm],
+  ['reviewQueue', ruReviewQueue, kzReviewQueue, enReviewQueue],
 ]
 
 describe('catalog completeness (Story fe-1.4 AC-2/Task7) — kz и en покрывают ru', () => {

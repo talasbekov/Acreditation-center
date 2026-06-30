@@ -18,7 +18,9 @@ from .registry import ERROR_CODES, all_codes, code_exists, spec_for
 
 __all__ = [
     "CodedValidationError",
+    "CodedConflict",
     "coded_error",
+    "conflict_error",
     "ERROR_CODES",
     "all_codes",
     "code_exists",
@@ -49,3 +51,23 @@ class CodedValidationError(APIException):
 def coded_error(code, field=None, **params):
     """Удобный конструктор: ``raise coded_error("iin_dob_mismatch", field="iin", iin_dob=..., entered_dob=...)``."""
     return CodedValidationError(code, field=field, params=params)
+
+
+class CodedConflict(CodedValidationError):
+    """Конфликт состояния (status 409) с ТЕМ ЖЕ машинным конвертом ``{type, params, field}``.
+
+    Story fe-3.4: approve/return не-«На проверке» заявки = конфликт состояния (нельзя
+    сделать двойной/нелегальный FSM-переход), а не ошибка валидации ввода. `coded_error`
+    всегда даёт 400 (`CodedValidationError.status_code`) — для 409 нужен отдельный путь.
+
+    Подкласс `CodedValidationError` СОЗНАТЕЛЬНО: `rfc7807_exception_handler` ловит ошибку
+    `isinstance(exc, CodedValidationError)`-веткой (Path 1) и отдаёт `status=exc.status_code`.
+    Переопределённый class-level `status_code` → 409 без правок handler'а / FE-маппера.
+    """
+
+    status_code = status.HTTP_409_CONFLICT
+
+
+def conflict_error(code, field=None, **params):
+    """409-конструктор: ``raise conflict_error("status_transition_invalid", field="status")``."""
+    return CodedConflict(code, field=field, params=params)

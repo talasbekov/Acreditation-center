@@ -7,6 +7,8 @@ import { AppShell } from '@/components/shell/AppShell'
 import { AttendeesPage } from '@/pages/AttendeesPage'
 import { AddAttendeePage } from '@/pages/AddAttendeePage'
 import { EditAttendeePage } from '@/pages/EditAttendeePage'
+import { ReviewQueuePage } from '@/pages/ReviewQueuePage'
+import { ApplicationDetailPage } from '@/pages/ApplicationDetailPage'
 
 export default function App() {
   // P2-8: гарантируем csrftoken cookie до первой мутации (bootstrap при загрузке SPA).
@@ -28,6 +30,9 @@ export default function App() {
           }
         >
           <Route index element={<AttendeesPage />} />
+          <Route path="queue" element={<ReviewQueuePage />} />
+          {/* fe-3.3: detail заявки очереди — открывается из строки очереди (fe-3.2). */}
+          <Route path="queue/:id" element={<ApplicationDetailPage />} />
           <Route path="add" element={<AddAttendeePage />} />
           <Route path="attendees/:id" element={<EditAttendeePage />} />
           {/* catch-all: неизвестные пути → на корень (404-страница — позже) */}

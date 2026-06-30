@@ -22,7 +22,9 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: NavItem[] = [
-  { key: 'nav:queue', path: '/queue', roles: ['superuser'] },
+  // fe-3.2 (R6): выровнено под backend `IsSuperoperator` (= superoperator+superuser,
+  // permissions.py:13) — иначе superoperator авторизован API очереди, но не видит пункт.
+  { key: 'nav:queue', path: '/queue', roles: ['superuser', 'superoperator'] },
   { key: 'nav:events', path: '/events', roles: ['superuser', 'superoperator'] },
   { key: 'nav:attendees', path: '/', roles: ['operator', 'superoperator', 'superuser'] },
   { key: 'nav:add_attendee', path: '/add', roles: ['operator'] },

@@ -43,6 +43,7 @@ ERROR_CODES = {
     "status_invalid": {"field": "status", "params": [], "detail": "Недопустимое значение статуса."},
     "status_transition_invalid": {"field": "status", "params": [], "detail": "Недопустимый переход статуса."},
     "email_status_invalid": {"field": "email_status", "params": [], "detail": "Недопустимое значение email_status."},
+    "problem_invalid": {"field": "problem", "params": [], "detail": "Недопустимое значение фильтра проблемы."},
     # ── Иерархия событий (models.py Event.clean) ────────────────────────────
     "event_parent_self": {"field": "parent", "params": [], "detail": "Мероприятие не может быть своим родителем."},
     "event_parent_missing": {"field": "parent", "params": [], "detail": "Указанное родительское мероприятие не существует."},

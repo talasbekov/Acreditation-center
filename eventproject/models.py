@@ -324,6 +324,18 @@ class Attendee(models.Model):
         choices=ATTENDEE_STATUS_CHOICES,
         default=AttendeeStatus.DRAFT,
     )
+    # Story fe-3.1 (AC-2): проблемные флаги заявки — подмножество закрытого набора
+    # eventproject/problem_flags.py::PROBLEM_FLAGS. Хранимое (JSONField, не ArrayField:
+    # ArrayField только Postgres, тесты на SQLite), популируется при submit через
+    # compute_problem_flags → DTO очереди читает, `?problem=`-фильтр работает с
+    # серверной пагинацией. default=list (additive, обратимо).
+    problem_flags = models.JSONField(default=list, blank=True)
+    # Story fe-3.5 (AC-1): причина последнего возврата + счётчик возвратов. Денормализованное
+    # «текущее состояние» заявки для DTO очереди/деталей (continuity 3.3/3.7) — ОТДЕЛЬНО от
+    # durable AuditLog (3.6). Пишутся return-экшеном (in_review→submitted). «Возвращена» =
+    # submitted + return_count>0 (нет отдельного FSM-статуса — см. state_machine.py). Аддитивно.
+    last_return_reason = models.TextField(null=True, blank=True)
+    return_count = models.PositiveIntegerField(default=0)
 
     class Meta:
         # BE-9: статус ограничен FSM-набором и на уровне БД — прямой
