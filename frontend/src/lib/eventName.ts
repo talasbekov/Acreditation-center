@@ -19,7 +19,11 @@ export function pickLocalizedName(
   lang: string,
   fallbackTitle?: string | null,
 ): string {
-  const byLang = lang === 'kz' ? names?.kz : lang === 'en' ? names?.en : names?.ru
+  // `lang` может нести регион ('en-US'/'en-GB') — берём базовый под-тег ('en'),
+  // как сестринский htmlLang.ts. Иначе `=== 'en'` не сматчит и англо-локаль тихо
+  // упадёт на `ru`. `kk` до сюда не долетает (detector конвертит kk*→kz).
+  const key = (lang || '').split('-')[0]
+  const byLang = key === 'kz' ? names?.kz : key === 'en' ? names?.en : names?.ru
   // `||` глотает и пустую строку, и null → следующий фолбэк.
   return byLang || names?.ru || fallbackTitle || '—'
 }

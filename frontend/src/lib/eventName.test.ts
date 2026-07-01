@@ -28,4 +28,12 @@ describe('pickLocalizedName (fe-1.5)', () => {
   it('неизвестная локаль → ru', () => {
     expect(pickLocalizedName(full, 'fr')).toBe('Пресс-центр')
   })
+
+  it('регион-квалифицированная локаль → базовый под-тег (en-US→en, ru-RU→ru)', () => {
+    // i18n.language может нести регион ('en-US') — берём базовый под-тег, иначе
+    // строгое `=== 'en'` не сматчит и англо-локаль тихо упадёт на ru (code-review P1).
+    expect(pickLocalizedName(full, 'en-US')).toBe('Press center')
+    expect(pickLocalizedName(full, 'en-GB')).toBe('Press center')
+    expect(pickLocalizedName(full, 'ru-RU')).toBe('Пресс-центр')
+  })
 })

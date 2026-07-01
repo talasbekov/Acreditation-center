@@ -12,6 +12,7 @@ const subEventNamesSchema = z
     kz: z.string().nullable(),
     en: z.string().nullable(),
   })
+  .strict() // симметрия с frozen fe-3.1: лишний вложенный ключ = дрейф, а не тихий strip
   .nullable()
 
 /**
