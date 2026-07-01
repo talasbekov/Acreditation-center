@@ -286,9 +286,12 @@ class AttendeeViewSet(viewsets.ModelViewSet):
         ⚠ метод НЕ `def return` — Python keyword → url_path="return".
         """
         attendee = self.get_object()
-        reason = (request.data.get("reason") or "").strip()
+        # reason обязателен (AC, UX-DR9). Не-строка (JSON {"reason": 5}/[...]/{...}) трактуется
+        # как отсутствие → 400 (иначе .strip() на int/list/dict → AttributeError → 500).
+        # Это 400 (валидация ввода), НЕ 409 (статус-guard).
+        reason_raw = request.data.get("reason")
+        reason = reason_raw.strip() if isinstance(reason_raw, str) else ""
         if not reason:
-            # reason обязателен (AC, UX-DR9). Это 400 (валидация ввода), НЕ 409 (статус-guard).
             raise coded_error("required", field="reason")
         with transaction.atomic():
             # ⚠ Guard = ИМЕННО in_review, НЕ assert_transition(status, SUBMITTED): FSM

@@ -57,7 +57,7 @@
   "detail_decision_label": "Application decision",
   "detail_action_approve": "Approve",
   "detail_action_return": "Return with reason",
-  "detail_action_pending_hint": "Available in the next iteration (fe-3.4 / fe-3.5)",
+  "detail_action_pending_hint": "Available only for applications under review",
   "return_dialog_title": "Return application for revision",
   "return_dialog_desc": "Describe what to fix — the reason goes to the operator.",
   "return_reason_label": "Return reason",

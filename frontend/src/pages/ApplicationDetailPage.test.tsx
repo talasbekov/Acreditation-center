@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { ApiError } from '@/api/client'
@@ -311,15 +311,20 @@ describe('ApplicationDetailPage return (fe-3.5)', () => {
     expect(returnReviewQueueItemMock).not.toHaveBeenCalled()
   })
 
-  it('AC-6: «Отменить» → POST не уходит', async () => {
+  it('AC-6: «Отменить» отменяет возврат (кнопка снова активна, POST не уходит)', async () => {
     getReviewQueueItemMock.mockResolvedValue(detail())
     renderPage()
     fireEvent.click(await screen.findByTestId('action-return'))
     fireEvent.change(screen.getByLabelText('Причина возврата'), { target: { value: 'Нет фото' } })
     fireEvent.click(screen.getByRole('button', { name: 'Подтвердить возврат' }))
     await waitFor(() => expect(toastSuccess).toHaveBeenCalled())
+    // В окне undo возврат «в полёте» → кнопка «Вернуть» disabled (наблюдаемое pending-состояние).
+    expect(screen.getByTestId('action-return')).toBeDisabled()
     const undo = (toastSuccess.mock.calls.at(-1)![1] as { action: { onClick: () => void } }).action.onClick
-    undo()
+    act(() => undo())
+    // undo сбросил pending → кнопка снова активна: НАБЛЮДАЕМЫЙ эффект отмены (не тавтология —
+    // no-op undo оставил бы кнопку disabled), и отложенный POST так и не ушёл.
+    await waitFor(() => expect(screen.getByTestId('action-return')).toBeEnabled())
     expect(returnReviewQueueItemMock).not.toHaveBeenCalled()
   })
 

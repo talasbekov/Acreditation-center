@@ -57,7 +57,7 @@
   "detail_decision_label": "Решение по заявке",
   "detail_action_approve": "Одобрить",
   "detail_action_return": "Вернуть с причиной",
-  "detail_action_pending_hint": "Доступно в следующей итерации (fe-3.4 / fe-3.5)",
+  "detail_action_pending_hint": "Доступно только для заявок «На проверке»",
   "return_dialog_title": "Вернуть заявку на доработку",
   "return_dialog_desc": "Опишите, что исправить — причина уйдёт оператору.",
   "return_reason_label": "Причина возврата",

@@ -100,6 +100,11 @@ export function ReviewQueuePage() {
   // setState/focus на размонтированном). review P4 — живой снимок results (отложенный
   // finish() не опирается на stale-замыкание индекса/списка).
   const fadeTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set())
+  // fe-3.5 review P0 — отложенные возвраты (timer → {id,reason}): дожимаем POST при unmount,
+  // иначе возврат теряется в окне undo (success-toast уже показан, заявка осталась in_review).
+  const pendingReturnsRef = useRef<
+    Map<ReturnType<typeof setTimeout>, { id: number; reason: string }>
+  >(new Map())
   const resultsRef = useRef<ReviewQueueItem[]>([])
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   // Помечает `search`, записанный НАМИ (debounce), чтобы sync-эффект (P5) не клобберил
@@ -203,7 +208,15 @@ export function ReviewQueuePage() {
   // setState/focus на уже отсоединённом компоненте — утечка жизненного цикла).
   useEffect(() => {
     const timers = fadeTimersRef.current
+    const pendingReturns = pendingReturnsRef.current
     return () => {
+      // fe-3.5 review P0 — сперва ДОЖИМАЕМ отложенные возвраты сырым POST (не через хук —
+      // компонент размонтируется): иначе confirmed-возврат теряется при уходе со страницы в
+      // окне undo (заявка осталась бы in_review при уже показанном success-toast).
+      pendingReturns.forEach(({ id, reason }) => {
+        void Promise.resolve(returnReviewQueueItem(id, reason)).catch(() => {})
+      })
+      pendingReturns.clear()
       timers.forEach((id) => window.clearTimeout(id))
       timers.clear()
     }
@@ -354,6 +367,7 @@ export function ReviewQueuePage() {
     landFocusAfterDecision(id) // фокус на соседа сразу (строка покидает очередь)
     const timer = window.setTimeout(() => {
       fadeTimersRef.current.delete(timer)
+      pendingReturnsRef.current.delete(timer) // review P0 — POST уходит, снимаем из pending
       returnMutation.mutate(
         { id, reason },
         { onSuccess: () => {
@@ -363,6 +377,7 @@ export function ReviewQueuePage() {
       )
     }, UNDO_MS)
     fadeTimersRef.current.add(timer)
+    pendingReturnsRef.current.set(timer, { id, reason }) // review P0 — дожать при unmount
     toast.success(t('reviewQueue:return_toast_success'), {
       duration: UNDO_MS,
       action: {
@@ -370,7 +385,17 @@ export function ReviewQueuePage() {
         onClick: () => {
           window.clearTimeout(timer)
           fadeTimersRef.current.delete(timer)
+          pendingReturnsRef.current.delete(timer) // review P0 — отмена: POST не уходит
           setFadingIds((prev) => setWithout(prev, id)) // отмена до вызова → строка восстановлена
+          // review P4 (AC-6) — фокус не в body: на восстановленную строку (узел жив, тает по CSS),
+          // иначе фокус остаётся на кнопке toast и падает в body при dismiss.
+          const idx = resultsRef.current.findIndex((r) => r.id === id)
+          if (idx >= 0) {
+            setActiveRow(idx)
+            rowRefs.current[idx]?.focus()
+          } else {
+            searchRef.current?.focus()
+          }
         },
       },
     })

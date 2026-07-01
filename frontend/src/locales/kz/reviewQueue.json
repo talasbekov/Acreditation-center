@@ -57,7 +57,7 @@
   "detail_decision_label": "Өтінім бойынша шешім",
   "detail_action_approve": "Мақұлдау",
   "detail_action_return": "Себеппен қайтару",
-  "detail_action_pending_hint": "Келесі итерацияда қолжетімді (fe-3.4 / fe-3.5)",
+  "detail_action_pending_hint": "Тек «Тексерудегі» өтінімдер үшін қолжетімді",
   "return_dialog_title": "Өтінімді пысықтауға қайтару",
   "return_dialog_desc": "Нені түзету керегін сипаттаңыз — себеп операторға жіберіледі.",
   "return_reason_label": "Қайтару себебі",

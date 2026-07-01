@@ -117,6 +117,8 @@ export function ApplicationDetailPage() {
   const [returnOpen, setReturnOpen] = useState(false)
   const [returnPending, setReturnPending] = useState(false)
   const returnTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  // fe-3.5 review P0 — снимок отложенного возврата {id,reason}: дожимаем POST при unmount.
+  const pendingReturnRef = useRef<{ id: number; reason: string } | null>(null)
 
   const returnMutation = useMutation({
     mutationFn: (reason: string) => returnReviewQueueItem(numericId, reason),
@@ -133,18 +135,35 @@ export function ApplicationDetailPage() {
     },
   })
 
-  // review-урок fe-3.4 P3 — чистим отложенный undo-таймер при unmount.
+  // review-урок fe-3.4 P3 — чистим отложенный undo-таймер при unmount. fe-3.5 review P0 — но
+  // сперва ДОЖИМАЕМ отложенный возврат сырым POST: иначе confirmed-возврат теряется при уходе
+  // со страницы в окне undo (success-toast уже показан, заявка осталась in_review).
   useEffect(
     () => () => {
       if (returnTimerRef.current) clearTimeout(returnTimerRef.current)
+      const p = pendingReturnRef.current
+      if (p) void Promise.resolve(returnReviewQueueItem(p.id, p.reason)).catch(() => {})
     },
     [],
   )
 
   // Seam fe-3.3: вход по ?action=return → авто-открытие диалога (когда данные загружены, in_review).
+  // review P3 — открываем РОВНО ОДИН раз: иначе refetch (refetchOnWindowFocus) даёт новую ссылку
+  // data → эффект повторно звал setReturnOpen(true) после того как админ закрыл диалог (Cancel/Esc).
+  const returnIntentHandledRef = useRef(false)
   useEffect(() => {
-    if (returnIntent && data && data.status === 'in_review') setReturnOpen(true)
+    if (returnIntentHandledRef.current) return
+    if (returnIntent && data && data.status === 'in_review') {
+      returnIntentHandledRef.current = true
+      setReturnOpen(true)
+    }
   }, [returnIntent, data])
+
+  // review P4/P5 — единая точка «фокус не в body» после submit/undo: кнопки решения в окне
+  // pending — disabled и не удержат фокус → уводим на всегда-активную крошку «Очередь».
+  function focusCrumb() {
+    ;(document.querySelector('[data-testid="detail-breadcrumb"]') as HTMLElement | null)?.focus()
+  }
 
   function confirmReturn(reason: string) {
     // Оптимистично-отложенный POST: окно «Отменить» ~UNDO_MS, реальный вызов по таймеру.
@@ -152,9 +171,12 @@ export function ApplicationDetailPage() {
     setReturnPending(true)
     const timer = setTimeout(() => {
       returnTimerRef.current = undefined
+      pendingReturnRef.current = null // review P0 — POST уходит, снимаем из pending
       returnMutation.mutate(reason)
     }, UNDO_MS)
     returnTimerRef.current = timer
+    pendingReturnRef.current = { id: numericId, reason } // review P0 — дожать при unmount
+    focusCrumb() // review P5 (AC-3) — submit минует dialog focus-restore → фокус не в body
     toast.success(t('reviewQueue:return_toast_success'), {
       duration: UNDO_MS,
       action: {
@@ -162,7 +184,9 @@ export function ApplicationDetailPage() {
         onClick: () => {
           clearTimeout(timer)
           returnTimerRef.current = undefined
+          pendingReturnRef.current = null // review P0 — отмена: POST не уходит
           setReturnPending(false)
+          focusCrumb() // review P4 (AC-6) — фокус не в body
         },
       },
     })
@@ -179,6 +203,7 @@ export function ApplicationDetailPage() {
           <nav aria-label={t('reviewQueue:detail_breadcrumb_aria')} className="mb-2 text-sm">
             <Link
               to="/queue"
+              data-testid="detail-breadcrumb"
               className="rounded text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               {t('reviewQueue:title')}
@@ -323,7 +348,10 @@ export function ApplicationDetailPage() {
                 type="button"
                 // review P1 — одобрять можно только in_review (submitted→ready запрещён FSM →
                 // 409). Для прочих статусов кнопка disabled с подсказкой, а не падающее действие.
-                disabled={approveMutation.isPending || data.status !== 'in_review'}
+                // review P1 (fe-3.5) — в окне pending-возврата тоже disabled: иначе «Одобрить»
+                // остаётся кликабельной при returnPending → конфликтующее решение + тихая отмена
+                // отложенного возврата (запись ушла бы в ready). Зеркало queue rowBusy.
+                disabled={approveMutation.isPending || returnPending || data.status !== 'in_review'}
                 title={data.status !== 'in_review' ? t('reviewQueue:detail_action_pending_hint') : undefined}
                 onClick={() => approveMutation.mutate()}
                 data-testid="action-approve"

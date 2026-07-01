@@ -130,6 +130,17 @@ class AttendeeReturnReasonRequiredTests(AttendeeReturnBase):
         self.assertEqual(resp.status_code, 400)
         self.assertEqual(resp.data["field"], "reason")
 
+    def test_non_string_reason_400_not_500(self):
+        # review P2 — {"reason": 5}/[...]/{...}/true НЕ должны падать в 500 (`.strip()` на
+        # int/list/dict → AttributeError). Не-строка трактуется как отсутствие → 400 required.
+        for bad in (5, ["Нет фото"], {"x": 1}, True):
+            resp = self._return(self.a_in_review.id, reason=bad)
+            self.assertEqual(resp.status_code, 400, f"reason={bad!r} → {resp.status_code}")
+            self.assertEqual(resp.data["field"], "reason")
+        self.a_in_review.refresh_from_db()
+        self.assertEqual(self.a_in_review.status, "in_review")
+        self.assertEqual(self.a_in_review.return_count, 0)
+
 
 class AttendeeReturnConflictGuardTests(AttendeeReturnBase):
     def test_return_draft_conflict_409_unchanged(self):
