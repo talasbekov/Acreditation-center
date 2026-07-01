@@ -79,5 +79,6 @@
   "inbox_action_fix": "Исправить",
   "inbox_badge_aria": "Возвраты: {{count}}",
   "inbox_return_banner_title": "Заявка возвращена на доработку (раз: {{count}})",
-  "inbox_return_banner_reason": "Причина последнего возврата: {{reason}}"
+  "inbox_return_banner_reason": "Причина последнего возврата: {{reason}}",
+  "inbox_returned_label": "Возвращена"
 }

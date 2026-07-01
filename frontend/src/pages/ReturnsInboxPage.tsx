@@ -4,7 +4,6 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { getAttendees, type AttendeeListParams } from '@/api/attendees'
 import { Button } from '@/components/ui/button'
-import { StatusBadge } from '@/components/StatusBadge'
 
 const PAGE_SIZE = 50
 
@@ -40,11 +39,13 @@ export function ReturnsInboxPage() {
         {t('reviewQueue:inbox_title')}
       </h1>
 
-      {isError && <p className="text-status-rejected">{t('reviewQueue:inbox_load_error')}</p>}
-
-      {isPending ? (
+      {/* review P4 — error/pending/empty/table взаимоисключающи: на isError НЕ рендерим
+          фантомную пустую таблицу + «показано 0 из 0» под сообщением ошибки. */}
+      {isError ? (
+        <p className="text-status-rejected">{t('reviewQueue:inbox_load_error')}</p>
+      ) : isPending ? (
         <SkeletonTable />
-      ) : data && data.results.length === 0 ? (
+      ) : !data || data.results.length === 0 ? (
         <p className="py-12 text-center text-text-muted">{t('reviewQueue:inbox_empty')}</p>
       ) : (
         <>
@@ -71,7 +72,11 @@ export function ReturnsInboxPage() {
                   </td>
                   <td className="py-2 pr-3 text-text">{a.iin_masked || '—'}</td>
                   <td className="py-2 pr-3">
-                    <StatusBadge status={a.status} />
+                    {/* review P3 (AC-3): «Возвращена»-аффорданс через reserved status-rejected
+                        (все строки инбокса — возвраты; отличает от обычного submitted). */}
+                    <span className="inline-flex items-center rounded-full border border-status-rejected px-2 py-0.5 text-xs font-medium text-status-rejected">
+                      {t('reviewQueue:inbox_returned_label')}
+                    </span>
                   </td>
                   <td className="max-w-xs truncate py-2 pr-3 text-text-muted" title={a.last_return_reason ?? undefined}>
                     {formatReason(a.last_return_reason)}

@@ -5,6 +5,8 @@
 Дедуп ИИН в рамках мероприятия — `validators/iin.event_has_iin_duplicate`.
 """
 
+import re
+
 from django.http import QueryDict
 from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
@@ -44,6 +46,19 @@ def _strip_blank_file_fields(data, blank_fields):
     return {key: value for key, value in data.items() if key not in blank_fields}
 
 
+# Story fe-3.7 (review P2): скраб 12-значного ИИН в admin-authored `last_return_reason`
+# перед выдачей оператору/админам. Причина — свободный текст проверяющего, мог содержать
+# сырой ИИН → на masked-safe list-поверхности (+ cross-tenant видимость у superuser/
+# superoperator) это утечка. Зеркало защитного `audit._scrub_pii`.
+_IIN_RE = re.compile(r"\b\d{12}\b")
+
+
+def _scrub_reason(text):
+    if not text:
+        return text
+    return _IIN_RE.sub(lambda m: mask_iin(m.group()), text)
+
+
 class AttendeeSerializer(serializers.ModelSerializer):
     # PK-поля и iin объявлены явно (iin — EncryptedCharField, не полагаемся на
     # авто-маппинг DRF).
@@ -56,6 +71,8 @@ class AttendeeSerializer(serializers.ModelSerializer):
     # в validate_photo/validate_docScan (единый validators/photo.py).
     photo = serializers.FileField(required=False, allow_null=True)
     docScan = serializers.FileField(required=False, allow_null=True)
+    # fe-3.7 (review P2): причина возврата со скрабом ИИН (admin free-text → баннер edit).
+    last_return_reason = serializers.SerializerMethodField()
 
     class Meta:
         model = Attendee
@@ -91,7 +108,8 @@ class AttendeeSerializer(serializers.ModelSerializer):
             "return_count",
         ]
         # Выставляются сервером/логикой, не клиентом.
-        read_only_fields = ["id", "is_resident", "status", "dateAdd", "last_return_reason", "return_count"]
+        # last_return_reason — SerializerMethodField (скраб ИИН), поэтому НЕ в read_only_fields.
+        read_only_fields = ["id", "is_resident", "status", "dateAdd", "return_count"]
 
     def to_internal_value(self, data):
         # Пустая строка для файлового поля (multipart `photo=''`) → «без файла».
@@ -175,6 +193,9 @@ class AttendeeSerializer(serializers.ModelSerializer):
                 raise coded_error("duplicate_attendee", field="iin")
         return attrs
 
+    def get_last_return_reason(self, obj):
+        return _scrub_reason(obj.last_return_reason)
+
 
 class AttendeeListSerializer(serializers.ModelSerializer):
     """Story 5.5 — лёгкий сериализатор СПИСКА.
@@ -185,6 +206,7 @@ class AttendeeListSerializer(serializers.ModelSerializer):
     """
 
     iin_masked = serializers.SerializerMethodField()
+    last_return_reason = serializers.SerializerMethodField()
 
     class Meta:
         model = Attendee
@@ -205,3 +227,6 @@ class AttendeeListSerializer(serializers.ModelSerializer):
 
     def get_iin_masked(self, obj):
         return mask_iin(obj.iin)
+
+    def get_last_return_reason(self, obj):
+        return _scrub_reason(obj.last_return_reason)

@@ -55,9 +55,10 @@ export function EditAttendeePage() {
       )}
       {data && (
         <>
-          {/* fe-3.7 (AC-3 continuity): заявка возвращена (return_count>0) → показать причину
-              над формой, чтобы оператор знал ЧТО править. «Возвращена» = submitted+return_count>0. */}
-          {data.return_count > 0 && (
+          {/* fe-3.7 (AC-3 continuity, review P1): «Возвращена» = submitted AND return_count>0.
+              Гейтим по СТАТУСУ тоже — иначе одобренная/exported заявка (return_count>0 от прошлого
+              возврата, счётчик не сбрасывается) ложно показывала бы «возвращена на доработку». */}
+          {data.status === 'submitted' && data.return_count > 0 && (
             <div role="alert" className="mb-6 rounded-md border border-border bg-surface-muted p-4">
               <p className="text-sm font-semibold text-status-rejected">
                 {t('reviewQueue:inbox_return_banner_title', { count: data.return_count })}

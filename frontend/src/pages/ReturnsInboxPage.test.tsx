@@ -64,6 +64,8 @@ describe('ReturnsInboxPage (fe-3.7)', () => {
     expect(screen.getByText('********1234')).toBeInTheDocument()
     expect(screen.getByText('Нет фото')).toBeInTheDocument()
     expect(screen.getByText('3')).toBeInTheDocument() // return_count
+    expect(screen.getByText('Возвращена')).toBeInTheDocument() // review P3 — красный returned-аффорданс
+
   })
 
   it('AC-3: сырого 12-значного ИИН нет в DOM (masked-инвариант)', async () => {

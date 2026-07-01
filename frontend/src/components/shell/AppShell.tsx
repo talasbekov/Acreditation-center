@@ -72,7 +72,7 @@ export function AppShell() {
                       aria-label={t('reviewQueue:inbox_badge_aria', { count: returnsCount })}
                       className="ml-2 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-status-rejected px-1.5 text-xs font-semibold text-primary-foreground"
                     >
-                      {returnsCount}
+                      {returnsCount > 99 ? '99+' : returnsCount}
                     </span>
                   )}
                 </NavLink>

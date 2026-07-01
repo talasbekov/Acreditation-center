@@ -79,5 +79,6 @@
   "inbox_action_fix": "Fix",
   "inbox_badge_aria": "Returns: {{count}}",
   "inbox_return_banner_title": "Application returned for rework (times: {{count}})",
-  "inbox_return_banner_reason": "Last return reason: {{reason}}"
+  "inbox_return_banner_reason": "Last return reason: {{reason}}",
+  "inbox_returned_label": "Returned"
 }

@@ -79,5 +79,6 @@
   "inbox_action_fix": "Түзету",
   "inbox_badge_aria": "Қайтарулар: {{count}}",
   "inbox_return_banner_title": "Өтінім пысықтауға қайтарылды (рет: {{count}})",
-  "inbox_return_banner_reason": "Соңғы қайтару себебі: {{reason}}"
+  "inbox_return_banner_reason": "Соңғы қайтару себебі: {{reason}}",
+  "inbox_returned_label": "Қайтарылды"
 }

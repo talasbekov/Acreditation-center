@@ -84,14 +84,31 @@ class OperatorReturnsInboxTests(TestCase):
     def test_cross_tenant_scope_excludes_other_event(self):
         resp = self.client.get("/api/v1/attendees/?returned=true")
         self.assertNotIn(self.other.id, self._ids(resp))  # sub-event scope: чужое событие не течёт
+        # review P6 — ПОЗИТИВ: op2 (event2) ВИДИТ свою возвращённую → доказывает scope,
+        # а не «фильтр просто дропает строку для всех».
+        c2 = APIClient()
+        c2.force_authenticate(self.op2_user)
+        self.assertEqual(self._ids(c2.get("/api/v1/attendees/?returned=true")), {self.other.id})
 
     def test_returned_false_or_absent_no_filter(self):
         # returned!=true → фильтр не применяется (обычный список), возвращённая среди прочих.
         resp = self.client.get("/api/v1/attendees/?returned=false")
         self.assertEqual(resp.status_code, 200)
         ids = self._ids(resp)
+        self.assertIn(self.returned.id, ids)  # review P6 — возвращённая тоже среди прочих
         self.assertIn(self.plain_submitted.id, ids)
         self.assertIn(self.draft.id, ids)
+
+    def test_last_return_reason_scrubs_embedded_iin(self):
+        # review P2 — причина возврата = admin free-text; вписанный сырой ИИН МАСКИРУЕТСЯ в DTO
+        # (masked-safe list-поверхность + cross-tenant видимость superuser/superoperator).
+        self.returned.last_return_reason = f"Неверный ИИН {VALID_IIN} — исправьте"
+        self.returned.save(update_fields=["last_return_reason"])
+        resp = self.client.get("/api/v1/attendees/?returned=true")
+        row = self._rows(resp)[0]
+        self.assertNotIn(VALID_IIN, row["last_return_reason"])  # сырой ИИН вычищен из причины
+        blob = json.dumps(resp.data, ensure_ascii=False, default=str)
+        self.assertEqual(re.findall(r"\b\d{12}\b", blob), [])
 
     def test_anonymous_denied(self):
         resp = APIClient().get("/api/v1/attendees/?returned=true")
