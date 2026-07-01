@@ -1,5 +1,7 @@
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { NavLink, Outlet } from 'react-router-dom'
+import { getAttendees } from '@/api/attendees'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 import { useRole } from '@/hooks/useRole'
 import { visibleNavItems } from './navConfig'
@@ -18,6 +20,18 @@ export function AppShell() {
   const { t } = useTranslation()
   const role = useRole()
   const items = visibleNavItems(role)
+
+  // fe-3.7 (AC-2): бейдж-счётчик возвратов на пункте «Возвраты» (nav:notifications) —
+  // виден на ЛЮБОМ экране оператора (AppShell оборачивает всё). Источник — returned-queryset
+  // (in-app-петля без Telegram; когда hd-2-3 придёт — читать тот же источник, не дубль).
+  // enabled только когда пункт виден роли (operator/superoperator/superuser).
+  const showReturns = items.some((item) => item.key === 'nav:notifications')
+  const { data: returnsCount = 0 } = useQuery({
+    queryKey: ['returns-count'],
+    queryFn: async () => (await getAttendees({ returned: true, page_size: 1 }))?.count ?? 0,
+    enabled: showReturns,
+    staleTime: 30_000,
+  })
 
   return (
     <div className="relative flex min-h-svh flex-col">
@@ -53,6 +67,14 @@ export function AppShell() {
                   }
                 >
                   {t(item.key)}
+                  {item.key === 'nav:notifications' && returnsCount > 0 && (
+                    <span
+                      aria-label={t('reviewQueue:inbox_badge_aria', { count: returnsCount })}
+                      className="ml-2 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-status-rejected px-1.5 text-xs font-semibold text-primary-foreground"
+                    >
+                      {returnsCount}
+                    </span>
+                  )}
                 </NavLink>
               </li>
             ))}

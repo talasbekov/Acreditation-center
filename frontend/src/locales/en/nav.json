@@ -11,6 +11,6 @@
   "export": "Export",
   "import_triage": "Import triage",
   "audit": "Audit log",
-  "notifications": "Notifications",
+  "notifications": "Returns",
   "dashboard": "Status dashboard"
 }

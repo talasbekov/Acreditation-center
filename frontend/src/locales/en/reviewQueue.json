@@ -65,5 +65,19 @@
   "return_submit": "Confirm return",
   "return_cancel": "Cancel",
   "return_toast_success": "Application returned to operator",
-  "undo": "Undo"
+  "undo": "Undo",
+  "inbox_title": "Returns",
+  "inbox_empty": "No returns — everything is submitted for review.",
+  "inbox_load_error": "Failed to load returns.",
+  "inbox_loading": "Loading returns",
+  "inbox_col_name": "Full name",
+  "inbox_col_iin": "IIN",
+  "inbox_col_status": "Status",
+  "inbox_col_reason": "Return reason",
+  "inbox_col_count": "Returns",
+  "inbox_col_actions": "Actions",
+  "inbox_action_fix": "Fix",
+  "inbox_badge_aria": "Returns: {{count}}",
+  "inbox_return_banner_title": "Application returned for rework (times: {{count}})",
+  "inbox_return_banner_reason": "Last return reason: {{reason}}"
 }

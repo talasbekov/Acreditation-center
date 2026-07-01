@@ -90,6 +90,14 @@ class AttendeeViewSet(viewsets.ModelViewSet):
                 raise coded_error("status_invalid", field="status")
             qs = qs.filter(status=status_param)
 
+        # Story fe-3.7 (AC-1): инбокс возвратов оператора. `?returned=true` → только
+        # возвращённые (status=submitted AND return_count>0). Один `?status=submitted`
+        # over-select'ит невозвращённые submitted → нужен явный флаг (не отдельный статус,
+        # «Возвращена» = submitted+return_count>0, реш.#1). Scope наследован (sub-event, Q1).
+        returned_param = self.request.query_params.get("returned")
+        if returned_param is not None and returned_param.lower() in ("true", "1", "yes"):
+            qs = qs.filter(status=AttendeeStatus.SUBMITTED, return_count__gt=0)
+
         return qs
 
     def perform_create(self, serializer):

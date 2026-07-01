@@ -9,6 +9,7 @@ import { AddAttendeePage } from '@/pages/AddAttendeePage'
 import { EditAttendeePage } from '@/pages/EditAttendeePage'
 import { ReviewQueuePage } from '@/pages/ReviewQueuePage'
 import { ApplicationDetailPage } from '@/pages/ApplicationDetailPage'
+import { ReturnsInboxPage } from '@/pages/ReturnsInboxPage'
 
 export default function App() {
   // P2-8: гарантируем csrftoken cookie до первой мутации (bootstrap при загрузке SPA).
@@ -35,6 +36,8 @@ export default function App() {
           <Route path="queue/:id" element={<ApplicationDetailPage />} />
           <Route path="add" element={<AddAttendeePage />} />
           <Route path="attendees/:id" element={<EditAttendeePage />} />
+          {/* fe-3.7: инбокс возвратов оператора (nav:notifications; Notifications отложены). */}
+          <Route path="notifications" element={<ReturnsInboxPage />} />
           {/* catch-all: неизвестные пути → на корень (404-страница — позже) */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

@@ -85,9 +85,13 @@ class AttendeeSerializer(serializers.ModelSerializer):
             "is_resident",
             "status",
             "dateAdd",
+            # Story fe-3.7: причина/счётчик возврата (read-only) — баннер на EditAttendeePage
+            # оператора при return_count>0 (continuity: причина дожила до правки).
+            "last_return_reason",
+            "return_count",
         ]
         # Выставляются сервером/логикой, не клиентом.
-        read_only_fields = ["id", "is_resident", "status", "dateAdd"]
+        read_only_fields = ["id", "is_resident", "status", "dateAdd", "last_return_reason", "return_count"]
 
     def to_internal_value(self, data):
         # Пустая строка для файлового поля (multipart `photo=''`) → «без файла».
@@ -193,6 +197,10 @@ class AttendeeListSerializer(serializers.ModelSerializer):
             "category",
             "dateAdd",
             "iin_masked",
+            # Story fe-3.7: инбокс возвратов — причина + счётчик в строке списка
+            # (masked-safe: сырого ИИН нет). return_count>0 = «Возвращена»-аффорданс.
+            "last_return_reason",
+            "return_count",
         ]
 
     def get_iin_masked(self, obj):

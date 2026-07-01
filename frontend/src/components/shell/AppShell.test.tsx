@@ -65,7 +65,7 @@ describe('AppShell (fe-2.2)', () => {
     renderShell('operator')
     await screen.findByText('Участники')
     expect(screen.getByText('Добавить участника')).toBeInTheDocument()
-    expect(screen.getByText('Уведомления')).toBeInTheDocument()
+    expect(screen.getByText('Возвраты')).toBeInTheDocument()
     expect(screen.queryByText('Журнал')).not.toBeInTheDocument()
     expect(screen.queryByText('Экспорт')).not.toBeInTheDocument()
     expect(screen.queryByText('Очередь проверки')).not.toBeInTheDocument()
@@ -82,7 +82,7 @@ describe('AppShell (fe-2.2)', () => {
     renderShell('operator', ['/'])
     const active = await screen.findByText('Участники')
     expect(active.closest('a')).toHaveAttribute('aria-current', 'page')
-    const inactive = screen.getByText('Уведомления')
+    const inactive = screen.getByText('Возвраты')
     expect(inactive.closest('a')).not.toHaveAttribute('aria-current')
   })
 

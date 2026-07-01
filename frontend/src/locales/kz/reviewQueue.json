@@ -65,5 +65,19 @@
   "return_submit": "Қайтаруды растау",
   "return_cancel": "Бас тарту",
   "return_toast_success": "Өтінім операторға қайтарылды",
-  "undo": "Болдырмау"
+  "undo": "Болдырмау",
+  "inbox_title": "Қайтарулар",
+  "inbox_empty": "Қайтарулар жоқ — барлығы тексеруге жіберілді.",
+  "inbox_load_error": "Қайтаруларды жүктеу мүмкін болмады.",
+  "inbox_loading": "Қайтарулар жүктелуде",
+  "inbox_col_name": "Аты-жөні",
+  "inbox_col_iin": "ЖСН",
+  "inbox_col_status": "Күйі",
+  "inbox_col_reason": "Қайтару себебі",
+  "inbox_col_count": "Қайтарулар",
+  "inbox_col_actions": "Әрекеттер",
+  "inbox_action_fix": "Түзету",
+  "inbox_badge_aria": "Қайтарулар: {{count}}",
+  "inbox_return_banner_title": "Өтінім пысықтауға қайтарылды (рет: {{count}})",
+  "inbox_return_banner_reason": "Соңғы қайтару себебі: {{reason}}"
 }

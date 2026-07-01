@@ -11,6 +11,6 @@
   "export": "Экспорт",
   "import_triage": "Импорт-триаж",
   "audit": "Журнал",
-  "notifications": "Уведомления",
+  "notifications": "Возвраты",
   "dashboard": "Дашборд статусов"
 }

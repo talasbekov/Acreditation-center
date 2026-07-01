@@ -7,6 +7,8 @@ export interface AttendeeListParams {
   search?: string
   status?: string
   category_id?: number
+  /** Story fe-3.7: инбокс возвратов — только возвращённые (submitted + return_count>0). */
+  returned?: boolean
 }
 
 /** GET /api/v1/attendees/ — список участников (envelope). Story 3.4 + 5.5. */
@@ -19,6 +21,7 @@ export function getAttendees(
   if (params.search) qs.set('search', params.search)
   if (params.status) qs.set('status', params.status)
   if (params.category_id) qs.set('category_id', String(params.category_id))
+  if (params.returned) qs.set('returned', 'true')
   const query = qs.toString()
   return apiFetch<Paginated<Attendee>>(
     `/api/v1/attendees/${query ? `?${query}` : ''}`,

@@ -54,21 +54,37 @@ export function EditAttendeePage() {
         <p className="text-red-600">{t(detailErrorKey(error))}</p>
       )}
       {data && (
-        <AttendeeForm
-          attendeeId={data.id}
-          readOnly={LOCKED_STATUSES.has(data.status)}
-          initialPhotoUrl={data.photo}
-          initialDocScanUrl={data.docScan}
-          initialValues={{
-            surname: data.surname,
-            firstname: data.firstname,
-            patronymic: data.patronymic ?? '',
-            birthDate: data.birthDate ?? '',
-            countryId: data.countryId,
-            iin: data.iin ?? '',
-            request: String(data.request),
-          }}
-        />
+        <>
+          {/* fe-3.7 (AC-3 continuity): заявка возвращена (return_count>0) → показать причину
+              над формой, чтобы оператор знал ЧТО править. «Возвращена» = submitted+return_count>0. */}
+          {data.return_count > 0 && (
+            <div role="alert" className="mb-6 rounded-md border border-border bg-surface-muted p-4">
+              <p className="text-sm font-semibold text-status-rejected">
+                {t('reviewQueue:inbox_return_banner_title', { count: data.return_count })}
+              </p>
+              {data.last_return_reason && (
+                <p className="mt-1 text-sm text-text-muted">
+                  {t('reviewQueue:inbox_return_banner_reason', { reason: data.last_return_reason })}
+                </p>
+              )}
+            </div>
+          )}
+          <AttendeeForm
+            attendeeId={data.id}
+            readOnly={LOCKED_STATUSES.has(data.status)}
+            initialPhotoUrl={data.photo}
+            initialDocScanUrl={data.docScan}
+            initialValues={{
+              surname: data.surname,
+              firstname: data.firstname,
+              patronymic: data.patronymic ?? '',
+              birthDate: data.birthDate ?? '',
+              countryId: data.countryId,
+              iin: data.iin ?? '',
+              request: String(data.request),
+            }}
+          />
+        </>
       )}
     </div>
   )

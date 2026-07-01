@@ -19,6 +19,9 @@ export interface Attendee {
   category: number | null
   dateAdd: string
   iin_masked: string
+  /** Story fe-3.7: причина/счётчик последнего возврата (инбокс). «Возвращена» = return_count>0. */
+  last_return_reason: string | null
+  return_count: number
 }
 
 /** Detail (`GET /api/v1/attendees/{id}/`) — полный AttendeeSerializer (для edit, 5.5). */
@@ -35,4 +38,7 @@ export interface AttendeeDetail {
   /** P2-7: URL загруженного фото/документа (для превью в edit). */
   photo: string | null
   docScan: string | null
+  /** Story fe-3.7: причина/счётчик возврата — баннер на EditAttendeePage при return_count>0. */
+  last_return_reason: string | null
+  return_count: number
 }

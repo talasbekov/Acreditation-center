@@ -65,5 +65,19 @@
   "return_submit": "Подтвердить возврат",
   "return_cancel": "Отмена",
   "return_toast_success": "Заявка возвращена оператору",
-  "undo": "Отменить"
+  "undo": "Отменить",
+  "inbox_title": "Возвраты",
+  "inbox_empty": "Нет возвратов — всё отправлено на проверку.",
+  "inbox_load_error": "Не удалось загрузить возвраты.",
+  "inbox_loading": "Загрузка возвратов",
+  "inbox_col_name": "ФИО",
+  "inbox_col_iin": "ИИН",
+  "inbox_col_status": "Статус",
+  "inbox_col_reason": "Причина возврата",
+  "inbox_col_count": "Возвратов",
+  "inbox_col_actions": "Действия",
+  "inbox_action_fix": "Исправить",
+  "inbox_badge_aria": "Возвраты: {{count}}",
+  "inbox_return_banner_title": "Заявка возвращена на доработку (раз: {{count}})",
+  "inbox_return_banner_reason": "Причина последнего возврата: {{reason}}"
 }
