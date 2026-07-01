@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
+import { pickLocalizedName } from '@/lib/eventName'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -298,7 +299,8 @@ export function ApplicationDetailPage() {
                     как есть (справочника типов нет → без резолюции в лейбл). */}
                 <Field label={t('reviewQueue:detail_field_doc_type')}>{data.doc_type || '—'}</Field>
                 <Field label={t('reviewQueue:detail_field_sub_event')}>
-                  {data.sub_event_name ?? '—'}
+                  {/* fe-1.5: локализованное имя под-события по активной локали (fallback ru). */}
+                  {pickLocalizedName(data.sub_event_names, i18n.language, data.sub_event_name)}
                 </Field>
                 <Field label={t('reviewQueue:detail_field_created')}>
                   {/* P4 (review): tabular-nums — выравнивание цифр даты. */}

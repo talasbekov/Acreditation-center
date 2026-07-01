@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { pickLocalizedName } from '@/lib/eventName'
 import { useMutation, useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -516,7 +517,10 @@ export function ReviewQueuePage() {
                     <td className={`${cellCls} tabular-nums text-text-muted`}>
                       {item.iin_masked || '—'}
                     </td>
-                    <td className={cellCls}>{item.sub_event_name ?? '—'}</td>
+                    <td className={cellCls}>
+                      {/* fe-1.5: локализованное имя под-события по активной локали (fallback ru). */}
+                      {pickLocalizedName(item.sub_event_names, i18n.language, item.sub_event_name)}
+                    </td>
                     <td className={cellCls}>
                       <StatusBadge status={item.status} />
                     </td>

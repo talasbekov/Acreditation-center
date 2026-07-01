@@ -53,6 +53,7 @@ function row(over: Partial<ReviewQueueItem> = {}): ReviewQueueItem {
     status: 'submitted',
     sub_event_id: 5,
     sub_event_name: 'Пресс-центр',
+    sub_event_names: null,
     problem_flags: [],
     last_return_reason: null,
     return_count: 0,
@@ -104,6 +105,17 @@ describe('ReviewQueuePage (fe-3.2)', () => {
     renderPage()
     await waitFor(() => expect(screen.getByText('Алиев Бахыт Серикулы')).toBeInTheDocument())
     expect(screen.getAllByText('—').length).toBeGreaterThan(0)
+  })
+
+  it('fe-1.5: рендерит имя из sub_event_names по активной локали (ru), НЕ fallback', async () => {
+    // Локаль по умолчанию ru → pickLocalizedName берёт sub_event_names.ru, а НЕ frozen sub_event_name.
+    getReviewQueueMock.mockResolvedValue(
+      envelope([row({ sub_event_names: { ru: 'Локализованное имя', kz: null, en: null }, sub_event_name: 'Старое' })], 1),
+    )
+    renderPage()
+    const tr = (await screen.findByText('Алиев Бахыт Серикулы')).closest('tr')!
+    expect(within(tr).getByText('Локализованное имя')).toBeInTheDocument()
+    expect(within(tr).queryByText('Старое')).not.toBeInTheDocument()
   })
 
   it('AC-1: флаг-строка получает tint-класс + локализованную причину', async () => {

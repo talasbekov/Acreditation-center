@@ -28,6 +28,7 @@ function detail(over: Partial<ReviewQueueDetail> = {}): ReviewQueueDetail {
     status: 'in_review',
     sub_event_id: 5,
     sub_event_name: 'Пресс-центр',
+    sub_event_names: null,
     problem_flags: ['no_photo', 'doc_unreadable'],
     last_return_reason: 'Нет фото',
     return_count: 2,

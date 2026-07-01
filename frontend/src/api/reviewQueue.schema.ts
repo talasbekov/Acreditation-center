@@ -3,6 +3,17 @@ import { z } from 'zod'
 import { ATTENDEE_STATUSES } from '@/types/status'
 import { PROBLEM_FLAGS } from '@/types/problemFlags'
 
+// fe-1.5 — трилингв-триплет имени под-события (nullable-safe: null когда нет request).
+// Аддитивно к frozen `sub_event_name` (ru/legacy fallback). React выбирает по активной локали
+// (pickLocalizedName); сервер не локализует. Поля nullable — листовые события часто без kz/en.
+const subEventNamesSchema = z
+  .object({
+    ru: z.string().nullable(),
+    kz: z.string().nullable(),
+    en: z.string().nullable(),
+  })
+  .nullable()
+
 /**
  * Story fe-3.1 — zod-схема DTO очереди проверки (замороженный контракт 3.2-3.7).
  *
@@ -21,6 +32,7 @@ export const reviewQueueItemSchema = z
     status: z.enum(ATTENDEE_STATUSES),
     sub_event_id: z.number().nullable(),
     sub_event_name: z.string().nullable(),
+    sub_event_names: subEventNamesSchema,
     problem_flags: z.array(z.enum(PROBLEM_FLAGS)),
     last_return_reason: z.string().nullable(),
     return_count: z.number(),
@@ -53,6 +65,7 @@ export const reviewQueueDetailSchema = z
     status: z.enum(ATTENDEE_STATUSES),
     sub_event_id: z.number().nullable(),
     sub_event_name: z.string().nullable(),
+    sub_event_names: subEventNamesSchema,
     problem_flags: z.array(z.enum(PROBLEM_FLAGS)),
     last_return_reason: z.string().nullable(),
     return_count: z.number(),

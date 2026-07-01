@@ -35,10 +35,16 @@ class EventSerializer(serializers.ModelSerializer):
     title = serializers.CharField(required=True, allow_blank=False, max_length=255)
     start_date = serializers.DateField(required=True)
     end_date = serializers.DateField(required=True)
+    # fe-1.5 (AC2, Q1): трилингв-имена события — API-контракт name_ru/kz/en через source= на
+    # модель-поля name_rus/kaz/eng (модель НЕ переименовываем — Strangler Fig, legacy). read_only:
+    # ввод имён — legacy template/admin; React выбирает по активной локали (сервер не локализует).
+    name_ru = serializers.CharField(source="name_rus", read_only=True)
+    name_kz = serializers.CharField(source="name_kaz", read_only=True)
+    name_en = serializers.CharField(source="name_eng", read_only=True)
 
     class Meta:
         model = Event
-        fields = ["id", "title", "start_date", "end_date", "description", "categories", "created_at"]
+        fields = ["id", "title", "name_ru", "name_kz", "name_en", "start_date", "end_date", "description", "categories", "created_at"]
         read_only_fields = ["id", "created_at"]
 
     def validate(self, attrs):

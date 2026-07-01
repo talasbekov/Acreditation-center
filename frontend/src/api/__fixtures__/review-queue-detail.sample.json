@@ -18,5 +18,10 @@
   "status": "in_review",
   "sub_event_id": 5,
   "sub_event_name": "Пресс-центр",
+  "sub_event_names": {
+    "en": null,
+    "kz": null,
+    "ru": "Пресс-центр"
+  },
   "transcription": "Aliyev Bakhyt Serikuly"
 }

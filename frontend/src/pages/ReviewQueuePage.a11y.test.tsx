@@ -31,6 +31,7 @@ function item(over: Partial<ReviewQueueItem> = {}): ReviewQueueItem {
     status: 'submitted',
     sub_event_id: 5,
     sub_event_name: 'Пресс-центр',
+    sub_event_names: null,
     problem_flags: ['no_photo'],
     last_return_reason: null,
     return_count: 0,

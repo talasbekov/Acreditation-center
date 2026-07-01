@@ -21,6 +21,7 @@ class ReviewQueueSerializer(serializers.ModelSerializer):
     problem_flags = serializers.SerializerMethodField()
     sub_event_id = serializers.SerializerMethodField()
     sub_event_name = serializers.SerializerMethodField()
+    sub_event_names = serializers.SerializerMethodField()
     last_return_reason = serializers.SerializerMethodField()
     return_count = serializers.SerializerMethodField()
 
@@ -33,6 +34,7 @@ class ReviewQueueSerializer(serializers.ModelSerializer):
             "status",
             "sub_event_id",
             "sub_event_name",
+            "sub_event_names",
             "problem_flags",
             "last_return_reason",
             "return_count",
@@ -60,8 +62,17 @@ class ReviewQueueSerializer(serializers.ModelSerializer):
         if not obj.request_id:
             return None
         event = obj.request.event
-        # name_rus — источник имени; трёхъязычность (name_kaz/name_eng) — fe-1.5.
+        # name_rus — ru/legacy fallback (frozen fe-3.1); трилингв-триплет — sub_event_names (fe-1.5).
         return event.name_rus or event.title or event.event_code or None
+
+    def get_sub_event_names(self, obj):
+        # fe-1.5 (AC4, Q3): трилингв-триплет {ru,kz,en} для клиент-локаль-выбора (React
+        # pickLocalizedName). Аддитивно к sub_event_name (frozen fe-3.1 = ru fallback, НЕ трогаем).
+        # Nullable-safe: нет request → null (как sub_event_name). Request.event — non-null FK.
+        if not obj.request_id:
+            return None
+        event = obj.request.event
+        return {"ru": event.name_rus, "kz": event.name_kaz, "en": event.name_eng}
 
     def get_last_return_reason(self, obj):
         # Story fe-3.5: причина последнего возврата (хранимое поле Attendee, пишет return-экшен).

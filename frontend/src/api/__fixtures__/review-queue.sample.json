@@ -14,7 +14,12 @@
       "return_count": 0,
       "status": "submitted",
       "sub_event_id": 5,
-      "sub_event_name": "Пресс-центр"
+      "sub_event_name": "Пресс-центр",
+      "sub_event_names": {
+        "en": null,
+        "kz": null,
+        "ru": "Пресс-центр"
+      }
     },
     {
       "full_name": "Иванова Мария",
@@ -25,7 +30,12 @@
       "return_count": 0,
       "status": "in_review",
       "sub_event_id": 6,
-      "sub_event_name": "Главный зал"
+      "sub_event_name": "Главный зал",
+      "sub_event_names": {
+        "en": null,
+        "kz": null,
+        "ru": "Главный зал"
+      }
     },
     {
       "full_name": "Нурланов Тимур Асланулы",
@@ -42,7 +52,8 @@
       "return_count": 0,
       "status": "submitted",
       "sub_event_id": null,
-      "sub_event_name": null
+      "sub_event_name": null,
+      "sub_event_names": null
     }
   ]
 }

@@ -88,6 +88,7 @@ class ReviewQueueDetailFixtureDriftTests(SimpleTestCase):
                 "status",
                 "sub_event_id",
                 "sub_event_name",
+                "sub_event_names",
                 "problem_flags",
                 "last_return_reason",
                 "return_count",
