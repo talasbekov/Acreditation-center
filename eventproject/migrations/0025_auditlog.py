@@ -26,12 +26,15 @@ DROP FUNCTION IF EXISTS eventproject_auditlog_append_only();
 
 def _create_append_only_trigger(apps, schema_editor):
     if schema_editor.connection.vendor == "postgresql":
-        schema_editor.execute(_TRIGGER_SQL)
+        # params=None → Django выполняет SQL БЕЗ параметрической подстановки, иначе
+        # `%` в PL/pgSQL `RAISE EXCEPTION '... % ...'` съедается psycopg2 mogrify
+        # (params=() по умолчанию) → IndexError, триггер НЕ создаётся (fe-3.6 AC-3).
+        schema_editor.execute(_TRIGGER_SQL, None)
 
 
 def _drop_append_only_trigger(apps, schema_editor):
     if schema_editor.connection.vendor == "postgresql":
-        schema_editor.execute(_TRIGGER_DROP_SQL)
+        schema_editor.execute(_TRIGGER_DROP_SQL, None)
 
 
 class Migration(migrations.Migration):

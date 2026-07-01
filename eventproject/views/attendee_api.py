@@ -8,6 +8,7 @@ RBAC-изоляцию (2.1), residency+ИИН-валидацию (3.1/3.2), ко
 import logging
 
 from django.db import transaction
+from django.http import Http404
 from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -238,6 +239,33 @@ class AttendeeViewSet(viewsets.ModelViewSet):
             extra=extra or None,
         )
 
+    # ── Row-lock для конкурентных решений (fe-3.6, AC-2) ──────────────────
+    def _locked_attendee(self, request, pk):
+        """fe-3.6: перечитывает заявку ПОД `select_for_update` row-lock, сериализуя
+        конкурентные решения (approve/return) по одному id.
+
+        Вызывать ТОЛЬКО внутри `transaction.atomic()`. Лочим через scoped RBAC-резолвер
+        `get_operator_attendee_queryset` (тот же scope, что `get_queryset`, но БЕЗ
+        `select_related` → безопасно для FOR UPDATE на Postgres, нет outer-join-lock на
+        nullable `category`; scope/404 сохранены). Mirror export.py D1 (review 4.3): читать
+        заново под локом, затем пере-проверить guard на свежем статусе. Ранний `get_object()`
+        уже дал scope/404 → строка существует; `.get(pk)` под локом ждёт коммита конкурента
+        и отдаёт актуальный статус (второй решающий ловит 409, а не двойной переход/аудит).
+        """
+        # review P2 — of=("self",): лочим ТОЛЬКО строку Attendee, не JOIN-нутый Request
+        # (resolver фильтрует request__event__in) → иначе решение по одной заявке блокировало бы
+        # approve/return по соседним заявкам того же request (шире задуманной per-id сериализации).
+        try:
+            return (
+                get_operator_attendee_queryset(request.user)
+                .select_for_update(of=("self",))
+                .get(pk=pk)
+            )
+        except Attendee.DoesNotExist:
+            # review P1 — TOCTOU: конкурентный destroy() удалил in_review-строку в окне между
+            # ранним get_object() и локом → отдаём 404 (иначе голый DoesNotExist → 500).
+            raise Http404
+
     # ── Переход in_review → ready (решение «Одобрить», fe-3.4) ────────────
     @action(detail=True, methods=["post"], permission_classes=[IsSuperoperator])
     def approve(self, request, pk=None):
@@ -250,8 +278,12 @@ class AttendeeViewSet(viewsets.ModelViewSet):
         — НЕ `AttendeeSerializer` (он отдаёт сырой ИИН на admin-поверхность, реш.#6).
         scope/RBAC/404 наследуются (IsSuperoperator + get_operator_attendee_queryset).
         """
-        attendee = self.get_object()
+        attendee = self.get_object()  # scope/404/perms до транзакции
         with transaction.atomic():
+            # fe-3.6 (AC-2): перечитываем ПОД row-lock — сериализует конкурентные решения;
+            # guard ниже проверяется на свежем (locked) статусе → второй конкурент ловит 409,
+            # а не двойной переход + двойная audit-строка.
+            attendee = self._locked_attendee(request, attendee.pk)
             try:
                 assert_transition(attendee.status, AttendeeStatus.READY)
             except InvalidStatusTransition:
@@ -294,6 +326,9 @@ class AttendeeViewSet(viewsets.ModelViewSet):
         if not reason:
             raise coded_error("required", field="reason")
         with transaction.atomic():
+            # fe-3.6 (AC-2): перечитываем ПОД row-lock — сериализует конкурентные approve↔return,
+            # чинит lost-update `return_count` и двойную audit-строку (guard на свежем locked-статусе).
+            attendee = self._locked_attendee(request, attendee.pk)
             # ⚠ Guard = ИМЕННО in_review, НЕ assert_transition(status, SUBMITTED): FSM
             # разрешает и draft→submitted (это submit ОПЕРАТОРА, не возврат проверяющего),
             # поэтому одной проверки перехода мало. Возврат легален только из «На проверке».
