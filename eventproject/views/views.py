@@ -295,27 +295,32 @@ def change_password(request):
                 if operator is not None and operator.force_password_change:
                     operator.force_password_change = False
                     operator.save(update_fields=["force_password_change"])
-                # Story 2.4 (AC-3): фиксируем смену пароля в истории доступа + audit.
-                # Best-effort: пароль уже изменён — сбой записи истории не должен
-                # привести к ложному «не удалось изменить пароль».
-                if operator is not None:
-                    try:
-                        ip = request.META.get("REMOTE_ADDR", "")
+                # Story 2.4 (AC-3) + hd-4.2 (AC-3): смена пароля аудируется для
+                # ВСЕХ пользователей — audit_log вне operator-гейта (тот же
+                # паттерн-баг, что в user_login). record_access_event —
+                # operator-специфична, остаётся под гейтом. Best-effort: пароль
+                # уже изменён — сбой записи истории не должен привести к
+                # ложному «не удалось изменить пароль». audit_log — ПЕРВЫМ:
+                # сбой access-event не должен глушить обязательный аудит
+                # (code review hd-4.2).
+                try:
+                    ip = request.META.get("REMOTE_ADDR", "")
+                    audit_log(
+                        user=request.user,
+                        action="user.change_password",
+                        obj_type="User",
+                        obj_id=request.user.id,
+                        ip=ip,
+                    )
+                    if operator is not None:
                         record_access_event(
                             operator, "password_changed", actor=request.user, ip=ip
                         )
-                        audit_log(
-                            user=request.user,
-                            action="user.change_password",
-                            obj_type="User",
-                            obj_id=request.user.id,
-                            ip=ip,
-                        )
-                    except Exception:
-                        logger.exception(
-                            "failed to record password_changed event for user=%s",
-                            request.user.id,
-                        )
+                except Exception:
+                    logger.exception(
+                        "failed to record password_changed event for user=%s",
+                        request.user.id,
+                    )
                 context_dict["success_message"] = "Пароль успешно изменен"
                 return render(request, "change_password_result.html", context_dict)
             else:
@@ -376,24 +381,30 @@ def user_login(request):
 
             if user.is_active:
                 login(request, user)
-                # Story 2.4 (AC-3): фиксируем вход оператора в истории доступа + audit.
-                # Best-effort: сбой записи истории НЕ должен ломать уже успешный вход.
+                # Story 2.4 (AC-3) + hd-4.2 (AC-2): вход аудируется для ВСЕХ
+                # успешно вошедших — audit_log вне operator-гейта (раньше
+                # суперпользователь без Operator-профиля не аудировался).
+                # record_access_event — operator-специфичная история доступа,
+                # остаётся под гейтом. Best-effort: сбой записи НЕ должен
+                # ломать уже успешный вход. audit_log — ПЕРВЫМ: сбой
+                # access-event не должен глушить обязательный аудит
+                # (code review hd-4.2).
                 operator = getattr(user, "operator", None)
-                if operator is not None:
-                    try:
-                        ip = request.META.get("REMOTE_ADDR", "")
+                try:
+                    ip = request.META.get("REMOTE_ADDR", "")
+                    audit_log(
+                        user=user,
+                        action="user.login",
+                        obj_type="User",
+                        obj_id=user.id,
+                        ip=ip,
+                    )
+                    if operator is not None:
                         record_access_event(operator, "login", actor=user, ip=ip)
-                        audit_log(
-                            user=user,
-                            action="user.login",
-                            obj_type="User",
-                            obj_id=user.id,
-                            ip=ip,
-                        )
-                    except Exception:
-                        logger.exception(
-                            "failed to record login access event for user=%s", user.id
-                        )
+                except Exception:
+                    logger.exception(
+                        "failed to record login access event for user=%s", user.id
+                    )
                 # P2-9: возврат на исходную страницу (SPA) после входа — только
                 # на безопасный (этот хост) next; иначе дефолт по роли.
                 next_url = _safe_next_url(request)

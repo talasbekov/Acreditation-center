@@ -6,6 +6,28 @@ from eventproject.validators.iin import mask_iin
 
 logger = logging.getLogger("eventproject")
 
+# Story hd-4.2 (AC-1): реестр значимых действий — единственный источник правды
+# для тест-чеклиста eventproject/tests/test_audit_action_coverage.py. Это НЕ enum
+# БД-поля `AuditLog.action` (оно остаётся свободным CharField) — категоризация
+# УЖЕ существующих action-строк по 6 категориям gap-анализа (вход / смена статуса /
+# правки / экспорт / re-export / удаления). Имена action не переименовывались:
+# они согласованы историей проекта (тесты/потребители логов).
+SIGNIFICANT_ACTIONS = {
+    "login": ["user.login"],
+    "status_change": [
+        "attendee.status_change", "attendee.approved", "attendee.returned",
+    ],
+    "edit": ["attendee.update", "attendee.iin_discarded", "user.change_password"],
+    "export": [
+        "export.download", "export.event_sent", "export.guests_sent",
+        "export.guests_all", "export.request",
+    ],
+    # Функциональности re-export нет (зависит от hd-1-3, backlog) — категория
+    # намеренно пуста: реестр фиксирует пробел явно, не имитирует его.
+    "export.re_export": [],
+    "delete": ["attendee.delete", "event.delete", "request.delete"],
+}
+
 # Story hd-4.1 (AC-4): defensive-сканер сырого ИИН (12 цифр) в extra. Call-sites
 # обязаны маскировать сами (mask_iin), это страховочный слой — чтобы сырой ИИН
 # не попал в durable-журнал даже при забытом маскировании.

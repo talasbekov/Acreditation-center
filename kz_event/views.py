@@ -21,6 +21,7 @@ from eventproject.validators.residency import resolve_residency
 
 logger = logging.getLogger("eventproject")
 import eventproject.views.attendee as attendee_views
+from eventproject.audit import audit_log
 
 
 # Create your views here.
@@ -34,6 +35,20 @@ def user_login(request):
         if user is not None:
             if user.is_active:
                 login(request, user)
+                # hd-4.2 (AC-2): вход через KZ-роут аудируется (раньше — нет).
+                # Best-effort: сбой аудита не ломает уже успешный вход (mirror RU).
+                try:
+                    audit_log(
+                        user=user,
+                        action="user.login",
+                        obj_type="User",
+                        obj_id=user.id,
+                        ip=request.META.get("REMOTE_ADDR", ""),
+                    )
+                except Exception:
+                    logger.exception(
+                        "failed to record login audit for user=%s", user.id
+                    )
                 if user.is_superuser:
                     return HttpResponseRedirect('/avmac/')
                 else:
@@ -384,7 +399,16 @@ def delete_request(request, request_id):
             operator = require_operator(user)
             if req.created_by != operator:
                 return HttpResponse("You are not authorised to see this page")
+        # hd-4.2 (AC-4): obj_id — ДО .delete() (Django обнуляет pk после удаления).
+        req_pk = str(req.id)
         req.delete()
+        audit_log(
+            user=user,
+            action="request.delete",
+            obj_type="Request",
+            obj_id=req_pk,
+            ip=request.META.get("REMOTE_ADDR", ""),
+        )
     except Request.DoesNotExist:
         return HttpResponse("Could not find request", status=404)
     return HttpResponseRedirect('/kz/application/')
