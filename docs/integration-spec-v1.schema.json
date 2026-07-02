@@ -1,12 +1,13 @@
 {
-  "spec_version": "1.0",
-  "status": "CONFIRMED — формат утверждён Project Lead (Erda) 2026-06-23 (Story 4.1). Единый источник правды для export serializer (Story 4.3) и contract-теста.",
+  "spec_version": "1.1",
+  "status": "CONFIRMED — формат утверждён Project Lead (Erda) 2026-06-23 (Story 4.1); bump 1.0→1.1 story hd-1.1 (2026-07-02, аддитивное поле schema_version). Единый источник правды для export serializer (Story 4.3) и contract-теста.",
   "description": "Машиночитаемый контракт одного объекта attendee в attendees.json.",
   "object": "attendee",
   "date_format": "DD.MM.YYYY",
   "datetime_format": "DD.MM.YYYY HH:MM:SS",
   "fields": [
     {"name": "attendee_id", "type": "integer", "required": true, "nullable": false, "source": "Attendee.id"},
+    {"name": "schema_version", "type": "string", "required": true, "nullable": false, "enum": ["1.1"], "source": "eventproject.services.export.SCHEMA_VERSION (story hd-1.1)"},
     {"name": "event_id", "type": "integer", "required": true, "nullable": false, "source": "Attendee.request.event.id"},
     {"name": "event_code", "type": "string", "required": true, "nullable": false, "source": "Attendee.request.event.event_code"},
     {"name": "category", "type": "string", "required": true, "nullable": true, "source": "Attendee.category.name (null если не задана)"},

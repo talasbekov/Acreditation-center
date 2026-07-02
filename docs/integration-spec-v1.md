@@ -1,13 +1,15 @@
-# Integration Spec v1.0 — формат экспорта участников (downstream security-система)
+# Integration Spec v1.1 — формат экспорта участников (downstream security-система)
 
-> **СТАТУС: `v1.0` — CONFIRMED.**
+> **СТАТУС: `v1.1` — CONFIRMED.**
 > Формат утверждён Project Lead (Erda) 2026-06-23 (Story 4.1). Решения по открытым
-> вопросам зафиксированы ниже в разделе «Решения v1.0».
+> вопросам зафиксированы ниже в разделе «Решения v1.0». `1.0 → 1.1` — аддитивный
+> bump (story hd-1.1, 2026-07-02): добавлено поле `schema_version`; resident-ИИН
+> (п.3 ниже) НЕ менялся.
 >
 > Машиночитаемый источник правды: [`integration-spec-v1.schema.json`](./integration-spec-v1.schema.json)
 > (его проверяет `eventproject/tests/test_export_contract.py`).
 
-**Версия:** 1.0 · **Дата:** 2026-06-23 · **Story:** 4.1
+**Версия:** 1.1 · **Дата:** 2026-07-02 · **Story:** hd-1.1 (базовый формат — 4.1/2026-06-23)
 
 ## Назначение
 
@@ -33,6 +35,7 @@ export_5_Охрана_20260623T100000Z.zip
 | Поле JSON | Тип | Обяз. | Null | Источник (`Attendee.*`) |
 |---|---|---|---|---|
 | `attendee_id` | integer | ✓ | — | `id` |
+| `schema_version` | string `"1.1"` | ✓ | — | `eventproject.services.export.SCHEMA_VERSION` |
 | `event_id` | integer | ✓ | — | `request.event.id` |
 | `event_code` | string | ✓ | — | `request.event.event_code` |
 | `category` | string | ✓ | да | `category.name` |
@@ -72,6 +75,7 @@ export_5_Охрана_20260623T100000Z.zip
 ```json
 {
   "attendee_id": 123,
+  "schema_version": "1.1",
   "event_id": 5,
   "event_code": "T1",
   "category": "Охрана",
@@ -117,5 +121,6 @@ export_5_Охрана_20260623T100000Z.zip
 обновить `test_export_contract.py`, поднять версию (`1.0` → `1.1`/`2.0`) и добавить запись в историю.
 
 ## История версий
+- **1.1 (2026-07-02, story hd-1.1):** добавлено поле `schema_version` (аддитивно, обратно совместимо). Триггер: hd-1.1 закрывала Critical-гэп whitelist в легаси `file_download.py`; попутно добавлен `schema_version` и в этот, уже explicit-whitelist, путь (`services/export.py`) — remaining Critical-гэп там отсутствовал, resident-ИИН (п.3) не менялся (подтверждено Erda 2026-06-23, см. story hd-1.1 Dev Notes «Премиса-конфликт»).
 - **1.0 (2026-06-23):** формат утверждён Project Lead (Erda). Снят DRAFT; зафиксированы даты `DD.MM.YYYY`, справочники `*_id`+`*_name`, ИИН для резидентов. Добавлены поля `sex_name`/`country_name`/`doc_type_name`.
 - **1.0-DRAFT (2026-06-23):** первичный черновик из модели `Attendee` (Story 4.1). Не подтверждён downstream.

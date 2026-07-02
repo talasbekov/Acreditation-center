@@ -5,13 +5,18 @@ import zipfile
 
 from django.conf import settings
 from django.http import HttpResponse, StreamingHttpResponse
-from django.forms.models import model_to_dict
 
 from wsgiref.util import FileWrapper
 
 from eventproject.cron import logger
 from eventproject.models import Event, Request, Attendee
 from eventproject.audit import audit_log
+from eventproject.serializers.export import (
+    build_legacy_attendee_dict,
+    build_legacy_event_dict,
+    build_legacy_request_dict,
+)
+from eventproject.services.export import load_directory_names
 
 from django.db import transaction
 from django.views.decorators.csrf import csrf_protect
@@ -347,16 +352,20 @@ def download_json(request, event_id):
 
     list_of_attendees = []
     exported = 0
+    dir_names = load_directory_names()
     # Экспорт меняет статус заявок (Sent -> Exported), поэтому только POST + CSRF,
     # а мутация статуса + аудит — атомарно (всё или ничего).
     with transaction.atomic():
         for req in Request.objects.filter(event=event, status='Sent'):
-            for attendee in Attendee.objects.filter(request=req):
-                list_of_attendees.append(model_to_dict(attendee))
+            for attendee in Attendee.objects.filter(request=req).select_related("category", "request"):
+                # hd-1.1: явный whitelist (не model_to_dict — дампил ИИН+служебные поля).
+                list_of_attendees.append(
+                    build_legacy_attendee_dict(attendee, dir_names=dir_names, request=request)
+                )
             req.status = "Exported"
             req.save()
             exported += 1
-        event_dict = model_to_dict(event)
+        event_dict = build_legacy_event_dict(event)
         event_dict['attendees'] = list_of_attendees
         serialized_event = json.dumps(event_dict, indent=4, sort_keys=True, default=str, ensure_ascii=False)
         audit_log(
@@ -381,14 +390,18 @@ def download_guests_json(request, event_id):
 
     list_of_attendees = []
     exported = 0
+    dir_names = load_directory_names()
     with transaction.atomic():
         for req in Request.objects.filter(event=event, status="Sent"):
-            for attendee in Attendee.objects.filter(request=req):
-                list_of_attendees.append(model_to_dict(attendee))
+            for attendee in Attendee.objects.filter(request=req).select_related("category", "request"):
+                # hd-1.1: явный whitelist (не model_to_dict — дампил ИИН+служебные поля).
+                list_of_attendees.append(
+                    build_legacy_attendee_dict(attendee, dir_names=dir_names, request=request)
+                )
             req.status = "Exported"
             req.save()
             exported += 1
-        event_dict = model_to_dict(event)
+        event_dict = build_legacy_event_dict(event)
         event_dict["attendees"] = list_of_attendees
         serialized_event = json.dumps(
             event_dict, indent=4, sort_keys=True, default=str, ensure_ascii=False
@@ -415,14 +428,18 @@ def download_all_guests_json(request, event_id):
 
     list_of_attendees = []
     exported = 0
+    dir_names = load_directory_names()
     with transaction.atomic():
         for req in Request.objects.filter(event=event, status__in=["Sent", "Exported"]):
-            for attendee in Attendee.objects.filter(request=req):
-                list_of_attendees.append(model_to_dict(attendee))
+            for attendee in Attendee.objects.filter(request=req).select_related("category", "request"):
+                # hd-1.1: явный whitelist (не model_to_dict — дампил ИИН+служебные поля).
+                list_of_attendees.append(
+                    build_legacy_attendee_dict(attendee, dir_names=dir_names, request=request)
+                )
             req.status = "Exported"
             req.save()
             exported += 1
-        event_dict = model_to_dict(event)
+        event_dict = build_legacy_event_dict(event)
         event_dict["attendees"] = list_of_attendees
         serialized_event = json.dumps(
             event_dict, indent=4, sort_keys=True, default=str, ensure_ascii=False
@@ -445,12 +462,17 @@ def download_request_json(request, request_id):
     try:
         with transaction.atomic():
             req = Request.objects.get(id=request_id)
+            dir_names = load_directory_names()
+            # hd-1.1: явный whitelist (не model_to_dict — дампил ИИН+служебные поля).
             list_of_attendees = [
-                model_to_dict(a) for a in Attendee.objects.filter(request=req)
+                build_legacy_attendee_dict(a, dir_names=dir_names, request=request)
+                for a in Attendee.objects.filter(request=req).select_related("category", "request")
             ]
-            request_dict = model_to_dict(req)
+            request_dict = build_legacy_request_dict(req)
             request_dict["attendees"] = list_of_attendees
-            request_dict["event"] = req.event
+            # hd-1.1: было сырое req.event (json default=str → только __str__-имя);
+            # теперь явный whitelist того же модуля, что и attendees/event выше.
+            request_dict["event"] = build_legacy_event_dict(req.event)
             serialized_event = json.dumps(
                 request_dict, indent=4, sort_keys=True, default=str, ensure_ascii=False
             )

@@ -64,12 +64,21 @@ def _media_arcname(folder, attendee, filefield):
     return f"{folder}/{attendee.id}{ext}"
 
 
+SCHEMA_VERSION = "1.1"
+
+
 def build_export_object(attendee, dir_names=None):
-    """Объект attendee по Integration Spec v1.0 (единый источник формата)."""
+    """Объект attendee по Integration Spec v1.1 (единый источник формата).
+
+    hd-1.1: bump 1.0→1.1 — аддитивное поле `schema_version` (см.
+    docs/integration-spec-v1.md «Политика версионирования»); resident-ИИН НЕ
+    трогается (подтверждено Erda 2026-06-23, story hd-1.1 Dev Notes).
+    """
     if dir_names is None:
         dir_names = load_directory_names()
     return {
         "attendee_id": attendee.id,
+        "schema_version": SCHEMA_VERSION,
         "event_id": attendee.request.event_id,
         "event_code": attendee.request.event.event_code,
         # Attendee.category → eventproject.models.Category (поле `name`; name_rus НЕТ —

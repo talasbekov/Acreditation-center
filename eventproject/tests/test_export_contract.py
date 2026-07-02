@@ -105,6 +105,7 @@ def reference_attendee_object():
     """Эталонный валидный объект (из примера спеки). Story 4.3 заменит реальным serializer."""
     return {
         "attendee_id": 123,
+        "schema_version": "1.1",
         "event_id": 5,
         "event_code": "T1",
         "category": "Охрана",

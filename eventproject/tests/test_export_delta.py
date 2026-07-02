@@ -69,6 +69,7 @@ class BuildExportObjectTests(ExportDeltaBase):
         obj = export_service.build_export_object(a)
         errors = validate_against_spec(obj, load_spec_schema())
         self.assertEqual(errors, [], f"export object не соответствует Spec v1.0: {errors}")
+        self.assertEqual(obj["schema_version"], export_service.SCHEMA_VERSION)  # hd-1.1 AC-3
         self.assertEqual(obj["country_name"], "Казахстан")
         self.assertEqual(obj["sex_name"], "Мужской")
         self.assertEqual(obj["doc_type_name"], "Паспорт")
