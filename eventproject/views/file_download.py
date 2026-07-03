@@ -449,6 +449,17 @@ def download_all_guests_json(request, event_id):
             .filter(event=event, status__in=["Sent", "Exported"])
             .order_by("pk")
         )
+        # hd-1.3 (FR-3): полный дамп с уже-Exported заявками = re-export — требует
+        # явного подтверждения. 409 ДО любых пометок/построения payload.
+        # Ревью hd-1.3: ровно "1" (как шлёт UI) — не truthy, чтобы программный
+        # клиент с confirm_reexport=0/false не прошёл гейт «подтверждением».
+        re_exported_ids = [req.pk for req in reqs if req.status == "Exported"]
+        if re_exported_ids and request.POST.get("confirm_reexport") != "1":
+            return HttpResponse(
+                "В наборе есть уже выгруженные (Exported) заявки — повторная "
+                "выгрузка требует подтверждения (confirm_reexport).",
+                status=409,
+            )
         for req in reqs:
             for attendee in Attendee.objects.filter(request=req).select_related("category", "request"):
                 # hd-1.1: явный whitelist (не model_to_dict — дампил ИИН+служебные поля).
@@ -471,6 +482,20 @@ def download_all_guests_json(request, event_id):
             ip=request.META.get("REMOTE_ADDR"),
             extra={"requests_exported": exported, "attendees": len(list_of_attendees)},
         )
+        # hd-1.3 (FR-3): подтверждённый re-export фиксируется ОТДЕЛЬНОЙ строкой —
+        # роут-action export.guests_all выше сохраняется (чек-лист hd-4.2).
+        if re_exported_ids:
+            audit_log(
+                user=request.user,
+                action="export.re_export",
+                obj_type="Event",
+                obj_id=event_id,
+                ip=request.META.get("REMOTE_ADDR"),
+                extra={
+                    "re_exported_request_ids": re_exported_ids,
+                    "re_exported_count": len(re_exported_ids),
+                },
+            )
     return HttpResponse(serialized_event, content_type="application/json")
 
 
@@ -480,8 +505,17 @@ def download_all_guests_json(request, event_id):
 def download_request_json(request, request_id):
     try:
         with transaction.atomic():
-            # hd-1.2: лок одной строки; повторная отдача уже-Exported сохраняется (Q2 → hd-1-3).
+            # hd-1.2: лок одной строки. hd-1.3 (FR-3): повторная отдача уже-Exported —
+            # только с явным подтверждением (ровно "1", не truthy — см. all_guests),
+            # иначе 409 без выгрузки/пометки/аудита.
             req = Request.objects.select_for_update().get(id=request_id)
+            is_reexport = req.status == "Exported"
+            if is_reexport and request.POST.get("confirm_reexport") != "1":
+                return HttpResponse(
+                    "Заявка уже выгружена (Exported) — повторная выгрузка требует "
+                    "подтверждения (confirm_reexport).",
+                    status=409,
+                )
             dir_names = load_directory_names()
             # hd-1.1: явный whitelist (не model_to_dict — дампил ИИН+служебные поля).
             list_of_attendees = [
@@ -496,16 +530,28 @@ def download_request_json(request, request_id):
             serialized_event = json.dumps(
                 request_dict, indent=4, sort_keys=True, default=str, ensure_ascii=False
             )
-            req.status = "Exported"
-            req.save()
-            audit_log(
-                user=request.user,
-                action="export.request",
-                obj_type="Request",
-                obj_id=request_id,
-                ip=request.META.get("REMOTE_ADDR"),
-                extra={"attendees": len(list_of_attendees), "event_id": req.event_id},
-            )
+            if is_reexport:
+                # Статус уже Exported — повторно не сохраняем; одно действие =
+                # одна durable-строка: export.re_export ВМЕСТО export.request.
+                audit_log(
+                    user=request.user,
+                    action="export.re_export",
+                    obj_type="Request",
+                    obj_id=request_id,
+                    ip=request.META.get("REMOTE_ADDR"),
+                    extra={"attendees": len(list_of_attendees), "event_id": req.event_id},
+                )
+            else:
+                req.status = "Exported"
+                req.save()
+                audit_log(
+                    user=request.user,
+                    action="export.request",
+                    obj_type="Request",
+                    obj_id=request_id,
+                    ip=request.META.get("REMOTE_ADDR"),
+                    extra={"attendees": len(list_of_attendees), "event_id": req.event_id},
+                )
         return HttpResponse(serialized_event, content_type="application/json")
     except Request.DoesNotExist:
         return HttpResponse("Could not find request", status=404)

@@ -177,6 +177,9 @@ def show_event(request, event_id):
         context_dict["active_reqs"] = active_reqs
         context_dict["cities"] = cities
         context_dict["unexported"] = len(reqs.exclude(status="Exported"))
+        # hd-1.3: полный дамп при наличии Exported = re-export → форме нужен
+        # confirm_reexport (серверный gate в download_all_guests_json).
+        context_dict["exported_present"] = len(reqs) - context_dict["unexported"] > 0
         zip_name = "event_" + str(event_id) + ".zip"
         if os.path.isfile(zip_name):
             context_dict["file"] = zip_name

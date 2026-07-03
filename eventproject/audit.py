@@ -22,9 +22,9 @@ SIGNIFICANT_ACTIONS = {
         "export.download", "export.event_sent", "export.guests_sent",
         "export.guests_all", "export.request",
     ],
-    # Функциональности re-export нет (зависит от hd-1-3, backlog) — категория
-    # намеренно пуста: реестр фиксирует пробел явно, не имитирует его.
-    "export.re_export": [],
+    # Story hd-1.3 (FR-3): подтверждённая повторная выгрузка уже-Exported заявки
+    # (file_download.py: download_request_json / download_all_guests_json).
+    "export.re_export": ["export.re_export"],
     "delete": ["attendee.delete", "event.delete", "request.delete"],
 }
 

@@ -133,7 +133,7 @@
                         {% endfor %}
                     </p>
                     <p>
-                        <form method="post" action="/download_all_guests_json/{{ event.id }}/" style="display:inline">{% csrf_token %}<button type="submit" class="btn btn-link p-0 align-baseline">Скачать весь список участников одним json файлом</button></form>
+                        <form method="post" action="/download_all_guests_json/{{ event.id }}/" style="display:inline"{% if exported_present %} onsubmit="return confirm('В списке есть уже выгруженные заявки — они будут выгружены повторно. Продолжить?')"{% endif %}>{% csrf_token %}{% if exported_present %}<input type="hidden" name="confirm_reexport" value="1">{% endif %}<button type="submit" class="btn btn-link p-0 align-baseline">Скачать весь список участников одним json файлом</button></form>
                     </p>
                     {% if unexported > 0  %}
                     <p>
@@ -150,7 +150,7 @@
             {% elif req.status == 'Sent' %} btn-warning
             {% else %} btn-primary {% endif %}" role="button">{{ req.name }}</a> от
                             {{ req.created_by.user.first_name }} {{ req.created_by.user.last_name }}
-                            <form method="post" action="/download_request_json/{{ req.id }}/" style="display:inline">{% csrf_token %}<button type="submit" class="btn btn-link p-0 align-baseline">скачать json</button></form> </li>
+                            <form method="post" action="/download_request_json/{{ req.id }}/" style="display:inline"{% if req.status == 'Exported' %} onsubmit="return confirm('Заявка уже выгружена. Повторить выгрузку?')"{% endif %}>{% csrf_token %}{% if req.status == 'Exported' %}<input type="hidden" name="confirm_reexport" value="1">{% endif %}<button type="submit" class="btn btn-link p-0 align-baseline">скачать json</button></form> </li>
                         <br>
                         {% endfor %}
                         {% endif %}

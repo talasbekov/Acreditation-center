@@ -88,6 +88,10 @@ ACTION_COVERAGE = {
         "LegacyExportEndpointsAuditTests."
         "test_download_request_json_emits_export_request",
     ],
+    "export.re_export": [
+        "ReExportAuditTests.test_request_json_reexport_confirmed_emits_re_export",
+        "ReExportAuditTests.test_all_guests_reexport_confirmed_emits_re_export",
+    ],
     "event.delete": [
         "EventDeleteAuditTests.test_legacy_delete_event_is_audited",
         "EventDeleteAuditTests.test_flush_outdated_events_audits_each_deleted_event",
@@ -124,13 +128,12 @@ class SignificantActionsRegistryTests(TestCase):
             {"login", "status_change", "edit", "export", "export.re_export", "delete"},
         )
 
-    def test_only_re_export_is_intentionally_empty(self):
-        # Анти-регрессия AC-1: export.re_export — ЕДИНСТВЕННАЯ намеренно пустая
-        # категория (функциональности нет, dep: hd-1-3 backlog). Если кто-то
-        # случайно опустошит другую категорию — этот тест падает.
+    def test_no_intentionally_empty_categories(self):
+        # Анти-регрессия AC-1: hd-1.3 наполнила export.re_export — пустых категорий
+        # в реестре больше НЕТ. Если кто-то случайно опустошит категорию — падает.
         self.assertEqual(
             {k: v for k, v in SIGNIFICANT_ACTIONS.items() if not v},
-            {"export.re_export": []},
+            {},
         )
 
     def test_every_registry_action_has_explicit_checklist_test(self):
@@ -427,6 +430,54 @@ class LegacyExportEndpointsAuditTests(AuditChecklistMixin, TestCase):
     def test_download_request_json_emits_export_request(self):
         self._assert_audited(
             f"/download_request_json/{self.request_obj.id}/", "export.request"
+        )
+
+
+class ReExportAuditTests(AuditChecklistMixin, TestCase):
+    """`export.re_export` (hd-1.3, FR-3) — подтверждённый re-export по обоим роутам.
+
+    Поведенческий контракт (409-gate, payload, durable-строки) —
+    test_export_reexport.py; здесь чек-лист-минимум: live-роут с confirm
+    эмитит export.re_export.
+    """
+
+    def setUp(self):
+        Country.objects.create(
+            country_code=KZ, name_rus="Казахстан", name_kaz="", name_eng="",
+            country_iso="KZ",
+        )
+        Sex.objects.create(sex_code="M", name_rus="Мужской", name_kaz="", name_eng="")
+        DocumentType.objects.create(
+            doc_code="ID", name_rus="Удостоверение", name_kaz="", name_eng=""
+        )
+        self.superuser = User.objects.create_superuser(
+            username="su_rex", password=PASSWORD, email=""
+        )
+        _, operator = _make_operator("oper_rex", "operator")
+        self.event = Event.objects.create(
+            name_rus="Событие", event_code="REX02", city_code="ALA"
+        )
+        self.exported_req = Request.objects.create(
+            name="Выгруженная", event=self.event, status="Exported",
+            created_by=operator, registration_time=timezone.now(),
+        )
+        _make_attendee(self.exported_req, status="exported")
+        self.client.force_login(self.superuser)
+
+    def _assert_reexport_audited(self, url):
+        with self.assertLogs("eventproject", level="INFO") as cm:
+            resp = self.client.post(url, {"confirm_reexport": "1"})
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn("export.re_export", self._actions_of(cm))
+
+    def test_request_json_reexport_confirmed_emits_re_export(self):
+        self._assert_reexport_audited(
+            f"/download_request_json/{self.exported_req.id}/"
+        )
+
+    def test_all_guests_reexport_confirmed_emits_re_export(self):
+        self._assert_reexport_audited(
+            f"/download_all_guests_json/{self.event.id}/"
         )
 
 
