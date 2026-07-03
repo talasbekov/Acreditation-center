@@ -161,6 +161,10 @@ class ExportViewTests(ExportDeltaBase):
         ids = [o["attendee_id"] for o in data]
         self.assertEqual(ids, [a_new.id])  # только новый, не a_old
         self.assertEqual(ExportLog.objects.count(), 2)
+        # hd-1.2 (AC-3, последний живой 1-6-item): attendee_count пиннится к фактически
+        # выгруженному составу архива (attendees.json), не к числу ready-фикстур.
+        second_log = ExportLog.objects.order_by("id").last()
+        self.assertEqual(second_log.attendee_count, len(ids))
 
     def test_no_new_records_first_time(self):
         self._mk("draft")  # нет ready

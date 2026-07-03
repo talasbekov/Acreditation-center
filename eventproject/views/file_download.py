@@ -356,7 +356,14 @@ def download_json(request, event_id):
     # Экспорт меняет статус заявок (Sent -> Exported), поэтому только POST + CSRF,
     # а мутация статуса + аудит — атомарно (всё или ничего).
     with transaction.atomic():
-        for req in Request.objects.filter(event=event, status='Sent'):
+        # hd-1.2: выборка материализуется под row-lock ДО построения payload —
+        # параллельный экспорт ждёт коммита и видит уже-Exported (не Sent) →
+        # каждая заявка выгружается ровно один раз (gap-analysis §3.2).
+        # order_by: детерминированный порядок взятия локов (анти-дедлок, канон D1).
+        reqs = list(
+            Request.objects.select_for_update().filter(event=event, status='Sent').order_by("pk")
+        )
+        for req in reqs:
             for attendee in Attendee.objects.filter(request=req).select_related("category", "request"):
                 # hd-1.1: явный whitelist (не model_to_dict — дампил ИИН+служебные поля).
                 list_of_attendees.append(
@@ -392,7 +399,12 @@ def download_guests_json(request, event_id):
     exported = 0
     dir_names = load_directory_names()
     with transaction.atomic():
-        for req in Request.objects.filter(event=event, status="Sent"):
+        # hd-1.2: материализованный select_for_update — против гонки двойной выгрузки;
+        # order_by — детерминированный порядок локов (анти-дедлок, канон D1).
+        reqs = list(
+            Request.objects.select_for_update().filter(event=event, status="Sent").order_by("pk")
+        )
+        for req in reqs:
             for attendee in Attendee.objects.filter(request=req).select_related("category", "request"):
                 # hd-1.1: явный whitelist (не model_to_dict — дампил ИИН+служебные поля).
                 list_of_attendees.append(
@@ -430,7 +442,14 @@ def download_all_guests_json(request, event_id):
     exported = 0
     dir_names = load_directory_names()
     with transaction.atomic():
-        for req in Request.objects.filter(event=event, status__in=["Sent", "Exported"]):
+        # hd-1.2: лок на пометку; семантика полного дампа (Sent+Exported) не меняется (Q1);
+        # order_by — детерминированный порядок локов (анти-дедлок, канон D1).
+        reqs = list(
+            Request.objects.select_for_update()
+            .filter(event=event, status__in=["Sent", "Exported"])
+            .order_by("pk")
+        )
+        for req in reqs:
             for attendee in Attendee.objects.filter(request=req).select_related("category", "request"):
                 # hd-1.1: явный whitelist (не model_to_dict — дампил ИИН+служебные поля).
                 list_of_attendees.append(
@@ -461,7 +480,8 @@ def download_all_guests_json(request, event_id):
 def download_request_json(request, request_id):
     try:
         with transaction.atomic():
-            req = Request.objects.get(id=request_id)
+            # hd-1.2: лок одной строки; повторная отдача уже-Exported сохраняется (Q2 → hd-1-3).
+            req = Request.objects.select_for_update().get(id=request_id)
             dir_names = load_directory_names()
             # hd-1.1: явный whitelist (не model_to_dict — дампил ИИН+служебные поля).
             list_of_attendees = [
