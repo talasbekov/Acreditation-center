@@ -1,0 +1,31 @@
+{
+  "projectId": "b264d3ca-6329-4927-a5ab-f84bd58b7691",
+  "shape": "package",
+  "pkg": "frontend",
+  "globalName": "EventDS",
+  "buildCmd": "npm run build && mkdir -p .ds-css && cp dist/assets/index-*.css .ds-css/app.css && npx tsc -p tsconfig.dstypes.json",
+  "entry": "frontend/ds.entry.ts",
+  "tsconfig": "tsconfig.dsync.json",
+  "cssEntry": ".ds-css/app.css",
+  "readmeHeader": ".design-sync/conventions.md",
+  "extraEntries": ["../.design-sync/preview-support/provider.tsx"],
+  "provider": { "component": "DSPreviewProvider" },
+  "overrides": {
+    "ReturnReasonDialog": { "cardMode": "single", "primaryStory": "Open", "viewport": "640x640" },
+    "AppShell": { "cardMode": "column" },
+    "AttendeeForm": { "cardMode": "column" }
+  },
+  "componentSrcMap": {
+    "Button": "src/components/ui/button.tsx",
+    "StatusBadge": "src/components/StatusBadge.tsx",
+    "LanguageSwitcher": "src/components/LanguageSwitcher.tsx",
+    "ReturnReasonDialog": "src/components/ReturnReasonDialog.tsx",
+    "UploadZone": "src/components/upload/UploadZone.tsx",
+    "DocumentUpload": "src/components/DocumentUpload/DocumentUpload.tsx",
+    "PhotoUpload": "src/components/PhotoUpload/PhotoUpload.tsx",
+    "AppShell": "src/components/shell/AppShell.tsx",
+    "AttendeeForm": "src/components/AttendeeForm.tsx",
+    "ThemeProvider": "src/providers/ThemeProvider.tsx",
+    "RequireAuth": null
+  }
+}

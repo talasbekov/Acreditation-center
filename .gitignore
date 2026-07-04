@@ -87,3 +87,12 @@ logs/*.py
 # Dead legacy dev variants (не импортируются нигде)
 eventproject/settings_mac.py
 eventproject/urls_mac.py
+
+# design-sync (см. .design-sync/NOTES.md)
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules
+frontend/.ds-css/
+frontend/.ds-types/
