@@ -72,6 +72,8 @@ release ps
 
 Миграция 0035 только создаёт индекс `attendee_dateadd_idx` (`CREATE INDEX`, не `CONCURRENTLY`): на время построения запись в таблицу участников блокируется. На 150 тыс. строк в PostgreSQL 15 миграция заняла около 1 с. Если таблица в рабочей БД значительно больше, DBA заранее оценивает время по числу строк. Откат — `migrate eventproject 0034`, данные не меняются; старый код индекс не использует и не мешает ему.
 
+Миграция 0036 удаляет `Attendee.last_return_reason` — дубль `review_comment`. Перед удалением текст причины переносится в `review_comment`, если тот пуст (возвраты до сведения линий), поэтому причины не теряются. Откат — `migrate eventproject 0035`: причина возвращается в `last_return_reason` у участников с `return_count > 0`.
+
 ## 5. Чек-лист допуска кандидата от 26 ноября 2026
 
 Кандидат — состояние после этапов C–F ([отчёт 22](../../docs/modernization-audit/22-STAGE-F-OPERATIONS.md)). Исходники зафиксированы списком контрольных сумм ([evidence/stage-e](../../docs/modernization-audit/evidence/stage-e/source-manifest.sha256)). Испытанные локальные образы (Docker Desktop, linux/amd64):

@@ -299,14 +299,11 @@ def return_for_changes(attendee_id, user, reason, ip=None):
         attendee.review_comment = reason
         attendee.reviewed_at = timezone.now()
         attendee.reviewed_by = user
-        # fe-3.5: та же причина в last_return_reason (API отдаёт её со скрабом ИИН)
-        # и счётчик возвратов. review_comment очищается при повторной отправке,
-        # last_return_reason хранит последнюю причину.
-        attendee.last_return_reason = reason
+        # fe-3.5: счётчик возвратов. Причина — только review_comment (API отдаёт её со
+        # скрабом ИИН); очищается при повторной отправке.
         attendee.return_count = (attendee.return_count or 0) + 1
         attendee.save(update_fields=[
-            "status", "review_comment", "reviewed_at", "reviewed_by",
-            "last_return_reason", "return_count",
+            "status", "review_comment", "reviewed_at", "reviewed_by", "return_count",
         ])
         # Причина не пишется в журнал: она может содержать ПД. Журнал хранит факт возврата.
         _audit_transition(

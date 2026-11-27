@@ -351,11 +351,9 @@ class Attendee(models.Model):
     # compute_problem_flags → DTO очереди читает, `?problem=`-фильтр работает с
     # серверной пагинацией. default=list (additive, обратимо).
     problem_flags = models.JSONField(default=list, blank=True)
-    # Story fe-3.5 (AC-1): причина последнего возврата + счётчик возвратов. Денормализованное
-    # «текущее состояние» заявки для DTO очереди/деталей (continuity 3.3/3.7) — ОТДЕЛЬНО от
-    # durable AuditLog (3.6). Пишутся return-экшеном (in_review→submitted). «Возвращена» =
-    # submitted + return_count>0 (нет отдельного FSM-статуса — см. state_machine.py). Аддитивно.
-    last_return_reason = models.TextField(null=True, blank=True)
+    # Story fe-3.5 (AC-1): счётчик возвратов. Причина возврата — review_comment (этап C);
+    # отдельное поле last_return_reason удалено миграцией 0036 как дубль.
+    # «Возвращена» = draft + return_count>0 (отдельного статуса нет).
     return_count = models.PositiveIntegerField(default=0)
 
     class Meta:

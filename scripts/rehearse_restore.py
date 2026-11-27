@@ -23,7 +23,7 @@ import time
 
 
 PREVIOUS = "0024_recompute_is_resident"
-TARGET = "0035_attendee_dateadd_idx"  # после сведения с security-hardening (этап F: 0030, отчёт 10: 0026)
+TARGET = "0036_remove_attendee_last_return_reason"  # после удаления дубля причины возврата (сведение: 0035, этап F: 0030)
 SOURCE_DB = "restore_rehearsal_source"
 RESTORED_DB = "restore_rehearsal_copy"
 ADMIN = "restore_rehearsal_admin"

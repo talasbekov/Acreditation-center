@@ -3,7 +3,7 @@
 Покрытие AC:
   • AC-1a — `?returned=true` фильтр: только `status=draft AND return_count>0`
     (НЕ `?status=draft` — тот over-select'ит черновики, которые никто не возвращал).
-  • AC-1b — список несёт `return_count`, причина — только в карточке (`last_return_reason`
+  • AC-1b — список несёт `return_count`, причина — только в карточке (`review_comment`
     со скрабом ИИН); masked-safe (ИИН маскирован).
   • AC-1 scope — sub-event (реюз get_operator_attendee_queryset, Q1): cross-tenant не течёт.
   • RBAC — IsOperator (аноним 401/403).
@@ -39,8 +39,8 @@ class OperatorReturnsInboxTests(TestCase):
         # Возвращённая (draft + return_count>0 + причина).
         self.returned = _make_attendee(self.req1, surname="Возвращён", status="draft", iin=VALID_IIN)
         self.returned.return_count = 2
-        self.returned.last_return_reason = "Нет фото"
-        self.returned.save(update_fields=["return_count", "last_return_reason"])
+        self.returned.review_comment = "Нет фото"
+        self.returned.save(update_fields=["return_count", "review_comment"])
         # Обычный submitted (никогда не возвращался) — НЕ должен попасть в инбокс.
         self.plain_submitted = _make_attendee(self.req1, surname="Отправлен", status="submitted", iin=VALID_IIN)
         # Черновик, который никто не возвращал (return_count=0) — НЕ возвращённый.
@@ -48,8 +48,8 @@ class OperatorReturnsInboxTests(TestCase):
         # Cross-tenant возвращённая под event2 (op1 не должен видеть).
         self.other = _make_attendee(self.req2, surname="Чужой", status="draft", iin=VALID_IIN)
         self.other.return_count = 1
-        self.other.last_return_reason = "Чужая причина"
-        self.other.save(update_fields=["return_count", "last_return_reason"])
+        self.other.review_comment = "Чужая причина"
+        self.other.save(update_fields=["return_count", "review_comment"])
 
         self.client = APIClient()
         self.client.force_authenticate(self.op1_user)
@@ -78,10 +78,10 @@ class OperatorReturnsInboxTests(TestCase):
         row = self._rows(resp)[0]
         self.assertEqual(row["return_count"], 2)
         # Этап C: причина в списке не отдаётся — только в карточке участника.
-        self.assertNotIn("last_return_reason", row)
+        self.assertNotIn("review_comment", row)
         self.assertIn("iin_masked", row)
         detail = self.client.get(f"/api/v1/attendees/{self.returned.id}/")
-        self.assertEqual(detail.data["last_return_reason"], "Нет фото")
+        self.assertEqual(detail.data["review_comment"], "Нет фото")
         # masked-инвариант: сырого 12-значного ИИН нет нигде в ответе.
         blob = json.dumps(resp.data, ensure_ascii=False, default=str)
         self.assertEqual(re.findall(r"\b\d{12}\b", blob), [])
@@ -104,13 +104,13 @@ class OperatorReturnsInboxTests(TestCase):
         self.assertIn(self.plain_submitted.id, ids)
         self.assertIn(self.draft.id, ids)
 
-    def test_last_return_reason_scrubs_embedded_iin(self):
+    def test_return_reason_scrubs_embedded_iin(self):
         # review P2 — причина возврата = admin free-text; вписанный сырой ИИН МАСКИРУЕТСЯ в DTO
         # (masked-safe list-поверхность + cross-tenant видимость superuser/superoperator).
-        self.returned.last_return_reason = f"Неверный ИИН {VALID_IIN} — исправьте"
-        self.returned.save(update_fields=["last_return_reason"])
+        self.returned.review_comment = f"Неверный ИИН {VALID_IIN} — исправьте"
+        self.returned.save(update_fields=["review_comment"])
         detail = self.client.get(f"/api/v1/attendees/{self.returned.id}/")
-        self.assertNotIn(VALID_IIN, detail.data["last_return_reason"])  # сырой ИИН вычищен
+        self.assertNotIn(VALID_IIN, detail.data["review_comment"])  # сырой ИИН вычищен
 
     def test_anonymous_denied(self):
         resp = APIClient().get("/api/v1/attendees/?returned=true")

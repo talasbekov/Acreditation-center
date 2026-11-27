@@ -75,7 +75,7 @@ class DecisionAuditAtomicityTests(TestCase):
         self.att.refresh_from_db()
         self.assertEqual(self.att.status, "in_review")  # откат
         self.assertEqual(self.att.return_count, 0)       # счётчик не инкрементнулся
-        self.assertIsNone(self.att.last_return_reason)
+        self.assertEqual(self.att.review_comment, "")
         self.assertEqual(  # review P5 — симметрия с approve: durable-строки возврата тоже нет
             AuditLog.objects.filter(action="attendee.returned", obj_id=str(self.att.id)).count(), 0
         )
