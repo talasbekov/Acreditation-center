@@ -69,8 +69,9 @@ class OperatorViewSet(viewsets.ReadOnlyModelViewSet):
                 event_id = int(event_id)
             except (TypeError, ValueError):
                 raise coded_error("param_not_int", field="event_id")
-            # M2M-фильтр может дублировать строки → distinct().
-            qs = qs.filter(events__id=event_id).distinct()
+            # Подзапрос вместо JOIN по M2M: строки не дублируются без distinct().
+            # PostgreSQL не допускает DISTINCT вместе с FOR UPDATE (deactivate/reactivate).
+            qs = qs.filter(pk__in=Operator.objects.filter(events__id=event_id).values("pk"))
         email_status = self.request.query_params.get("email_status")
         if email_status:
             # Невалидный статус → 400, иначе пустой результат неотличим от «нет совпадений».
