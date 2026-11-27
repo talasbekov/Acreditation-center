@@ -24,6 +24,7 @@ from django.utils import timezone
 
 from eventproject.audit import audit_log
 from eventproject.models import Attendee, Request
+from eventproject.problem_flags import compute_problem_flags
 from eventproject.state_machine import AttendeeStatus, InvalidStatusTransition, assert_transition
 from eventproject.validators.residency import resolve_residency
 
@@ -164,10 +165,12 @@ def lifecycle_message(exc, lang="ru"):
     return text("not_ready", lang) + " " + "; ".join(lines)
 
 
-def _audit_transition(user, ip, attendee, old, new, extra=None):
+def _audit_transition(user, ip, attendee, old, new, extra=None, action="attendee.status_change"):
+    # Решения проверяющего — отдельными действиями (attendee.approved / attendee.returned,
+    # перечень значимых действий hd-4.2); остальные переходы — attendee.status_change.
     audit_log(
         user=user,
-        action="attendee.status_change",
+        action=action,
         obj_type="Attendee",
         obj_id=str(attendee.pk),
         ip=ip or "",
@@ -199,7 +202,9 @@ def submit_attendee(attendee_id, user, ip=None):
         old = attendee.status
         attendee.status = AttendeeStatus.SUBMITTED
         attendee.review_comment = ""
-        attendee.save(update_fields=["status", "review_comment"])
+        # fe-3.1: флаги проблем фиксируются при отправке (фильтр очереди по ним).
+        attendee.problem_flags = compute_problem_flags(attendee)
+        attendee.save(update_fields=["status", "review_comment", "problem_flags"])
         _audit_transition(user, ip, attendee, old, attendee.status)
         return attendee
 
@@ -233,7 +238,8 @@ def submit_request(request_id, user, ip=None):
             _move(attendee, AttendeeStatus.SUBMITTED)
             attendee.status = AttendeeStatus.SUBMITTED
             attendee.review_comment = ""
-            attendee.save(update_fields=["status", "review_comment"])
+            attendee.problem_flags = compute_problem_flags(attendee)
+            attendee.save(update_fields=["status", "review_comment", "problem_flags"])
             _audit_transition(user, ip, attendee, AttendeeStatus.DRAFT, AttendeeStatus.SUBMITTED)
 
         req.status = REQUEST_SENT
@@ -273,7 +279,7 @@ def approve(attendee_id, user, ip=None):
         attendee.reviewed_at = timezone.now()
         attendee.reviewed_by = user
         attendee.save(update_fields=["status", "review_comment", "reviewed_at", "reviewed_by"])
-        _audit_transition(user, ip, attendee, old, attendee.status)
+        _audit_transition(user, ip, attendee, old, attendee.status, action="attendee.approved")
         return attendee
 
 
@@ -293,9 +299,19 @@ def return_for_changes(attendee_id, user, reason, ip=None):
         attendee.review_comment = reason
         attendee.reviewed_at = timezone.now()
         attendee.reviewed_by = user
-        attendee.save(update_fields=["status", "review_comment", "reviewed_at", "reviewed_by"])
+        # fe-3.5: та же причина в last_return_reason (API отдаёт её со скрабом ИИН)
+        # и счётчик возвратов. review_comment очищается при повторной отправке,
+        # last_return_reason хранит последнюю причину.
+        attendee.last_return_reason = reason
+        attendee.return_count = (attendee.return_count or 0) + 1
+        attendee.save(update_fields=[
+            "status", "review_comment", "reviewed_at", "reviewed_by",
+            "last_return_reason", "return_count",
+        ])
         # Причина не пишется в журнал: она может содержать ПД. Журнал хранит факт возврата.
-        _audit_transition(user, ip, attendee, old, attendee.status, {"returned": True})
+        _audit_transition(
+            user, ip, attendee, old, attendee.status, {"returned": True}, action="attendee.returned",
+        )
 
         req = Request.objects.select_for_update().get(pk=attendee.request_id)
         if req.status not in REQUEST_EDITABLE:

@@ -6,11 +6,13 @@
 """
 
 from datetime import date
+import re
 
 from django.http import QueryDict
 from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 
+from eventproject.errors import coded_error
 from eventproject.models import Attendee, Request
 from eventproject.serializers.rbac import get_operator_events
 from eventproject.services import intake
@@ -46,7 +48,12 @@ def raise_if_duplicate(event_id, attrs, instance=None):
     )
     if code:
         field = "iin" if code == "iin" else "docNumber"
-        raise serializers.ValidationError({field: intake.duplicate_text(code, "ru")})
+        # Код ошибки (duplicate_attendee / duplicate_document) переживает агрегацию
+        # сериализатора через ErrorDetail.code — SPA переводит его по коду.
+        error_code = "duplicate_attendee" if code == "iin" else "duplicate_document"
+        raise serializers.ValidationError(
+            {field: serializers.ErrorDetail(intake.duplicate_text(code, "ru"), code=error_code)}
+        )
 
 
 _RU_ERRORS = {
@@ -94,6 +101,19 @@ def _strip_blank_file_fields(data, blank_fields):
     return {key: value for key, value in data.items() if key not in blank_fields}
 
 
+# Story fe-3.7 (review P2): скраб 12-значного ИИН в admin-authored `last_return_reason`
+# перед выдачей оператору/админам. Причина — свободный текст проверяющего, мог содержать
+# сырой ИИН → на masked-safe list-поверхности (+ cross-tenant видимость у superuser/
+# superoperator) это утечка. Зеркало защитного `audit._scrub_pii`.
+_IIN_RE = re.compile(r"\b\d{12}\b")
+
+
+def _scrub_reason(text):
+    if not text:
+        return text
+    return _IIN_RE.sub(lambda m: mask_iin(m.group()), text)
+
+
 class AttendeeSerializer(serializers.ModelSerializer):
     # PK-поля и iin объявлены явно (iin — EncryptedCharField, не полагаемся на
     # авто-маппинг DRF).
@@ -106,6 +126,8 @@ class AttendeeSerializer(serializers.ModelSerializer):
     # в validate_photo/validate_docScan (единый validators/photo.py).
     photo = serializers.FileField(required=False, allow_null=True)
     docScan = serializers.FileField(required=False, allow_null=True)
+    # fe-3.7 (review P2): причина возврата со скрабом ИИН (admin free-text → баннер edit).
+    last_return_reason = serializers.SerializerMethodField()
 
     class Meta:
         model = Attendee
@@ -137,10 +159,16 @@ class AttendeeSerializer(serializers.ModelSerializer):
             "status",
             "dateAdd",
             "review_comment",
+            # Story fe-3.7: счётчик и причина возврата (причина — со скрабом ИИН).
+            "last_return_reason",
+            "return_count",
         ]
-        # Выставляются сервером/логикой, не клиентом. review_comment — причина
-        # возврата от проверяющего (меняется только через return/).
-        read_only_fields = ["id", "is_resident", "status", "dateAdd", "review_comment"]
+        # Выставляются сервером/логикой, не клиентом. review_comment и
+        # last_return_reason — причина возврата (меняются только через return/);
+        # last_return_reason — SerializerMethodField, поэтому не в read_only_fields.
+        read_only_fields = [
+            "id", "is_resident", "status", "dateAdd", "review_comment", "return_count",
+        ]
         # Этап D: как в HTML-форме — серия документа и «Кем выдан» необязательны,
         # категория участника (stickId) необязательна (у резидента РК не хранится).
         extra_kwargs = {
@@ -218,14 +246,15 @@ class AttendeeSerializer(serializers.ModelSerializer):
         # без сигнала. Сверяем со справочником Country.country_code. Пустой/None
         # countryId пропускаем (нет выбора страны → текущее поведение нерезидента).
         if str(country_id or "").strip() and not is_known_country(country_id):
-            raise serializers.ValidationError(
-                {"countryId": "Неизвестный код страны."}
-            )
+            raise coded_error("country_unknown", field="countryId")
 
         # Residency + ИИН (Story 3.1/3.2): обязательность/валидность/нормализация.
         result = resolve_residency(country_id, iin, birth_date)
         if result.error:
-            raise serializers.ValidationError({"iin": result.error})
+            # fe-1.1: машинный код + динамические params (iin_dob_mismatch) → handler.
+            raise coded_error(
+                result.code or "iin_format", field="iin", **(result.params or {})
+            )
         attrs["is_resident"] = result.is_resident
         attrs["iin"] = result.iin  # None для нерезидента
 
@@ -242,6 +271,9 @@ class AttendeeSerializer(serializers.ModelSerializer):
         if req is not None:
             raise_if_duplicate(req.event_id, attrs, instance)
         return attrs
+
+    def get_last_return_reason(self, obj):
+        return _scrub_reason(obj.last_return_reason)
 
 
 class AttendeeListSerializer(serializers.ModelSerializer):
@@ -274,6 +306,8 @@ class AttendeeListSerializer(serializers.ModelSerializer):
             "returned",
             "request_name",
             "event_name",
+            # fe-3.7: сколько раз заявку возвращали (причина — только в карточке).
+            "return_count",
         ]
 
     def get_event_name(self, obj):

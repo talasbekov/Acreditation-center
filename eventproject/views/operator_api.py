@@ -9,11 +9,11 @@ import logging
 from django.db import transaction
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import ValidationError
 from rest_framework.filters import SearchFilter
 from rest_framework.response import Response
 
 from eventproject.audit import audit_log
+from eventproject.errors import coded_error
 from eventproject.models import Operator
 from eventproject.permissions import OperatorRegistryPermission, can_manage_operator_account
 from eventproject.serializers import (
@@ -68,19 +68,15 @@ class OperatorViewSet(viewsets.ReadOnlyModelViewSet):
             try:
                 event_id = int(event_id)
             except (TypeError, ValueError):
-                raise ValidationError(
-                    {"event_id": "Должно быть целым числом."}
-                )
-            # One event and operator identify a unique assignment in the M2M table.
-            qs = qs.filter(events__id=event_id)
+                raise coded_error("param_not_int", field="event_id")
+            # M2M-фильтр может дублировать строки → distinct().
+            qs = qs.filter(events__id=event_id).distinct()
         email_status = self.request.query_params.get("email_status")
         if email_status:
             # Невалидный статус → 400, иначе пустой результат неотличим от «нет совпадений».
             valid_statuses = {c[0] for c in Operator.EMAIL_STATUS_CHOICES}
             if email_status not in valid_statuses:
-                raise ValidationError(
-                    {"email_status": f"Допустимые значения: {sorted(valid_statuses)}"}
-                )
+                raise coded_error("email_status_invalid", field="email_status")
             qs = qs.filter(email_status=email_status)
         return qs
 

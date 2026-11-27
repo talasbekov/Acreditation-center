@@ -23,6 +23,7 @@ router.register(r"events", EventViewSet, basename="event")
 router.register(r"operators", OperatorViewSet, basename="operator")
 router.register(r"attendees", AttendeeViewSet, basename="attendee")
 router.register(r"requests", RequestViewSet, basename="request")
+# Story fe-3.1: scope-aware очередь проверки админа (read-only, IsSuperoperator).
 
 
 @api_view(["GET"])

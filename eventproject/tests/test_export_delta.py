@@ -78,6 +78,7 @@ class BuildExportObjectTests(ExportDeltaBase):
         obj = export_service.build_export_object(a)
         errors = validate_against_spec(obj, load_spec_schema())
         self.assertEqual(errors, [], f"export object не соответствует Spec v1.0: {errors}")
+        self.assertEqual(obj["schema_version"], export_service.SCHEMA_VERSION)  # hd-1.1 AC-3
         self.assertEqual(obj["country_name"], "Казахстан")
         self.assertEqual(obj["sex_name"], "Мужской")
         self.assertEqual(obj["doc_type_name"], "Паспорт")
@@ -172,6 +173,10 @@ class ExportViewTests(ExportDeltaBase):
         ids = [o["attendee_id"] for o in data]
         self.assertEqual(ids, [a_new.id])  # только новый, не a_old
         self.assertEqual(ExportLog.objects.count(), 2)
+        # hd-1.2 (AC-3, последний живой 1-6-item): attendee_count пиннится к фактически
+        # выгруженному составу архива (attendees.json), не к числу ready-фикстур.
+        second_log = ExportLog.objects.order_by("id").last()
+        self.assertEqual(second_log.attendee_count, len(ids))
 
     def test_no_new_records_first_time(self):
         self._mk("draft")  # нет ready

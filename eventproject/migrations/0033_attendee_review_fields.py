@@ -11,7 +11,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("eventproject", "0027_exportlog_package"),
+        ("eventproject", "0032_exportlog_package"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

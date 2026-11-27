@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('eventproject', '0028_attendee_review_fields'),
+        ('eventproject', '0033_attendee_review_fields'),
     ]
 
     operations = [

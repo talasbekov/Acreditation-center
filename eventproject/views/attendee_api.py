@@ -11,13 +11,13 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import APIException, PermissionDenied, ValidationError
+from rest_framework.exceptions import APIException, ErrorDetail, PermissionDenied, ValidationError
 from rest_framework.filters import SearchFilter
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from eventproject.audit import audit_log
-from eventproject.models import Attendee
+from eventproject.errors import coded_error
 from eventproject.permissions import IsOperator, IsSuperoperator
 from eventproject.services import intake, lifecycle
 from eventproject.validators.iin import mask_iin
@@ -26,7 +26,7 @@ from eventproject.serializers.attendee import (
     AttendeeSerializer,
     raise_if_duplicate,
 )
-from eventproject.serializers.rbac import get_operator_events
+from eventproject.serializers.rbac import get_operator_attendee_queryset
 from eventproject.state_machine import ATTENDEE_STATUSES, AttendeeStatus
 from eventproject.validators.residency import resolve_residency
 
@@ -65,10 +65,10 @@ class AttendeeViewSet(viewsets.ModelViewSet):
         return AttendeeSerializer
 
     def get_queryset(self):
-        # RBAC-изоляция: только участники мероприятий оператора (404 для чужих).
-        events = get_operator_events(self.request.user)
+        # RBAC-изоляция (hd-5.3): единый scope-резолвер events ∩ category (404 для
+        # чужих). Не дублируем фильтр request__event__in — он внутри резолвера.
         qs = (
-            Attendee.objects.filter(request__event__in=events)
+            get_operator_attendee_queryset(self.request.user)
             .select_related("request__event", "category")
             .order_by("-dateAdd")
         )
@@ -82,16 +82,21 @@ class AttendeeViewSet(viewsets.ModelViewSet):
             try:
                 category_id = int(category_id)
             except (TypeError, ValueError):
-                raise ValidationError({"category_id": "Должно быть целым числом."})
+                raise coded_error("param_not_int", field="category_id")
             qs = qs.filter(category_id=category_id)
 
         status_param = self.request.query_params.get("status")
         if status_param is not None:
             if status_param not in ATTENDEE_STATUSES:
-                raise ValidationError(
-                    {"status": f"Допустимые значения: {sorted(ATTENDEE_STATUSES)}"}
-                )
+                raise coded_error("status_invalid", field="status")
             qs = qs.filter(status=status_param)
+
+        # Story fe-3.7 (AC-1): возвращённые оператору. Возврат переводит участника в
+        # черновик (services/lifecycle.return_for_changes) и увеличивает return_count,
+        # поэтому «возвращён» = draft AND return_count>0. Scope наследован.
+        returned_param = self.request.query_params.get("returned")
+        if returned_param is not None and returned_param.lower() in ("true", "1", "yes"):
+            qs = qs.filter(status=AttendeeStatus.DRAFT, return_count__gt=0)
 
         return qs
 
@@ -198,7 +203,8 @@ class AttendeeViewSet(viewsets.ModelViewSet):
         if attendee.status == AttendeeStatus.DRAFT:
             result = resolve_residency(attendee.countryId, attendee.iin, attendee.birthDate)
             if result.error:
-                raise ValidationError({"iin": result.error})
+                # fe-1.1: машинный код (iin_checksum/iin_dob_mismatch/…) + params.
+                raise coded_error(result.code or "iin_format", field="iin", **(result.params or {}))
         return self._transition(request, lambda: lifecycle.submit_attendee(
             attendee.pk, request.user, request.META.get("REMOTE_ADDR", ""),
         ))
@@ -209,33 +215,50 @@ class AttendeeViewSet(viewsets.ModelViewSet):
         attendee = self.get_object()
         return self._transition(request, lambda: lifecycle.start_review(
             attendee.pk, request.user, request.META.get("REMOTE_ADDR", ""),
-        ))
+        ), masked=True)
 
     @action(detail=True, methods=["post"], permission_classes=[IsSuperoperator])
     def approve(self, request, pk=None):
         attendee = self.get_object()
         return self._transition(request, lambda: lifecycle.approve(
             attendee.pk, request.user, request.META.get("REMOTE_ADDR", ""),
-        ))
+        ), masked=True)
 
     @action(detail=True, methods=["post"], url_path="return", permission_classes=[IsSuperoperator])
     def return_for_changes(self, request, pk=None):
         attendee = self.get_object()
+        # fe-3.5: причина обязательна; не-строка (JSON 5/[...]/{...}) — как отсутствие (400, не 500).
+        reason_raw = request.data.get("reason")
+        reason = reason_raw.strip() if isinstance(reason_raw, str) else ""
+        if not reason:
+            raise coded_error("required", field="reason")
         return self._transition(request, lambda: lifecycle.return_for_changes(
-            attendee.pk, request.user, request.data.get("reason", ""), request.META.get("REMOTE_ADDR", ""),
-        ))
+            attendee.pk, request.user, reason, request.META.get("REMOTE_ADDR", ""),
+        ), masked=True, field="reason")
 
-    def _transition(self, request, run):
+    def _transition(self, request, run, *, masked=False, field="status"):
+        """Переход через services/lifecycle; ошибки — с машинным кодом.
+
+        masked: решения проверяющего отвечают только {id, status} — полный
+        AttendeeSerializer отдаёт сырой ИИН (fe-3.4, реш.#6).
+        """
         try:
             attendee = run()
         except lifecycle.LifecycleError as exc:
             message = exc.message
+            code = "status_transition_invalid" if exc.conflict else "submission_incomplete"
             if exc.problems:
                 # Ответ RFC 7807 несёт одну строку: перечисляем недостающее словами.
                 codes = [code for found in exc.problems.values() for code in found]
                 message = f"{message}: {', '.join(lifecycle.text(code) for code in codes)}"
-            detail = {"status": message}
+            elif not exc.conflict:
+                code = "return_reason_invalid"
+            # Код ошибки — для перевода в SPA; русский текст остаётся в detail.
+            # Конфликт статуса относится к полю status, ошибка ввода — к своему полю.
+            detail = {"status" if exc.conflict else field: ErrorDetail(message, code=code)}
             if exc.conflict:
                 raise Conflict(detail)
             raise ValidationError(detail)
+        if masked:
+            return Response({"id": attendee.id, "status": attendee.status})
         return Response(AttendeeSerializer(attendee).data)

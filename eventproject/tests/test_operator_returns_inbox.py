@@ -1,0 +1,117 @@
+"""Story fe-3.7 — инбокс возвратов оператора (backend-дельты).
+
+Покрытие AC:
+  • AC-1a — `?returned=true` фильтр: только `status=draft AND return_count>0`
+    (НЕ `?status=draft` — тот over-select'ит черновики, которые никто не возвращал).
+  • AC-1b — список несёт `return_count`, причина — только в карточке (`last_return_reason`
+    со скрабом ИИН); masked-safe (ИИН маскирован).
+  • AC-1 scope — sub-event (реюз get_operator_attendee_queryset, Q1): cross-tenant не течёт.
+  • RBAC — IsOperator (аноним 401/403).
+
+Сведение линий (27.11.2026): возврат переводит участника в черновик (services/lifecycle,
+этап C), поэтому «возвращён» = draft + return_count>0; отдельного статуса нет.
+"""
+
+import json
+import re
+
+from django.test import TestCase
+from rest_framework.test import APIClient
+
+from eventproject.models import Event
+from eventproject.tests.test_attendee_api import (
+    VALID_IIN,
+    _make_attendee,
+    _make_operator,
+    _make_request,
+)
+
+
+class OperatorReturnsInboxTests(TestCase):
+    def setUp(self):
+        self.event1 = Event.objects.create(name_rus="Событие 1", title="E1")
+        self.event2 = Event.objects.create(name_rus="Событие 2", title="E2")
+        self.op1_user, self.op1 = _make_operator("op1", "operator", event=self.event1)
+        self.op2_user, self.op2 = _make_operator("op2", "operator", event=self.event2)
+        self.req1 = _make_request(self.event1, self.op1)
+        self.req2 = _make_request(self.event2, self.op2)
+
+        # Возвращённая (draft + return_count>0 + причина).
+        self.returned = _make_attendee(self.req1, surname="Возвращён", status="draft", iin=VALID_IIN)
+        self.returned.return_count = 2
+        self.returned.last_return_reason = "Нет фото"
+        self.returned.save(update_fields=["return_count", "last_return_reason"])
+        # Обычный submitted (никогда не возвращался) — НЕ должен попасть в инбокс.
+        self.plain_submitted = _make_attendee(self.req1, surname="Отправлен", status="submitted", iin=VALID_IIN)
+        # Черновик, который никто не возвращал (return_count=0) — НЕ возвращённый.
+        self.draft = _make_attendee(self.req1, surname="Черновик", status="draft", iin=VALID_IIN)
+        # Cross-tenant возвращённая под event2 (op1 не должен видеть).
+        self.other = _make_attendee(self.req2, surname="Чужой", status="draft", iin=VALID_IIN)
+        self.other.return_count = 1
+        self.other.last_return_reason = "Чужая причина"
+        self.other.save(update_fields=["return_count", "last_return_reason"])
+
+        self.client = APIClient()
+        self.client.force_authenticate(self.op1_user)
+
+    def _rows(self, resp):
+        data = resp.data
+        return data["results"] if isinstance(data, dict) and "results" in data else data
+
+    def _ids(self, resp):
+        return {r["id"] for r in self._rows(resp)}
+
+    def test_returned_filter_only_returned(self):
+        resp = self.client.get("/api/v1/attendees/?returned=true")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(self._ids(resp), {self.returned.id})  # не plain_submitted/draft/other
+
+    def test_status_draft_overselects_never_returned(self):
+        # Доказывает необходимость returned-флага: ?status=draft тянет и невозвращённые черновики.
+        resp = self.client.get("/api/v1/attendees/?status=draft")
+        ids = self._ids(resp)
+        self.assertIn(self.returned.id, ids)
+        self.assertIn(self.draft.id, ids)  # over-select (черновик, но не возврат)
+
+    def test_dto_carries_return_fields_masked(self):
+        resp = self.client.get("/api/v1/attendees/?returned=true")
+        row = self._rows(resp)[0]
+        self.assertEqual(row["return_count"], 2)
+        # Этап C: причина в списке не отдаётся — только в карточке участника.
+        self.assertNotIn("last_return_reason", row)
+        self.assertIn("iin_masked", row)
+        detail = self.client.get(f"/api/v1/attendees/{self.returned.id}/")
+        self.assertEqual(detail.data["last_return_reason"], "Нет фото")
+        # masked-инвариант: сырого 12-значного ИИН нет нигде в ответе.
+        blob = json.dumps(resp.data, ensure_ascii=False, default=str)
+        self.assertEqual(re.findall(r"\b\d{12}\b", blob), [])
+
+    def test_cross_tenant_scope_excludes_other_event(self):
+        resp = self.client.get("/api/v1/attendees/?returned=true")
+        self.assertNotIn(self.other.id, self._ids(resp))  # sub-event scope: чужое событие не течёт
+        # review P6 — ПОЗИТИВ: op2 (event2) ВИДИТ свою возвращённую → доказывает scope,
+        # а не «фильтр просто дропает строку для всех».
+        c2 = APIClient()
+        c2.force_authenticate(self.op2_user)
+        self.assertEqual(self._ids(c2.get("/api/v1/attendees/?returned=true")), {self.other.id})
+
+    def test_returned_false_or_absent_no_filter(self):
+        # returned!=true → фильтр не применяется (обычный список), возвращённая среди прочих.
+        resp = self.client.get("/api/v1/attendees/?returned=false")
+        self.assertEqual(resp.status_code, 200)
+        ids = self._ids(resp)
+        self.assertIn(self.returned.id, ids)  # review P6 — возвращённая тоже среди прочих
+        self.assertIn(self.plain_submitted.id, ids)
+        self.assertIn(self.draft.id, ids)
+
+    def test_last_return_reason_scrubs_embedded_iin(self):
+        # review P2 — причина возврата = admin free-text; вписанный сырой ИИН МАСКИРУЕТСЯ в DTO
+        # (masked-safe list-поверхность + cross-tenant видимость superuser/superoperator).
+        self.returned.last_return_reason = f"Неверный ИИН {VALID_IIN} — исправьте"
+        self.returned.save(update_fields=["last_return_reason"])
+        detail = self.client.get(f"/api/v1/attendees/{self.returned.id}/")
+        self.assertNotIn(VALID_IIN, detail.data["last_return_reason"])  # сырой ИИН вычищен
+
+    def test_anonymous_denied(self):
+        resp = APIClient().get("/api/v1/attendees/?returned=true")
+        self.assertIn(resp.status_code, (401, 403))

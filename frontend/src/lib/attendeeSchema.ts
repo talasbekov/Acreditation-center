@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { validateIIN } from './validateIIN'
 import { KZ_COUNTRY_ID } from './constants'
+import i18n from '@/i18n'
 
 /** Сегодня в формате YYYY-MM-DD (локальная дата — как у `<input type="date">`). */
 function today(): string {
@@ -54,7 +55,12 @@ export function makeAttendeeSchema({ checkDocDates = true }: { checkDocDates?: b
         } else {
           const result = validateIIN(iin, data.birthDate)
           if (!result.valid) {
-            ctx.addIssue({ code: 'custom', path: ['iin'], message: result.error ?? 'Неверный ИИН' })
+            ctx.addIssue({
+              code: 'custom',
+              path: ['iin'],
+              // fe-1.4: validateIIN отдаёт код ошибки; текст — из каталога validation.
+              message: i18n.t(`validation:${result.code ?? 'iin_invalid'}`, result.params),
+            })
           }
         }
       } else if (data.stickId === '') {

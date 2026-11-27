@@ -4,6 +4,8 @@ from django.utils import timezone
 from django.conf import settings
 
 from django.db import models
+from django.db import IntegrityError
+from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 
 from eventproject.fernet_fields import EncryptedCharField
@@ -44,6 +46,84 @@ class Event(models.Model):
         help_text="Кто создал (Story 2.2)"
     )
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+
+    # Story hd-5.1 (FR-22): иерархия мероприятий — РОВНО один уровень.
+    # parent=NULL → контейнер-кандидат/самостоятельное; parent задан → под-мероприятие (лист).
+    # PROTECT (НЕ CASCADE): каскад удалил бы детей с зашифрованными ИИН → нарушение retention.
+    parent = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="subevents",
+        help_text="Родительское мероприятие-контейнер; NULL = самостоятельное/контейнер. Один уровень (hd-5.1)",
+    )
+    # Денормализованный признак «есть под-мероприятия» (контейнер). Поддержание —
+    # hd-5.2 (leaf-only на путях записи); здесь — поле + валидация i18n-имени контейнера.
+    is_container = models.BooleanField(
+        default=False,
+        help_text="True = контейнер (есть под-мероприятия); участники крепятся только к листу (hd-5.2)",
+    )
+
+    class Meta:
+        constraints = [
+            # hd-5.1 AC-2: anti-self-parent (row-local — БД держит). Один уровень
+            # (parent.parent NULL) — НЕ row-local, держится clean()+data-quality assert.
+            models.CheckConstraint(
+                check=models.Q(parent__isnull=True) | ~models.Q(parent=models.F("id")),
+                name="event_no_self_parent",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.parent_id is not None and self.pk is not None and self.parent_id == self.pk:
+            errors["parent"] = "Мероприятие не может быть своим родителем."
+        elif self.parent_id is not None:
+            try:
+                parent = self.parent
+            except Event.DoesNotExist:
+                parent = None
+                errors["parent"] = "Указанное родительское мероприятие не существует."
+            if parent is not None:
+                # AC-2 (один уровень, ВНИЗ): узел с под-мероприятиями не может сам стать
+                # листом — иначе появится третий уровень (review-фикс: clean() раньше
+                # смотрел только вверх).
+                if self.pk is not None and self.subevents.exists():
+                    errors["parent"] = (
+                        "Мероприятие с под-мероприятиями не может стать под-мероприятием "
+                        "(нарушит один уровень)."
+                    )
+                # AC-2 (один уровень, ВВЕРХ): родитель обязан быть корнем.
+                elif parent.parent_id is not None:
+                    errors["parent"] = (
+                        "Иерархия мероприятий — ровно один уровень: нельзя прикрепить "
+                        "под-мероприятие к под-мероприятию."
+                    )
+                # AC-3: child ⊆ parent — проверяем ОБЕ пары дат (legacy date_start/date_end
+                # И Story 2.2 start_date/end_date — REST-API пишет вторую).
+                for c_start, c_end, p_start, p_end, field in (
+                    (self.date_start, self.date_end, parent.date_start, parent.date_end, "date_start"),
+                    (self.start_date, self.end_date, parent.start_date, parent.end_date, "start_date"),
+                ):
+                    if c_start and c_end and p_start and p_end and (
+                        c_start < p_start or c_end > p_end
+                    ):
+                        errors[field] = (
+                            "Даты под-мероприятия должны быть в пределах дат родителя."
+                        )
+        # AC-3: контейнер обязан иметь полное i18n-имя (госотчётность; .strip() против пробелов).
+        if self.is_container and not (
+            (self.name_rus or "").strip()
+            and (self.name_kaz or "").strip()
+            and (self.name_eng or "").strip()
+        ):
+            errors["is_container"] = (
+                "Контейнер-мероприятие обязано иметь название на ru/kz/en (госотчётность)."
+            )
+        if errors:
+            raise ValidationError(errors)
 
     def __str__(self):
         return self.title or self.name_rus or f"Event {self.id}"
@@ -265,6 +345,18 @@ class Attendee(models.Model):
         on_delete=models.SET_NULL,
         related_name="+",
     )
+    # Story fe-3.1 (AC-2): проблемные флаги заявки — подмножество закрытого набора
+    # eventproject/problem_flags.py::PROBLEM_FLAGS. Хранимое (JSONField, не ArrayField:
+    # ArrayField только Postgres, тесты на SQLite), популируется при submit через
+    # compute_problem_flags → DTO очереди читает, `?problem=`-фильтр работает с
+    # серверной пагинацией. default=list (additive, обратимо).
+    problem_flags = models.JSONField(default=list, blank=True)
+    # Story fe-3.5 (AC-1): причина последнего возврата + счётчик возвратов. Денормализованное
+    # «текущее состояние» заявки для DTO очереди/деталей (continuity 3.3/3.7) — ОТДЕЛЬНО от
+    # durable AuditLog (3.6). Пишутся return-экшеном (in_review→submitted). «Возвращена» =
+    # submitted + return_count>0 (нет отдельного FSM-статуса — см. state_machine.py). Аддитивно.
+    last_return_reason = models.TextField(null=True, blank=True)
+    return_count = models.PositiveIntegerField(default=0)
 
     class Meta:
         # BE-9: статус ограничен FSM-набором и на уровне БД — прямой
@@ -343,7 +435,7 @@ class ExportLog(models.Model):
     attendee_count = models.IntegerField(
         help_text="Количество участников, включённых в данный экспорт",
     )
-    # null у пакетов, сформированных до миграции 0027: их состав не записывался,
+    # null у пакетов, сформированных до миграции 0032: их состав не записывался,
     # повторная выдача для них недоступна.
     attendee_ids = models.JSONField(
         null=True,
@@ -421,3 +513,68 @@ class PartnerReceipt(models.Model):
 
     def __str__(self):
         return f"{self.source}:{self.external_id} → {self.outcome}"
+class AuditLogQuerySet(models.QuerySet):
+    """Append-only: блокирует bulk-мутации портируемо (SQLite + Postgres).
+
+    Review hd-4.1 (AC-3): model-level `save`/`delete` ловят только ORM-instance;
+    `QuerySet.update()/.delete()` их минуют. Этот guard закрывает bulk-путь на
+    всех БД (Postgres-триггер — последняя линия против сырого SQL мимо ORM).
+    """
+
+    def update(self, *args, **kwargs):
+        raise IntegrityError("AuditLog is append-only: bulk UPDATE is forbidden")
+
+    def delete(self, *args, **kwargs):
+        raise IntegrityError("AuditLog is append-only: bulk DELETE is forbidden")
+
+
+class AuditLog(models.Model):
+    """Story hd-4.1: append-only журнал значимых действий (FR-12).
+
+    Durable-зеркало stdout-аудита (`eventproject/audit.py`). Append-only на трёх
+    слоях: model-guard (`save`/`delete`) + manager-guard (bulk `update`/`delete`,
+    портируемо) + Postgres-триггер BEFORE UPDATE/DELETE (миграция 0025, raw SQL).
+    `actor_id` — снимок id (НЕ FK): удаление User не трогает журнал и не конфликтует
+    с append-only-триггером. ИИН в `extra` хранится МАСКИРОВАННЫМ (вычистка на write-path).
+    """
+
+    objects = AuditLogQuerySet.as_manager()
+
+    actor_id = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Снимок id актора (НЕ FK — append-only аудит хранит историческую ссылку; удаление User не трогает журнал). null для system/Celery",
+    )
+    role = models.CharField(max_length=32)
+    action = models.CharField(max_length=64, db_index=True)
+    obj_type = models.CharField(max_length=64)
+    obj_id = models.CharField(max_length=64, blank=True, default="")
+    ip = models.CharField(max_length=45, null=True, blank=True)
+    extra = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["obj_type", "obj_id"]),
+        ]
+
+    def __str__(self):
+        return (
+            f"AuditLog {self.action} {self.obj_type}:{self.obj_id} "
+            f"@ {self.created_at:%Y-%m-%dT%H:%M:%S}"
+            if self.created_at
+            else f"AuditLog {self.action} {self.obj_type}:{self.obj_id}"
+        )
+
+    def save(self, *args, **kwargs):
+        # AC-3 append-only: запрещаем UPDATE существующей строки (model-level
+        # guard — портируемо, ловит ORM-путь и на SQLite). Bulk-`QuerySet.update`
+        # минует этот guard — для прода его блокирует Postgres-триггер (миграция).
+        if self.pk is not None:
+            raise IntegrityError("AuditLog is append-only: UPDATE is forbidden")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        # AC-3 append-only: запрещаем DELETE (model-level; bulk — Postgres-триггер).
+        raise IntegrityError("AuditLog is append-only: DELETE is forbidden")

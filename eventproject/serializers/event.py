@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from eventproject.errors import coded_error
 from eventproject.models import Event, Category
 
 
@@ -21,7 +22,9 @@ class CategorySerializer(serializers.ModelSerializer):
     def validate_name(self, value):
         value = (value or "").strip()
         if not value:
-            raise serializers.ValidationError("Название категории не может быть пустым.")
+            raise serializers.ValidationError(
+                "Название категории не может быть пустым.", code="category_name_blank"
+            )
         return value
 
 
@@ -32,17 +35,21 @@ class EventSerializer(serializers.ModelSerializer):
     title = serializers.CharField(required=True, allow_blank=False, max_length=255)
     start_date = serializers.DateField(required=True)
     end_date = serializers.DateField(required=True)
+    # fe-1.5 (AC2, Q1): трилингв-имена события — API-контракт name_ru/kz/en через source= на
+    # модель-поля name_rus/kaz/eng (модель НЕ переименовываем — Strangler Fig, legacy). read_only:
+    # ввод имён — legacy template/admin; React выбирает по активной локали (сервер не локализует).
+    name_ru = serializers.CharField(source="name_rus", read_only=True)
+    name_kz = serializers.CharField(source="name_kaz", read_only=True)
+    name_en = serializers.CharField(source="name_eng", read_only=True)
 
     class Meta:
         model = Event
-        fields = ["id", "title", "start_date", "end_date", "description", "categories", "created_at"]
+        fields = ["id", "title", "name_ru", "name_kz", "name_en", "start_date", "end_date", "description", "categories", "created_at"]
         read_only_fields = ["id", "created_at"]
 
     def validate(self, attrs):
         start = attrs.get("start_date")
         end = attrs.get("end_date")
         if start and end and end < start:
-            raise serializers.ValidationError(
-                {"end_date": "Дата окончания не может быть раньше даты начала."}
-            )
+            raise coded_error("event_date_inverted", field="end_date")
         return attrs
