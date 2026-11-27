@@ -1,0 +1,19 @@
+---
+# Codacy проверяет только код, который попадает в выпуск.
+# Тесты, сквозные наборы, служебные скрипты, миграции и документы исключены:
+# там намеренно тестовые пароли, сырой SQL в тестах гонок и чтение файлов по путям.
+exclude_paths:
+  - "**/tests/**"
+  - "**/*.test.ts"
+  - "**/*.test.tsx"
+  - "**/*.spec.ts"
+  - "**/*.spec.js"
+  - "e2e/**"
+  - "frontend/e2e/**"
+  - "frontend/e2e-live/**"
+  - "frontend/scripts/**"
+  - "scripts/**"
+  - "eventproject/settings_test*.py"
+  - "**/migrations/**"
+  - "docs/**"
+  - "release/**"
