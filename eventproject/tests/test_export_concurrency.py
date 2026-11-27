@@ -76,7 +76,7 @@ class _ParallelClientsMixin:
         def worker(idx, client, path):
             barrier.wait()  # обе транзакции стартуют одновременно → реальная гонка
             try:
-                resp = client.post(path)
+                resp = client.post(path, follow=True)
                 if getattr(resp, "streaming", False):
                     body = b"".join(resp.streaming_content)
                 else:

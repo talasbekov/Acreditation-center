@@ -400,7 +400,8 @@ class ExportLog(models.Model):
     Пакет неизменяем: `package_id`, упорядоченный `attendee_ids` и `manifest`
     (SHA-256 каждого элемента ZIP) позволяют выдать тот же архив повторно и
     отказать, если исходные данные с тех пор изменились. Сам ZIP с ПД на сервере
-    не хранится. Подтверждение получателя фиксируется отдельно.
+    не хранится: он собирается потоком при каждой выдаче (services/zipstream.py).
+    Подтверждение получателя фиксируется отдельно.
     """
     event = models.ForeignKey(
         Event,
@@ -466,7 +467,13 @@ class ExportLog(models.Model):
 
     @property
     def can_redownload(self):
-        return self.attendee_ids is not None and bool(self.manifest)
+        # Пакеты потокового формата: манифест {имя: {sha256, size, crc32}}.
+        manifest = self.manifest or {}
+        return (
+            self.attendee_ids is not None
+            and bool(manifest)
+            and all(isinstance(value, dict) for value in manifest.values())
+        )
 
     def __str__(self):
         cat = f" / {self.category.name}" if self.category else ""
