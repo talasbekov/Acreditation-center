@@ -42,6 +42,8 @@ python scripts/stage_e/migrate_rehearsal.py
    - SPA: в `frontend` выполнить `VITE_BACKEND=http://127.0.0.1:18811 npx vite --port 18812`.
 5. **Запуск сценария:** в `frontend` выполнить `E2E_DIR=... npx playwright test -c playwright.live.config.ts`. Используется установленный Chrome.
 
+   Если порты 18811/18812 заняты, задайте другие: `E2E_PORTS=18821,18822` для Django-настроек, `E2E_DJANGO_URL` и `E2E_SPA_URL` для сценария.
+
 Сценарий проходит такие шаги:
 - вход оператора;
 - добавление участника со всеми полями, фото в JPG и сканом в PDF;

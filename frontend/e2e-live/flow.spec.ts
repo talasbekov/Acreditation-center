@@ -6,8 +6,9 @@ import { join } from 'node:path'
 
 const E2E = process.env.E2E_DIR as string
 const creds = JSON.parse(readFileSync(join(E2E, 'creds.json'), 'utf-8'))
-const SPA = 'http://127.0.0.1:18812'
-const DJANGO = 'http://127.0.0.1:18811'
+// Порты можно сменить, если 18811/18812 заняты другим стендом.
+const SPA = process.env.E2E_SPA_URL || 'http://127.0.0.1:18812'
+const DJANGO = process.env.E2E_DJANGO_URL || 'http://127.0.0.1:18811'
 const SURNAME = 'Сквозной'
 const OUT = join(E2E, 'out')
 mkdirSync(OUT, { recursive: true })
