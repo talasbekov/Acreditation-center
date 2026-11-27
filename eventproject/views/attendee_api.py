@@ -81,8 +81,8 @@ class AttendeeViewSet(viewsets.ModelViewSet):
         if category_id is not None:
             try:
                 category_id = int(category_id)
-            except (TypeError, ValueError):
-                raise coded_error("param_not_int", field="category_id")
+            except (TypeError, ValueError) as exc:
+                raise coded_error("param_not_int", field="category_id") from exc
             qs = qs.filter(category_id=category_id)
 
         status_param = self.request.query_params.get("status")

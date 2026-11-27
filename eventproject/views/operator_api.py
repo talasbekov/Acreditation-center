@@ -67,8 +67,8 @@ class OperatorViewSet(viewsets.ReadOnlyModelViewSet):
             # Невалидный event_id → 400, а не 500 (ValueError в events__id=).
             try:
                 event_id = int(event_id)
-            except (TypeError, ValueError):
-                raise coded_error("param_not_int", field="event_id")
+            except (TypeError, ValueError) as exc:
+                raise coded_error("param_not_int", field="event_id") from exc
             # Подзапрос вместо JOIN по M2M: строки не дублируются без distinct().
             # PostgreSQL не допускает DISTINCT вместе с FOR UPDATE (deactivate/reactivate).
             qs = qs.filter(pk__in=Operator.objects.filter(events__id=event_id).values("pk"))

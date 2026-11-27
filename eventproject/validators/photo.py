@@ -76,8 +76,8 @@ def validate_image_file(file):
             img.load()  # форсируем декод → ловим усечённые/битые изображения
     except serializers.ValidationError:
         raise
-    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError):
-        raise serializers.ValidationError(ERR_NOT_IMAGE, code="photo_not_image")
+    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError) as exc:
+        raise serializers.ValidationError(ERR_NOT_IMAGE, code="photo_not_image") from exc
     finally:
         try:
             file.seek(0)
@@ -129,8 +129,8 @@ def convert_pdf_to_jpeg(uploaded):
         page.convert("RGB").save(buf, format="JPEG", quality=85)
     except serializers.ValidationError:
         raise
-    except Exception:  # noqa: BLE001 — poppler/Pillow/bomb → понятное 400, не 500
-        raise serializers.ValidationError(ERR_PDF_FAILED, code="doc_unreadable")
+    except Exception as exc:  # noqa: BLE001 — poppler/Pillow/bomb → понятное 400, не 500
+        raise serializers.ValidationError(ERR_PDF_FAILED, code="doc_unreadable") from exc
     finally:
         try:
             uploaded.seek(0)

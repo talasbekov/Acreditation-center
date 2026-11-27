@@ -70,7 +70,7 @@ class Event(models.Model):
             # hd-5.1 AC-2: anti-self-parent (row-local — БД держит). Один уровень
             # (parent.parent NULL) — НЕ row-local, держится clean()+data-quality assert.
             models.CheckConstraint(
-                check=models.Q(parent__isnull=True) | ~models.Q(parent=models.F("id")),
+                condition=models.Q(parent__isnull=True) | ~models.Q(parent=models.F("id")),
                 name="event_no_self_parent",
             ),
         ]
@@ -363,7 +363,7 @@ class Attendee(models.Model):
         # `attendee.status="bogus"; save()` отклоняется (не только форма/сериализатор).
         constraints = [
             models.CheckConstraint(
-                check=models.Q(status__in=list(ATTENDEE_STATUSES)),
+                condition=models.Q(status__in=list(ATTENDEE_STATUSES)),
                 name="attendee_status_valid",
             ),
         ]
