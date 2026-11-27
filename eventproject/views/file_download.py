@@ -17,7 +17,7 @@ from django.views.decorators.http import require_POST
 import json
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.mixins import UserPassesTestMixin
-from django.http import JsonResponse, Http404
+from django.http import JsonResponse
 from django.utils import timezone
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_http_methods

@@ -145,6 +145,12 @@ def _end_records_size(count, cd_offset, cd_size):
     return len(_end_records(count, cd_offset, cd_size))
 
 
+def _window(chunk, chunk_start, lo, hi):
+    """Часть блока `chunk` (начинается с `chunk_start`), попадающая в [lo, hi)."""
+    cut_lo, cut_hi = max(lo, chunk_start), min(hi, chunk_start + len(chunk))
+    return chunk[cut_lo - chunk_start:cut_hi - chunk_start] if cut_lo < cut_hi else b""
+
+
 class ZipStream:
     """Детерминированный ZIP из `entries` с меткой времени `date_time` (кортеж UTC)."""
 
@@ -231,15 +237,20 @@ class ZipStream:
     def _entry_pieces(self, entry, lo, hi, holder):
         """Срез [lo, hi) содержимого элемента; файл читается и сверяется целиком."""
         if entry.data is not None:
-            data = entry.data
-            crc = zlib.crc32(data)
-            if not self._matches(entry, len(data), crc, hashlib.sha256(data).hexdigest() if entry.sha256 else None):
-                raise SourceChanged(entry.name)
-            holder["crc"] = crc
-            if lo < hi:
-                yield data[lo:hi]
-            return
+            yield from self._data_pieces(entry, lo, hi, holder)
+        else:
+            yield from self._file_pieces(entry, lo, hi, holder)
 
+    def _data_pieces(self, entry, lo, hi, holder):
+        data = entry.data
+        crc = zlib.crc32(data)
+        if not self._matches(entry, len(data), crc, hashlib.sha256(data).hexdigest() if entry.sha256 else None):
+            raise SourceChanged(entry.name)
+        holder["crc"] = crc
+        if lo < hi:
+            yield data[lo:hi]
+
+    def _file_pieces(self, entry, lo, hi, holder):
         digest = hashlib.sha256() if entry.sha256 else None
         crc = 0
         position = 0
@@ -249,21 +260,18 @@ class ZipStream:
         except OSError as exc:
             raise SourceChanged(entry.name) from exc
         with source:
-            while True:
-                chunk = source.read(CHUNK_SIZE)
-                if not chunk:
-                    break
+            for chunk in iter(lambda: source.read(CHUNK_SIZE), b""):
                 if digest is not None:
                     digest.update(chunk)
                 crc = zlib.crc32(chunk, crc)
-                chunk_start, position = position, position + len(chunk)
+                piece = _window(chunk, position, lo, hi)
+                position += len(chunk)
                 if position > entry.size:
                     raise SourceChanged(entry.name)
-                cut_lo, cut_hi = max(lo, chunk_start), min(hi, position)
-                if cut_lo < cut_hi:
+                if piece:
                     if pending is not None:
                         yield pending
-                    pending = chunk[cut_lo - chunk_start:cut_hi - chunk_start]
+                    pending = piece
         if not self._matches(entry, position, crc, digest.hexdigest() if digest else None):
             raise SourceChanged(entry.name)
         holder["crc"] = crc
