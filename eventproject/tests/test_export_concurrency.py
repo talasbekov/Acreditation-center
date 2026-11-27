@@ -6,7 +6,7 @@
   • Современный delta-путь (`/export_delta/<event>/<request>/`, D1-guard Story 4.3):
     два одновременных POST → ровно один `ExportLog`, каждый attendee `exported`
     ровно один раз, ровно одна audit-строка `export.download`, проигравший
-    получает «нет новых записей».
+    получает 409 «повторите» или «нет новых записей».
   • Легаси-путь `/download_guests_json/` с этапа C только отдаёт внутренние номера
     для сверки и статусы не меняет — гонки там нет, отдельного теста не требуется.
 
@@ -143,13 +143,22 @@ class ModernExportDeltaRaceTests(_ParallelClientsMixin, TransactionTestCase):
             (self._logged_in_client(self.super_user), path),
         ])
 
-        # Оба 200: победитель — ZIP, проигравший — текст «нет новых записей».
-        self.assertEqual([r["status"] for r in results.values()], [200, 200])
+        # Победитель — ZIP. Пакеты этапа C собирают архив до блокировки и
+        # перепроверяют состав под select_for_update, поэтому проигравший получает
+        # либо 409 «Состав выгрузки изменился» (вошёл до коммита победителя),
+        # либо 200 «нет новых записей» (после коммита).
         zips = [r for r in results.values() if r["ctype"] == "application/zip"]
         texts = [r for r in results.values() if r["ctype"].startswith("text/plain")]
         self.assertEqual(len(zips), 1, f"ровно один ZIP-победитель, got: {results}")
+        self.assertEqual(zips[0]["status"], 200)
         self.assertEqual(len(texts), 1)
-        self.assertIn("Нет", texts[0]["body"].decode("utf-8"))
+        loser = texts[0]
+        loser_text = loser["body"].decode("utf-8")
+        if loser["status"] == 409:
+            self.assertIn("Состав выгрузки изменился", loser_text)
+        else:
+            self.assertEqual(loser["status"], 200)
+            self.assertIn("Нет", loser_text)
 
         # Ровно один ExportLog; каждый attendee выгружен ровно один раз.
         self.assertEqual(ExportLog.objects.count(), 1)

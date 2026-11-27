@@ -186,7 +186,9 @@ class DecisionConcurrencyRaceTests(TransactionTestCase):
     def test_parallel_approve_exactly_one_wins(self):
         path = f"/api/v1/attendees/{self.att.id}/approve/"
         codes = self._run_parallel([(path, {}), (path, {})])
-        self.assertEqual(codes, [200, 409])  # один коммит, второй — конфликт
+        # Сведение с ноябрьским lifecycle (отчёт 23): повторное одобрение уже
+        # одобренного — 200 без изменений. Гонку доказывает одна audit-строка.
+        self.assertEqual(codes, [200, 200])
         self.att.refresh_from_db()
         self.assertEqual(self.att.status, "ready")
         self.assertEqual(
@@ -199,7 +201,8 @@ class DecisionConcurrencyRaceTests(TransactionTestCase):
         codes = self._run_parallel([(path, {"reason": REASON}), (path, {"reason": REASON})])
         self.assertEqual(codes, [200, 409])
         self.att.refresh_from_db()
-        self.assertEqual(self.att.status, "submitted")
+        # Сведение (отчёт 23): возврат переводит участника в черновик.
+        self.assertEqual(self.att.status, "draft")
         self.assertEqual(self.att.return_count, 1)  # не lost-update (не 2 успеха)
         self.assertEqual(
             AuditLog.objects.filter(action="attendee.returned", obj_id=str(self.att.id)).count(),
@@ -213,7 +216,7 @@ class DecisionConcurrencyRaceTests(TransactionTestCase):
         ])
         self.assertEqual(codes, [200, 409])  # ровно одно решение проходит
         self.att.refresh_from_db()
-        self.assertIn(self.att.status, ("ready", "submitted"))
+        self.assertIn(self.att.status, ("ready", "draft"))
         total = (
             AuditLog.objects.filter(obj_id=str(self.att.id))
             .filter(action__in=["attendee.approved", "attendee.returned"])
