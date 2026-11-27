@@ -89,6 +89,7 @@ release ps
 | приложение (`Dockerfile`, коммит `996ef94`) | `sha256:cae385d39d27eabf434752317c1247a30ed4651cbba20e59ba4cd9f8320790c1` |
 | PostgreSQL (`release/postgres`) | `sha256:3f5387070f27b5206e138cb70e5e4584bd39862decea2a9fa70fc98271b54287` |
 | nginx + SPA (`frontend/Dockerfile.release`) | `sha256:42f226d7acdd0ae2b27dfddaf364626ae6a858a196602481d40ff2ccfdbcfea8` |
+| nginx + SPA, новый базовый `nginx:stable-alpine@sha256:8eb04fe3…` (nginx 1.30.8, Alpine 3.24.4) | `sha256:767aad711a672fcbe9fe066460b07fd1bc4653a5cd0e5035fed71ce92b32157d` — Trivy 0.76.2: 0 находок; заменяет строку выше |
 
 Собирать без кэша (`docker build --no-cache`): иначе слой с `apt-get upgrade` / `apk upgrade` берётся из кэша и исправления не попадают в образ.
 
