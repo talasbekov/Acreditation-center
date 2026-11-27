@@ -5,8 +5,8 @@ import { DocumentUpload } from './DocumentUpload'
 describe('DocumentUpload (Story 5.3)', () => {
   it('AC-1: метка «ФОТО ДОКУМЕНТА», accept включает PDF', () => {
     render(<DocumentUpload file={null} onFileChange={() => {}} />)
-    expect(screen.getByText('ФОТО ДОКУМЕНТА')).toBeInTheDocument()
-    const input = screen.getByLabelText(/ФОТО ДОКУМЕНТА/) as HTMLInputElement
+    expect(screen.getByText('Скан документа')).toBeInTheDocument()
+    const input = screen.getByLabelText(/Скан документа/) as HTMLInputElement
     expect(input.accept).toContain('application/pdf')
   })
 

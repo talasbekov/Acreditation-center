@@ -2,7 +2,7 @@
 // Мультиязычность (kz/en операторские кабинеты) + крайние случаи QR-модуля.
 // Профиль: eventproject.settings_e2e + e2e/seed.py.
 const { test, expect } = require('@playwright/test');
-const { OPERATOR, VALID_IIN, INVALID_IIN, login } = require('./helpers');
+const { OPERATOR, login } = require('./helpers');
 
 test.describe('Мультиязычность: кабинет оператора', () => {
   test('логин через казахскую форму /kz/ ведёт в /kz/application/', async ({ page }) => {
@@ -15,7 +15,7 @@ test.describe('Мультиязычность: кабинет оператора
     ]);
     await expect(page).toHaveURL(/\/kz\/application\//);
     await expect(page.locator('body')).toContainText('E2E Іс-шара'); // name_kaz
-    await expect(page.locator('a[href^="/kz/create/"]')).toBeVisible();
+    await expect(page.locator('form[action^="/kz/create/"] button')).toBeVisible();
   });
 
   test('казахский кабинет: казахский UI и событие', async ({ page }) => {
@@ -32,7 +32,7 @@ test.describe('Мультиязычность: кабинет оператора
     await expect(page.locator('body')).toContainText('Welcome');
     await expect(page.locator('a[href="/en/logout/"]')).toContainText('Sign out');
     await expect(page.locator('body')).toContainText('E2E Event'); // name_eng
-    await expect(page.locator('a[href^="/en/create/"]')).toBeVisible();
+    await expect(page.locator('form[action^="/en/create/"] button')).toBeVisible();
   });
 });
 
@@ -43,34 +43,19 @@ test.describe('QR-модуль: доступ и валидация', () => {
     expect(res.headers()['location']).toContain('user_login');
   });
 
-  test('авторизованный: валидный ИИН → страница успеха с QR-кодом', async ({ page }) => {
+  test('выдача приостановлена, форма персональных данных отсутствует', async ({ page }) => {
     await login(page, OPERATOR);
-    await page.goto('/qr/');
-    await page.fill('input[name="iin"]', VALID_IIN);
-    await Promise.all([
-      page.waitForNavigation(),
-      page.click('#submitBtn, button[type="submit"]'),
-    ]);
-    await expect(page).toHaveURL(/\/qr\/success\/\d+/);
-    await expect(page.locator('img.qr-code-image')).toBeVisible();
-    await expect(page.locator('body')).toContainText('ИИН');
+    const res = await page.goto('/qr/');
+    expect(res.status()).toBe(503);
+    await expect(page.getByRole('heading', { name: /Выдача QR-кодов временно приостановлена/ })).toBeVisible();
+    await expect(page.locator('input[name="iin"], img.qr-code-image')).toHaveCount(0);
   });
 
-  test('невалидная контрольная цифра (12 цифр) не проходит', async ({ page }) => {
+  test('страница исторического кода недоступна', async ({ page }) => {
     await login(page, OPERATOR);
-    await page.goto('/qr/');
-    await page.fill('input[name="iin"]', INVALID_IIN);
-    await page.click('#submitBtn, button[type="submit"]');
-    // остаёмся на форме /qr/ с ошибкой валидации
-    await expect(page).toHaveURL(/\/qr\/?$/);
-    await expect(page.locator('body')).toContainText(/контрольн|Исправьте ошибки/i);
-  });
-
-  test('короткий ИИН (не 12 цифр) не проходит', async ({ page }) => {
-    await login(page, OPERATOR);
-    await page.goto('/qr/');
-    await page.fill('input[name="iin"]', '123');
-    await page.click('#submitBtn, button[type="submit"]');
-    await expect(page).toHaveURL(/\/qr\/?$/);
+    const res = await page.goto('/qr/success/1/');
+    expect(res.status()).toBe(404);
+    await expect(page.getByRole('heading', { name: 'QR-код недоступен' })).toBeVisible();
+    await expect(page.locator('img.qr-code-image')).toHaveCount(0);
   });
 });

@@ -14,7 +14,7 @@ from django.test.utils import override_settings
 from django.utils import timezone
 
 from eventproject.models import Attendee, Event, Operator, Request
-from eventproject.views import check_dublicate
+from eventproject.services import intake
 
 
 class EncryptionConfigurationTests(SimpleTestCase):
@@ -128,7 +128,7 @@ class EncryptionModelTests(TestCase):
             stickId="CAT",
         )
 
-        self.assertTrue(check_dublicate(candidate, self.request))
+        self.assertEqual(intake.duplicate_of(candidate, self.request.event_id), "iin")
 
 
 class EncryptionMigrationTests(TransactionTestCase):

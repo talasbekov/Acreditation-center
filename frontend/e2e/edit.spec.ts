@@ -16,8 +16,8 @@ test.describe('Редактирование участника (Story 5.5 + P2-2
     await expect(page.locator('#request')).not.toBeEditable()
 
     // P2-7: показаны уже загруженные фото и документ.
-    await expect(page.getByAltText(/Текущее: ФОТО УЧАСТНИКА/i)).toBeVisible()
-    await expect(page.getByAltText(/Текущее: ФОТО ДОКУМЕНТА/i)).toBeVisible()
+    await expect(page.getByAltText(/Текущее: Фото участника/i)).toBeVisible()
+    await expect(page.getByAltText(/Текущее: Скан документа/i)).toBeVisible()
   })
 
   test('read-only баннер при статусе ready', async ({ page }) => {

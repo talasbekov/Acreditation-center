@@ -1,10 +1,6 @@
-"""H4: экспортные эндпоинты — POST+CSRF, атомарная смена статуса, аудит.
+"""Внутренняя сверка идентификаторов доступна администратору по POST.
 
-Покрывает поведение, добавленное при усилении download_*_json:
-  * мутация статуса (Sent -> Exported) допустима только по POST;
-  * GET суперпользователя -> 405 (require_POST);
-  * аноним -> редирект на логин и статус НЕ меняется;
-  * успешный POST возвращает JSON и атомарно помечает заявки Exported.
+Заявки остаются в очереди на официальную выгрузку.
 """
 from datetime import date, timedelta
 
@@ -61,18 +57,18 @@ class ExportViewsH4Tests(TestCase):
         self.req.refresh_from_db()
         self.assertEqual(self.req.status, "Sent")
 
-    def test_post_exports_and_marks_exported(self):
-        """POST суперпользователя: 200, JSON с участником, статус -> Exported."""
+    def test_post_reconciles_ids_and_preserves_sent(self):
+        """Сверка возвращает технические идентификаторы и сохраняет статус Sent."""
         self.client.force_login(self.superuser)
         resp = self.client.post(f"/download_guests_json/{self.event.id}/")
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp["Content-Type"], "application/json")
-        self.assertIn("Иванов", resp.content.decode("utf-8"))
+        self.assertEqual(resp.json()["attendees"], [{"id": Attendee.objects.get(request=self.req).pk, "request": self.req.pk}])
         self.req.refresh_from_db()
-        self.assertEqual(self.req.status, "Exported")
+        self.assertEqual(self.req.status, "Sent")
 
     def test_download_request_json_post(self):
-        """Поштучный экспорт заявки также POST-only и помечает Exported."""
+        """Сверка одной заявки также сохраняет статус Sent."""
         self.client.force_login(self.superuser)
         get_resp = self.client.get(f"/download_request_json/{self.req.id}/")
         self.assertEqual(get_resp.status_code, 405)
@@ -80,4 +76,4 @@ class ExportViewsH4Tests(TestCase):
         resp = self.client.post(f"/download_request_json/{self.req.id}/")
         self.assertEqual(resp.status_code, 200)
         self.req.refresh_from_db()
-        self.assertEqual(self.req.status, "Exported")
+        self.assertEqual(self.req.status, "Sent")

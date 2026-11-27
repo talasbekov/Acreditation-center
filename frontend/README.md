@@ -8,7 +8,7 @@ React-фронтенд системы аккредитации (Increment 2). П
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm run dev        # http://localhost:5173 (dev-сервер с прокси на Django :8000)
 npm run build      # production-сборка → dist/
 npm run test       # Vitest (unit-тесты)

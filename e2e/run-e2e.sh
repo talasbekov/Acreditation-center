@@ -12,6 +12,9 @@ cd "$PROJECT_ROOT"
 
 PY="${PYTHON:-$PROJECT_ROOT/.venv/bin/python}"
 export DJANGO_SETTINGS_MODULE=eventproject.settings_e2e
+# Письма с одноразовыми ссылками остаются в памяти тестового процесса.
+export EMAIL_BACKEND=django.core.mail.backends.locmem.EmailBackend
+export OPERATOR_PUBLIC_ORIGIN=https://operator.example.test
 
 echo "==> Сброс e2e.sqlite3"
 rm -f "$PROJECT_ROOT/e2e.sqlite3"

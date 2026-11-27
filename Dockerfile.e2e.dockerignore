@@ -1,44 +1,65 @@
-# Контекст для Dockerfile.e2e (BuildKit берёт этот файл вместо корневого .dockerignore).
-# В отличие от основного .dockerignore — папка e2e/ ВКЛЮЧЕНА (это и есть тесты).
+# Release input allowlist. Storage, logs, exports and editor copies stay outside the build.
+**
+!manage.py
+!requirements.txt
+!eventproject/**/*.py
+eventproject/**/tests/**
+eventproject/**/test*.py
+!en_event/**/*.py
+en_event/**/tests/**
+en_event/**/test*.py
+!kz_event/**/*.py
+kz_event/**/tests/**
+kz_event/**/test*.py
+!directories/**/*.py
+directories/**/tests/**
+directories/**/test*.py
+!qr_event/**/*.py
+qr_event/**/tests/**
+qr_event/**/test*.py
+!templates/**/*.html
+!static/css/bootstrap.min.css
+!static/css/event.css
+!static/css/gov.css
+!static/css/gov2.css
+!static/css/gov3.css
+!static/css/style.css
+!static/docs/instructions.pdf
+!static/docs/instructions2.pdf
+!static/docs/instructions_eng.pdf
+!static/docs/instructions_kaz.pdf
+!static/img/75990035312e271b60f34583fee5d878_original.332798.png
+!static/img/favicon_io/android-chrome-192x192.png
+!static/img/favicon_io/android-chrome-512x512.png
+!static/img/favicon_io/apple-touch-icon.png
+!static/img/favicon_io/favicon-16x16.png
+!static/img/favicon_io/favicon-32x32.png
+!static/img/favicon_io/favicon.ico
+!static/img/favicon_io/logo_sgo.png
+!static/img/favicon_io/site.webmanifest
+!static/img/id.png
+!static/img/idgray.png
+!static/img/korzina.jpg
+!static/img/KZ-ID-card-new.jpeg
+!static/img/pencil.png
+!static/img/upload_photo.png
+!static/js/jquery-3.6.0.min.js
+!static/js/main.5d94e38e.js
+!static/js/script.js
+!static/js/clear-attendee-draft.js
+!static/qr_event/logo_sgo.png
+!static/qr_event/script.js
+!static/qr_event/style.css
+!static/Roboto-Bold-webfont.woff
+!static/Roboto-Light-webfont.woff
+!static/Roboto-Regular-webfont.woff
 
-# VCS / venv / кэши
-.git
-.gitignore
-.venv/
-__pycache__/
-*.pyc
-*.pyo
-
-# node_modules ставятся через npm ci в образе — не тащим хостовые
-e2e/node_modules/
-e2e/test-results/
-e2e/playwright-report/
-
-# Секреты — не должны попадать в слои образа
-.env
-.env.*
-!.env.example
-
-# Локальные БД / дампы / runtime-данные
-*.sqlite3
-db_backup.sql
-*.sql
-postgres_data/
-media/
-test_media/
-logs/
-
-# PII-экспорты ops-скриптов
-sessions*.csv
-sessions_with_ip.csv
-
-# Tooling / agent scratch
-.idea/
-.vscode/
-.DS_Store
-.claude/
-.claude-flow/
-.swarm/
-.agents/
-_bmad/
-_bmad-output/
+# Additional inputs explicitly required by the synthetic browser suite.
+!e2e/package.json
+!e2e/package-lock.json
+!e2e/playwright.config.js
+!e2e/seed.py
+!e2e/run-e2e.sh
+!e2e/tests/*.js
+!e2e/fixtures/doc.png
+!e2e/fixtures/photo.png

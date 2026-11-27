@@ -100,18 +100,53 @@
 
 **Шифрование ИИН**: поле `iin` — `EncryptedCharField` (django-fernet-fields). Прямой фильтр `Attendee.objects.filter(iin=...)` невозможен (FieldError); проверка дубликатов выполняется в памяти через `validators/iin.py::event_has_iin_duplicate()`. Ключи — `FERNET_KEYS` из окружения.
 
-### ExportLog — журнал delta-экспортов
+### ExportLog — пакеты delta-экспорта
 
 | Поле | Тип | Ограничения |
 |------|-----|-------------|
+| `package_id` | UUIDField | unique, неизменяемый идентификатор пакета (0027) |
 | `event` | FK → Event | CASCADE |
 | `category` | FK → Request | null, SET_NULL (null = весь event) |
-| `exported_before` | DateTimeField | граница delta: `dateAdd > exported_before` = новые |
+| `exported_before` | DateTimeField | момент формирования пакета; метка времени элементов ZIP |
 | `user` | FK → User | null, SET_NULL (null = системная задача) |
 | `attendee_count` | IntegerField | количество участников в экспорте |
+| `attendee_ids` | JSONField | null; упорядоченный состав пакета. null — пакет до 0027, повторная выдача недоступна |
+| `manifest` | JSONField | null; `{имя в ZIP: SHA-256}` каждого элемента архива |
+| `archive_name`, `archive_sha256` | CharField | имя файла и SHA-256 выданного архива |
+| `acknowledged_at`, `acknowledged_by` | DateTimeField, FK → User | null; подтверждение приёма получателем |
 | `created_at` | DateTimeField | auto_now_add, null |
 
-Delta-фильтр: `Attendee.objects.filter(dateAdd__gt=last_export.exported_before, request__event=event)`.
+Состав следующего пакета — все участники категории со статусом `ready`
+(`services/export.py::select_ready_attendees`). Дата добавления не учитывается:
+карточка, одобренная позже предыдущей выгрузки, попадает в следующую. Повтор
+исключён терминальным переходом `ready → exported` в той же транзакции.
+Архив с ПД на сервере не хранится: повторная выдача собирает его заново и
+отказывает (409), если содержимое расходится с `manifest`.
+
+### PartnerReceipt — квитанция приёма анкеты партнёра (0029)
+
+| Поле | Тип | Ограничения |
+|------|-----|-------------|
+| `source` | CharField(32) | `kazenergy` / `avalon` |
+| `event` | FK → Event | CASCADE |
+| `external_id` | CharField(128) | идентификатор анкеты у партнёра |
+| `attendee` | FK → Attendee | null, SET_NULL; созданный участник |
+| `outcome` | CharField(16) | `accepted` / `duplicate` / `rejected` |
+| `ack_payload` | JSONField | тело подтверждения партнёру; повторяется без изменений |
+| `ack_attempts`, `last_ack_status`, `acked_at` | int / int / DateTime | доставка подтверждения; `0` — сбой сети |
+| `received_at` | DateTimeField | auto_now_add |
+
+Уникальность `(source, event, external_id)`: повторно присланная анкета не
+создаёт второго участника, партнёру уходит сохранённое подтверждение. ПД в
+квитанции не хранятся (`services/partner_import.py`).
+
+### Правило дублей участника (этап C)
+
+Единое для HTML RU/KZ/EN, API и импорта — `services/intake.find_duplicate`, в
+пределах мероприятия: резидент РК — тот же ИИН; нерезидент — то же гражданство,
+тип, серия и номер документа без учёта регистра, пробелов и дефисов.
+Проверка и запись выполняются под блокировкой строки мероприятия
+(`SELECT … FOR UPDATE`).
 
 ---
 
@@ -155,6 +190,10 @@ Delta-фильтр: `Attendee.objects.filter(dateAdd__gt=last_export.exported_be
 | 0007–0008 | расширение max_length (post→500, visitObjects→1024, docIssue→255); docNumber/iin/patronymic стали nullable |
 | **0009–0010** | **Шифрование ИИН**: 0009 добавляет `iin_encrypted` и батчево шифрует существующие данные (транзакционно, с обратимым откатом); 0010 удаляет plaintext `iin` и переименовывает. Требует `FERNET_KEYS`, иначе ImproperlyConfigured. Откат: `migrate eventproject 0008` |
 | 0011 | ExportLog (delta-экспорт, Epic 4) |
+| 0027 | ExportLog: `package_id`, состав, манифест, подтверждение получателя (этап C). Существующим записям выдаётся собственный `package_id`; откат — `migrate eventproject 0026` |
+| 0028 | Attendee: `review_comment`, `reviewed_at`, `reviewed_by` — последнее решение проверяющего (этап C). Откат — `migrate eventproject 0027` |
+| 0029 | PartnerReceipt — квитанции импорта партнёров (этап C). Откат — `migrate eventproject 0028` |
+| 0030 | Индекс `attendee_dateadd_idx` по `Attendee.dateAdd` (убыв.) — сортировка списка участников API (P2). Откат — `migrate eventproject 0029`, данные не затрагивает |
 | 0012 | Operator.role (RBAC) |
 | 0013–0015 | Story 2.2: Event.title/description/start_date/end_date/created_by, модель Category, Attendee.category; legacy-поля Event сделаны nullable |
 | qr_event 0002 | QrIin.qr_code |

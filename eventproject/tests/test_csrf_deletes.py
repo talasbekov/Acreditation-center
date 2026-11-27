@@ -31,6 +31,7 @@ class DeleteEndpointsPostOnlyTests(TestCase):
             event_code="DEL01", date_start=date.today(),
             date_end=date.today() + timedelta(days=3), city_code="ALA",
         )
+        self.operator.events.add(self.event)
         self.req = Request.objects.create(
             name="Заявка", event=self.event, status="Active",
             created_by=self.operator, registration_time=timezone.now(),

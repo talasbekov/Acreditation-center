@@ -1,6 +1,6 @@
 services:
   db:
-    image: postgres:15-alpine
+    image: postgres:15-alpine@sha256:e18480a22d6e48f4d816a6696769b1ec09ac73a824c5649e49c7d8b684913f3d
     container_name: accr-db
     restart: unless-stopped
     ports:
@@ -8,7 +8,7 @@ services:
     environment:
       - POSTGRES_DB=eventdb
       - POSTGRES_USER=event
-      - POSTGRES_PASSWORD=aktobe
+      - POSTGRES_PASSWORD=${DB_PASSWORD:?Set DB_PASSWORD}
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -18,13 +18,16 @@ services:
       retries: 5
 
   accreditation-center:
-    build: .
+    build:
+      context: .
+      args:
+        INSTALL_DEV_CLIENTS: "1"
     image: accr-django:latest
     container_name: accr-django
     restart: unless-stopped
     platform: linux/amd64
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
       - ./:/app
       - ./media:/app/media
@@ -82,7 +85,7 @@ services:
     container_name: accr-frontend
     restart: unless-stopped
     ports:
-      - "5173:5173"
+      - "127.0.0.1:5173:5173"
     environment:
       # Vite-proxy /api,/user_login → Django по имени сервиса (внутри compose-сети).
       - VITE_BACKEND=http://accreditation-center:8000

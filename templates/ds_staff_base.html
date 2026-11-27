@@ -1,0 +1,25 @@
+{% load static %}<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}{% endblock %} — {{ event.name_rus|default:event.title|default:event.event_code }}</title>
+    <link rel="stylesheet" href="{% static 'css/ds.css' %}?v=20261126">
+</head>
+{# Этап D: страницы проверяющего на утверждённом эталоне (отчёты 17–19). #}
+<body class="ds">
+    <a class="ds-skip" href="#content">К содержанию</a>
+    <header class="ds-top">
+        <div class="ds-top-inner">
+            <span class="ds-brand">Аккредитационный центр</span>
+            <nav class="ds-nav" aria-label="Разделы проверки">
+                <a href="{% url 'review_queue' event.id %}"{% if section == "review" %} aria-current="page"{% endif %}>Очередь проверки</a>
+                <a href="{% url 'superoperator_dashboard' event.id %}"{% if section == "dashboard" %} aria-current="page"{% endif %}>Дашборд и выгрузка</a>
+            </nav>
+        </div>
+    </header>
+    <main id="content" class="ds-main" tabindex="-1">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

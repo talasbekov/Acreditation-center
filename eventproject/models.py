@@ -1,3 +1,5 @@
+import uuid
+
 from django.utils import timezone
 from django.conf import settings
 
@@ -116,12 +118,20 @@ def _user_role(self):
     if self.is_superuser:
         return "superuser"
     try:
-        return self.operator.role
+        role = self.operator.role
+        return role if role in ("operator", "superoperator") else "user"
     except Operator.DoesNotExist:
         return "user"
 
 
 User.role = property(_user_role)
+
+
+class UserSessionGeneration(models.Model):
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, primary_key=True, related_name="session_generation",
+    )
+    generation = models.PositiveBigIntegerField(default=1)
 
 
 class OperatorAccessEvent(models.Model):
@@ -244,6 +254,17 @@ class Attendee(models.Model):
         choices=ATTENDEE_STATUS_CHOICES,
         default=AttendeeStatus.DRAFT,
     )
+    # Этап C: последнее решение проверяющего. Причина возврата видна оператору до
+    # повторной отправки; полная история — в audit_log.
+    review_comment = models.TextField(blank=True, default="")
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(
+        User,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+    )
 
     class Meta:
         # BE-9: статус ограничен FSM-набором и на уровне БД — прямой
@@ -253,6 +274,12 @@ class Attendee(models.Model):
                 check=models.Q(status__in=list(ATTENDEE_STATUSES)),
                 name="attendee_status_valid",
             ),
+        ]
+        # P2: список участников в API сортируется по дате добавления и выдаётся
+        # страницами. Без индекса PostgreSQL сортирует все строки доступных
+        # мероприятий (150 тыс. — ~77 мс на страницу), с индексом — читает первые 50.
+        indexes = [
+            models.Index(fields=["-dateAdd"], name="attendee_dateadd_idx"),
         ]
 
     def save(self, *args, **kwargs):
@@ -270,13 +297,18 @@ class Attendee(models.Model):
 
 class ExportLog(models.Model):
     """
-    Отслеживает историю delta-экспортов для Epic 4.
+    Пакет delta-экспорта (Epic 4, этап C).
 
-    Delta-фильтр для следующего экспорта:
-        Attendee.objects.filter(dateAdd__gt=last_export.exported_before,
-                                request__event=export_log.event)
+    Состав следующего пакета определяется фактом готовности, а не датой
+    добавления: в него входят все участники категории со статусом `ready`.
+    Переход ready → exported терминальный и выполняется в той же транзакции,
+    что и создание записи, поэтому участник попадает ровно в один пакет, в том
+    числе если его одобрили позже предыдущей выгрузки.
 
-    ВАЖНО: поле участника называется Attendee.dateAdd, а НЕ created_at.
+    Пакет неизменяем: `package_id`, упорядоченный `attendee_ids` и `manifest`
+    (SHA-256 каждого элемента ZIP) позволяют выдать тот же архив повторно и
+    отказать, если исходные данные с тех пор изменились. Сам ZIP с ПД на сервере
+    не хранится. Подтверждение получателя фиксируется отдельно.
     """
     event = models.ForeignKey(
         Event,
@@ -290,10 +322,16 @@ class ExportLog(models.Model):
         on_delete=models.SET_NULL,
         help_text="Категория участников (Request) внутри мероприятия; null = весь event",
     )
-    # Граница delta для экспорта. Используется как:
-    # Attendee.objects.filter(dateAdd__gt=exported_before)
+    package_id = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+        help_text="Неизменяемый идентификатор пакета выгрузки",
+    )
+    # Момент формирования пакета. Также служит меткой времени элементов ZIP,
+    # чтобы повторная выдача давала побайтно тот же архив.
     exported_before = models.DateTimeField(
-        help_text="Граница delta: участники с dateAdd > этого значения считаются новыми",
+        help_text="Момент формирования пакета",
     )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -305,8 +343,81 @@ class ExportLog(models.Model):
     attendee_count = models.IntegerField(
         help_text="Количество участников, включённых в данный экспорт",
     )
+    # null у пакетов, сформированных до миграции 0027: их состав не записывался,
+    # повторная выдача для них недоступна.
+    attendee_ids = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Упорядоченный список ID участников пакета",
+    )
+    manifest = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="SHA-256 каждого элемента архива: {имя в ZIP: hex}",
+    )
+    archive_name = models.CharField(max_length=255, blank=True, default="")
+    archive_sha256 = models.CharField(max_length=64, blank=True, default="")
+    acknowledged_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Когда получатель подтвердил приём пакета",
+    )
+    acknowledged_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="+",
+        help_text="Кто отметил подтверждение получателя",
+    )
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+
+    @property
+    def can_redownload(self):
+        return self.attendee_ids is not None and bool(self.manifest)
 
     def __str__(self):
         cat = f" / {self.category.name}" if self.category else ""
         return f"ExportLog {self.event}{cat} @ {self.exported_before}"
+
+
+class PartnerReceipt(models.Model):
+    """Квитанция приёма одной анкеты партнёра (этап C).
+
+    Одна строка на (источник, мероприятие, идентификатор анкеты у партнёра).
+    Повторно присланная анкета не создаёт второго участника: партнёру повторно
+    уходит сохранённое подтверждение. ПД здесь не хранятся — только исход,
+    тело подтверждения (коды и причины без значений полей) и его доставка.
+    """
+
+    ACCEPTED = "accepted"
+    DUPLICATE = "duplicate"
+    REJECTED = "rejected"
+    OUTCOMES = [
+        (ACCEPTED, "Принята"),
+        (DUPLICATE, "Дубль"),
+        (REJECTED, "Отклонена"),
+    ]
+
+    source = models.CharField(max_length=32)
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="+")
+    external_id = models.CharField(max_length=128)
+    attendee = models.ForeignKey(
+        Attendee, null=True, blank=True, on_delete=models.SET_NULL, related_name="+",
+    )
+    outcome = models.CharField(max_length=16, choices=OUTCOMES)
+    ack_payload = models.JSONField(help_text="Тело подтверждения партнёру; повторяется при повторной анкете")
+    received_at = models.DateTimeField(auto_now_add=True)
+    ack_attempts = models.PositiveIntegerField(default=0)
+    acked_at = models.DateTimeField(null=True, blank=True, help_text="Когда партнёр принял подтверждение")
+    last_ack_status = models.IntegerField(null=True, blank=True, help_text="HTTP-статус последней попытки; 0 — сбой сети")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["source", "event", "external_id"], name="partner_receipt_unique",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.source}:{self.external_id} → {self.outcome}"

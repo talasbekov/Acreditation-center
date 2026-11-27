@@ -1,61 +1,42 @@
 <!DOCTYPE html>
-{% load static %}
-<html lang="en">
+{% load static ui_tags %}
+<html lang="{% if lang == 'kz' %}kk{% else %}{{ lang|default:'ru' }}{% endif %}">
 <head>
     <meta charset="UTF-8">
-    <title>Аккредитационный центр</title>
-    <link rel="stylesheet" type="text/css" href="{% static 'css/event.css' %}">
-    <link rel="stylesheet" type="text/css" href="{% static 'css/gov.css' %}">
-    <link rel="stylesheet" type="text/css" href="{% static 'css/gov2.css' %}">
-    <link rel="stylesheet" type="text/css" href="{% static 'css/gov3.css' %}">
-    <link rel="stylesheet" type="text/css" href="{% static 'css/bootstrap.min.css' %}" crossorigin="anonymous">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% t "Аккредитационный центр" %}</title>
+    <link rel="stylesheet" type="text/css" href="{% static 'css/bootstrap.min.css' %}">
+    <link rel="stylesheet" type="text/css" href="{% static 'css/ds.css' %}?v=20261126">
     <link rel="icon" type="image/x-icon" href="{% static 'img/favicon_io/favicon.ico' %}">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
-          integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
-    <script type="text/javascript" src="{% static 'js/jquery-3.6.0.min.js' %}"></script>
-    <script type="text/javascript" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
 </head>
-<body>
-<div data-tip="true" class=" ministry-header-top-wrap  ">
-    <div class="container flex-column flex-sm-row align-items-sm-center ministry-header-top">
-        <div class="row justify-content-between align-items-center">
-            <div class="col-lg-6">
-                <div class="d-flex "><a data-tip="true"
-                                        class=" button button--flat button--flatter button--transition p-0 ministry-header-top__logo "
-                                        title="" tabindex="-1" href="/application/"><img
-                        src="{% static 'img/75990035312e271b60f34583fee5d878_original.332798.png' %}"
-                        alt="Служба государственной охраны РК" data-tip="true"
-                        class="ministry-header-top__logo-img image  " title="Служба государственной охраны РК"
-                        tabindex="-1"></a><a data-tip="true"
-                                             class=" button button--flat button--flatter button--transition p-0 ministry-header-top__title "
-                                             title="" tabindex="-1" href="/application/"><h2
-                        class="color_white typography typography__variant-h2  " data-tip="true">Аккредитационный центр<br> Службы государственной
-                    охраны Республики Казахстан</h2></a>
-                    <div class="d-flex d-lg-none ml-auto">
-                        <div class="hamburger d-flex">
-                            <button data-tip="true"
-                                    class="hamburger__btn button button--flat button--flatter button--transition  "
-                                    type="button"><i class="fas fa-bars"></i></button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-5 ministry-header-top__links d-none d-lg-block"></div>
-            <div class="col-md-1 ministry-header-top__links d-none d-lg-block">
-                <div class="navbar__links mt-4">
-
-                    <a class="color_grey" href="/kz/application/">KZ</a>&#160;
-                    <a class="color_white" href="/application/"><b>RU</b></a>&#160;
-                    <a class="color_grey" href="/en/application/">EN</a>
-                </div>
-            </div>
+{# Этап D: страницы оператора на утверждённом эталоне (отчёт 20). #}
+<body class="ds">
+<a class="ds-skip" href="#content">{% t "К содержанию" %}</a>
+<header class="ds-top">
+    <div class="ds-top-inner">
+        <a class="ds-brand-link" href="{{ lp }}/application/">
+            <img src="{% static 'img/75990035312e271b60f34583fee5d878_original.332798.png' %}" alt="{% t 'Служба государственной охраны РК' %}">
+            <span class="ds-brand-text">{% t "Аккредитационный центр Службы государственной охраны Республики Казахстан" %}</span>
+        </a>
+        <div class="ds-top-tools">
+            {% if user.is_authenticated %}
+            <nav class="ds-nav" aria-label="{% t 'Меню' %}">
+                <a href="{{ lp }}/application/">{% t "На главную" %}</a>
+                <a href="{{ lp }}/change_password/">{% t "Изменить пароль" %}</a>
+                <a href="{{ lp }}/logout/">{% t "Выйти" %}</a>
+            </nav>
+            {% endif %}
+            {# Переключатель языка виден на любой ширине и ведёт на эту же страницу. #}
+            <nav class="ds-lang" aria-label="{% t 'Язык' %}">
+                {% if lang == "kz" %}<a href="{{ lang_paths.kz }}" lang="kk" aria-current="true"><b>KZ</b></a>{% else %}<a href="{{ lang_paths.kz }}" lang="kk">KZ</a>{% endif %}
+                {% if lang == "ru" or not lang %}<a href="{{ lang_paths.ru }}" lang="ru" aria-current="true"><b>RU</b></a>{% else %}<a href="{{ lang_paths.ru }}" lang="ru">RU</a>{% endif %}
+                {% if lang == "en" %}<a href="{{ lang_paths.en }}" lang="en" aria-current="true"><b>EN</b></a>{% else %}<a href="{{ lang_paths.en }}" lang="en">EN</a>{% endif %}
+            </nav>
         </div>
     </div>
-</div>
+</header>
+<main id="content" class="ds-main" tabindex="-1">
 {% block body_block %}{% endblock %}
-<!--<script type="text/javascript" src="{% static 'js/main.5d94e38e.js' %}"></script>-->
-<script src="{% static 'js/jquery-3.6.0.min.js' %}"></script>
-
+</main>
 </body>
 </html>

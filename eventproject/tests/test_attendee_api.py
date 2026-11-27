@@ -258,8 +258,13 @@ class AttendeeRbacListTests(AttendeeApiBase):
 
 
 class AttendeeSubmitTests(AttendeeApiBase):
-    @patch("eventproject.views.attendee_api.audit_log")
+    def _complete(self):
+        # Этап C: для отправки нужны фото и скан документа.
+        Attendee.objects.filter(pk=self.attendee1.pk).update(photo="p.jpg", docScan="d.jpg")
+
+    @patch("eventproject.services.lifecycle.audit_log")
     def test_submit_draft_to_submitted(self, mock_audit):
+        self._complete()
         resp = self.client.post(f"/api/v1/attendees/{self.attendee1.id}/submit/")
         self.assertEqual(resp.status_code, 200)
         self.attendee1.refresh_from_db()
@@ -267,11 +272,28 @@ class AttendeeSubmitTests(AttendeeApiBase):
         actions = [c.kwargs.get("action") for c in mock_audit.call_args_list]
         self.assertIn("attendee.status_change", actions)
 
-    def test_submit_invalid_transition_rejected(self):
-        self.attendee1.status = "submitted"
-        self.attendee1.save(update_fields=["status"])
+    def test_submit_without_files_is_rejected(self):
         resp = self.client.post(f"/api/v1/attendees/{self.attendee1.id}/submit/")
         self.assertEqual(resp.status_code, 400)
+        detail = resp.json()["detail"]
+        # Этап C: недостающее перечислено словами (текст показывает SPA).
+        self.assertIn("нет фото", detail)
+        self.assertIn("нет скана документа", detail)
+        self.attendee1.refresh_from_db()
+        self.assertEqual(self.attendee1.status, "draft")
+
+    def test_repeated_submit_returns_current_state(self):
+        self._complete()
+        self.client.post(f"/api/v1/attendees/{self.attendee1.id}/submit/")
+        resp = self.client.post(f"/api/v1/attendees/{self.attendee1.id}/submit/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()["status"], "submitted")
+
+    def test_submit_invalid_transition_rejected(self):
+        self.attendee1.status = "ready"
+        self.attendee1.save(update_fields=["status"])
+        resp = self.client.post(f"/api/v1/attendees/{self.attendee1.id}/submit/")
+        self.assertEqual(resp.status_code, 409)
 
 
 class AttendeePermissionTests(AttendeeApiBase):
@@ -583,6 +605,29 @@ class AttendeeSearchListTests(AttendeeApiBase):
         self.assertTrue(row["iin_masked"].startswith("********"))
         self.assertTrue(row["iin_masked"].endswith(VALID_IIN[-4:]))
 
+    def test_list_has_request_and_event_context(self):
+        # Этап D: строка реестра показывает заявку и мероприятие; число запросов
+        # не растёт с числом строк (select_related request__event).
+        from django.db import connection as db
+        from django.test.utils import CaptureQueriesContext
+
+        def list_queries():
+            with CaptureQueriesContext(db) as ctx:
+                resp = self.client.get("/api/v1/attendees/")
+            self.assertEqual(resp.status_code, 200)
+            return resp, len(ctx.captured_queries)
+
+        _, before = list_queries()
+        other_event = Event.objects.create(name_rus="E3", title="Event 3")
+        self.op.events.add(other_event)
+        _make_attendee(_make_request(other_event, self.op), surname="Третий")
+        resp, after = list_queries()
+        self.assertEqual(after, before)
+        row = next(r for r in resp.data["results"] if r["id"] == self.attendee1.id)
+        self.assertEqual(row["request_name"], self.attendee1.request.name)
+        event = self.attendee1.request.event
+        self.assertEqual(row["event_name"], event.name_rus or event.title or "")
+
     def test_detail_has_full_iin(self):
         resp = self.client.get(f"/api/v1/attendees/{self.attendee1.id}/")
         self.assertEqual(resp.status_code, 200)
@@ -655,3 +700,71 @@ class AttendeeEditAtomicityTests(AttendeeApiBase):
         self.assertEqual(resp.status_code, 200)
         actions = [c.kwargs.get("action") for c in mock_audit.call_args_list]
         self.assertNotIn("attendee.iin_discarded", actions)
+
+
+class StageDFormContractTests(AttendeeApiBase):
+    """Этап D: API выровнен с HTML-формой — справочники, необязательные поля, даты."""
+
+    def test_directories_for_operator_only(self):
+        from directories.models import Category as DirCategory, DocumentType, Sex
+
+        Sex.objects.create(sex_code="1", name_rus="Мужской", name_kaz="Ер", name_eng="Male")
+        DocumentType.objects.create(doc_code="1000000002", name_rus="Паспорт", name_kaz="П", name_eng="P")
+        DirCategory.objects.create(category_code="8", index="8", name_rus="Гость", name_kaz="Қ", name_eng="G")
+        resp = self.client.get("/api/v1/directories/")
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data["sexes"], [{"code": "1", "name": "Мужской"}])
+        self.assertEqual(resp.data["document_types"], [{"code": "1000000002", "name": "Паспорт"}])
+        self.assertEqual(resp.data["categories"], [{"code": "8", "name": "Гость"}])
+        self.assertIn({"code": OTHER, "name": "Иномания"}, resp.data["countries"])
+        self.assertEqual(APIClient().get("/api/v1/directories/").status_code, 403)
+
+    def test_series_and_issuer_optional_like_html_form(self):
+        payload = self._payload(docNumber="N1", docBegin="2020-01-01", docEnd="2034-01-01")
+        del payload["docSeries"], payload["docIssue"]
+        resp = self.client.post("/api/v1/attendees/", payload, format="json")
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(resp.data["docSeries"], "")
+        self.assertEqual(resp.data["docIssue"], "")
+
+    def test_category_kept_for_non_resident_dropped_for_resident(self):
+        resp = self.client.post("/api/v1/attendees/", self._payload(countryId=OTHER, iin=None, stickId="8"), format="json")
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(resp.data["stickId"], "8")
+        resp = self.client.post("/api/v1/attendees/", self._payload(stickId="8"), format="json")
+        self.assertEqual(resp.status_code, 201, resp.data)
+        self.assertEqual(resp.data["stickId"], "")
+
+    def test_required_field_message_in_russian(self):
+        payload = self._payload()
+        del payload["post"]
+        resp = self.client.post("/api/v1/attendees/", payload, format="json")
+        self.assertEqual(resp.status_code, 400)
+        self.assertEqual(resp.json()["field"], "post")
+        self.assertIn("Обязательное поле.", resp.json()["detail"])
+
+    def test_document_and_birth_dates_checked_on_create(self):
+        from datetime import timedelta
+
+        tomorrow = (date.today() + timedelta(days=1)).isoformat()
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        cases = {
+            "docBegin": ({"docBegin": tomorrow}, "Дата выдачи документа еще не наступила"),
+            "docEnd": ({"docEnd": yesterday}, "Истек срок документа"),
+            "birthDate": ({"countryId": OTHER, "iin": None, "birthDate": tomorrow}, "Проверьте дату рождения"),
+        }
+        for field, (over, message) in cases.items():
+            with self.subTest(field=field):
+                resp = self.client.post("/api/v1/attendees/", self._payload(**over), format="json")
+                self.assertEqual(resp.status_code, 400, resp.data)
+                self.assertEqual(resp.json()["field"], field)
+                self.assertIn(message, resp.json()["detail"])
+
+    def test_dates_not_rechecked_on_edit(self):
+        # Как правка в HTML: участника с истёкшим документом можно поправить.
+        from datetime import timedelta
+
+        self.attendee1.docEnd = date.today() - timedelta(days=1)
+        self.attendee1.save()
+        resp = self.client.patch(f"/api/v1/attendees/{self.attendee1.id}/", {"post": "Новая"}, format="json")
+        self.assertEqual(resp.status_code, 200, resp.data)

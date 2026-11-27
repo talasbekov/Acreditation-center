@@ -2,7 +2,7 @@
 # E2E-образ: официальный Playwright (Node + Chromium 1.60) + Python для Django.
 # Всё в одном контейнере — приложение поднимается на профиле settings_e2e
 # (SQLite, без Postgres/Redis/Celery), затем прогоняется Playwright.
-FROM mcr.microsoft.com/playwright:v1.60.0-jammy
+FROM mcr.microsoft.com/playwright:v1.60.0-noble
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -21,11 +21,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Python-зависимости приложения (psycopg2-binary/pillow ставятся из wheel)
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 
 # Node-зависимости тестов (браузеры уже установлены в базовом образе той же версии)
 COPY e2e/package.json e2e/package-lock.json ./e2e/
-RUN cd e2e && npm ci
+RUN cd e2e && npm ci --ignore-scripts --no-audit --no-fund
 
 # Исходники проекта (e2e/ включается — см. Dockerfile.e2e.dockerignore)
 COPY . .

@@ -6,7 +6,7 @@
 
 import logging
 
-from django.utils import timezone
+from django.db import transaction
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
@@ -15,7 +15,7 @@ from rest_framework.response import Response
 
 from eventproject.audit import audit_log
 from eventproject.models import Operator
-from eventproject.permissions import IsSuperoperator
+from eventproject.permissions import OperatorRegistryPermission, can_manage_operator_account
 from eventproject.serializers import (
     OperatorCreateSerializer,
     OperatorReadSerializer,
@@ -23,23 +23,21 @@ from eventproject.serializers import (
     OperatorRegistryListSerializer,
 )
 from eventproject.services.access_events import record_access_event
-from eventproject.services.email import send_operator_credentials
-from eventproject.services.operator_onboarding import (
-    create_operator,
-    generate_password,
-)
+from eventproject.services.session_revocation import revoke_user_sessions
+from eventproject.operator_activation import send_operator_link
+from eventproject.services.operator_onboarding import create_operator
 
 logger = logging.getLogger("eventproject")
 
 
-class OperatorViewSet(viewsets.ModelViewSet):
-    """CRUD операторов для Супероператора/Суперпользователя.
+class OperatorViewSet(viewsets.ReadOnlyModelViewSet):
+    """Реестр операторов и явные операции управления доступом.
 
-    create: создаёт User+Operator с авто-генерацией credentials и шлёт email.
-    resend_credentials: пересоздаёт пароль и повторно отправляет письмо.
+    create: создаёт User+Operator и шлёт ссылку для установки пароля.
+    resend_credentials: повторно отправляет ссылку.
     """
 
-    permission_classes = [IsSuperoperator]
+    permission_classes = [OperatorRegistryPermission]
     serializer_class = OperatorReadSerializer
     # Story 2.4 (AC-2): поиск по ФИО/username/email через встроенный DRF SearchFilter
     # (django-filter не установлен — новую зависимость не вводим). `?search=...`.
@@ -58,6 +56,8 @@ class OperatorViewSet(viewsets.ModelViewSet):
             .prefetch_related("events")
             .order_by("user__last_name", "user__first_name", "id")
         )
+        if self.action in ("deactivate", "reactivate"):
+            qs = qs.select_for_update(of=("self", "user"))
         if self.action == "retrieve":
             qs = qs.prefetch_related("access_events__actor")
 
@@ -71,8 +71,8 @@ class OperatorViewSet(viewsets.ModelViewSet):
                 raise ValidationError(
                     {"event_id": "Должно быть целым числом."}
                 )
-            # M2M-фильтр может дублировать строки → distinct().
-            qs = qs.filter(events__id=event_id).distinct()
+            # One event and operator identify a unique assignment in the M2M table.
+            qs = qs.filter(events__id=event_id)
         email_status = self.request.query_params.get("email_status")
         if email_status:
             # Невалидный статус → 400, иначе пустой результат неотличим от «нет совпадений».
@@ -97,7 +97,7 @@ class OperatorViewSet(viewsets.ModelViewSet):
         serializer = OperatorCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        operator, temporary_password = create_operator(serializer.validated_data)
+        operator = create_operator(serializer.validated_data)
 
         # Audit вызывается только из views (Dev Notes).
         audit_log(
@@ -117,17 +117,15 @@ class OperatorViewSet(viewsets.ModelViewSet):
                 ip=request.META.get("REMOTE_ADDR", ""),
             )
         except Exception:
-            logger.exception(
-                "failed to record created access event for operator=%s", operator.id
-            )
+            logger.error("failed to record created access event")
 
-        email_result = self._deliver_credentials(operator, temporary_password)
+        sent = send_operator_link(operator)
 
         body = OperatorReadSerializer(operator).data
-        body["status"] = "email_error" if email_result == "error" else "created"
+        body["status"] = "email_error" if not sent else "created"
         return Response(body, status=status.HTTP_201_CREATED)
 
-    @action(detail=True, methods=["post"], permission_classes=[IsSuperoperator])
+    @action(detail=True, methods=["post"])
     def resend_credentials(self, request, pk=None):
         operator = self.get_object()
         user = operator.user
@@ -138,23 +136,14 @@ class OperatorViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        temporary_password = generate_password()
-
-        # КРИТИЧНО: сначала шлём письмо, и только при успехе ротируем пароль. Иначе
-        # при недоступном SMTP старый (рабочий) пароль был бы уже уничтожен, а новый
-        # не доставлен → оператор полностью заблокирован (review finding).
-        email_result = self._deliver_credentials(operator, temporary_password)
-        if email_result == "error":
+        if not user.is_active:
+            return Response({"detail": "Учётная запись деактивирована."}, status=status.HTTP_400_BAD_REQUEST)
+        sent = send_operator_link(operator)
+        if not sent:
             body = OperatorReadSerializer(operator).data
             body["status"] = "email_error"
             # Ничего не изменено: старый пароль остаётся рабочим. 502 — upstream SMTP.
             return Response(body, status=status.HTTP_502_BAD_GATEWAY)
-
-        # Письмо доставлено → активируем новый пароль и форсируем его смену.
-        user.set_password(temporary_password)
-        user.save(update_fields=["password"])
-        operator.force_password_change = True
-        operator.save(update_fields=["force_password_change"])
 
         audit_log(
             user=request.user,
@@ -168,7 +157,8 @@ class OperatorViewSet(viewsets.ModelViewSet):
         body["status"] = "resent"
         return Response(body, status=status.HTTP_200_OK)
 
-    @action(detail=True, methods=["post"], permission_classes=[IsSuperoperator])
+    @action(detail=True, methods=["post"])
+    @transaction.atomic
     def deactivate(self, request, pk=None):
         """Story 2.4 (AC-4): soft-деактивация оператора (is_active=False)."""
         operator = self.get_object()
@@ -186,15 +176,16 @@ class OperatorViewSet(viewsets.ModelViewSet):
             )
         # P2-1: супероператор не может деактивировать другого супероператора (взаимная
         # блокировка). Только суперпользователь (админ) вправе деактивировать супероператора.
-        if getattr(operator, "role", None) == "superoperator" and not request.user.is_superuser:
+        if not can_manage_operator_account(request.user, operator):
             return Response(
-                {"detail": "Супероператор не может деактивировать другого супероператора."},
+                {"detail": "Недостаточно прав для управления этой учётной записью."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
         if user.is_active:
             user.is_active = False
             user.save(update_fields=["is_active"])
+            revoke_user_sessions(user.pk)
             record_access_event(
                 operator,
                 "deactivated",
@@ -214,7 +205,8 @@ class OperatorViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
-    @action(detail=True, methods=["post"], permission_classes=[IsSuperoperator])
+    @action(detail=True, methods=["post"])
+    @transaction.atomic
     def reactivate(self, request, pk=None):
         """Story 2.4 (AC-4): обратная операция — возврат доступа."""
         operator = self.get_object()
@@ -241,22 +233,3 @@ class OperatorViewSet(viewsets.ModelViewSet):
             OperatorRegistryDetailSerializer(operator).data,
             status=status.HTTP_200_OK,
         )
-
-    def _deliver_credentials(self, operator, temporary_password):
-        """Отправляет письмо и фиксирует статус. Ошибка SMTP НЕ откатывает оператора (AC-3)."""
-        try:
-            send_operator_credentials(operator, temporary_password)
-        except Exception as exc:  # SMTP недоступен/ошибка
-            logger.error(
-                "operator credentials email failed for operator=%s: %s",
-                operator.id,
-                exc,
-            )
-            operator.email_status = "error"
-            operator.save(update_fields=["email_status"])
-            return "error"
-
-        operator.email_status = "sent"
-        operator.credentials_sent_at = timezone.now()
-        operator.save(update_fields=["email_status", "credentials_sent_at"])
-        return "sent"

@@ -1,0 +1,186 @@
+{% load static ui_tags %}
+{# Этап D: общие поля форм добавления и правки участника (раньше — две копии по 330 строк). #}
+{# mode: "add" | "edit"; значения — словарь fv (views/attendee.py::_form_values).           #}
+<p class="ds-muted">{% t "Поля со звёздочкой * обязательны." %}</p>
+
+<section class="ds-section" aria-labelledby="sec-main">
+    <h2 class="ds-section-title" id="sec-main">{% t "Основные сведения" %}</h2>
+    <div class="row">
+        <div class="col-md-6 ds-field">
+            <label for="last_name" class="ds-req">{% t "Фамилия" %}</label>
+            <input type="text" required class="form-control" id="last_name" name="last_name" value="{{ fv.last_name }}">
+        </div>
+        <div class="col-md-6 ds-field">
+            <label for="first_name" class="ds-req">{% t "Имя" %}</label>
+            <input type="text" required class="form-control" id="first_name" name="first_name" value="{{ fv.first_name }}">
+        </div>
+        <div class="col-md-6 ds-field">
+            <label for="patronymic">{% t "Отчество" %}</label>
+            <input type="text" class="form-control" id="patronymic" name="patronymic" value="{{ fv.patronymic }}">
+        </div>
+        <div class="col-md-6 ds-field">
+            <label for="latin_name" class="ds-req">{% t "Транслитерация полного имени" %}</label>
+            <input type="text" required class="form-control" id="latin_name" name="latin_name" value="{{ fv.latin_name }}" placeholder="Aliev Ali" oninput="this.value=this.value.replace(/[^A-Za-z\s]/g,'');">
+        </div>
+        <div class="col-md-4 ds-field">
+            <label for="dob" class="ds-req">{% t "Дата рождения" %}</label>
+            <input type="date" required class="form-control" id="dob" name="dob" value="{{ fv.dob }}" min="1930-01-01">
+        </div>
+        <div class="col-md-4 ds-field">
+            <label for="sex" class="ds-req">{% t "Пол" %}</label>
+            <select class="form-select" id="sex" name="sex" required>
+                {% for sex in sexs %}<option value="{{ sex.sex_code }}"{% if sex.sex_code == fv.sex %} selected{% endif %}>{{ sex|lname:lang }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4 ds-field">
+            <label for="post" class="ds-req">{% t "Должность" %}</label>
+            <input type="text" required class="form-control" id="post" name="post" value="{{ fv.post }}">
+        </div>
+    </div>
+</section>
+
+<section class="ds-section" aria-labelledby="sec-citizenship">
+    <h2 class="ds-section-title" id="sec-citizenship">{% t "Гражданство" %}</h2>
+    <div class="row">
+        <div class="col-md-6 ds-field">
+            <label for="citizenship" class="ds-req">{% t "Гражданство" %}</label>
+            <select class="form-select" name="citizenship" id="citizenship" required>
+                {% for country in countries %}<option value="{{ country.country_code }}"{% if country.country_code == fv.citizenship %} selected{% endif %}>{{ country|lname:lang }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-md-6 ds-field" id="iin_group">
+            <label for="iin" id="iin_label" class="ds-req">{% t "ИИН" %}</label>
+            <input type="text" inputmode="numeric" class="form-control" value="{{ fv.iin }}" name="iin" id="iin" minlength="12" maxlength="12" oninput="process(this)"{% if iin_error %} aria-invalid="true" aria-describedby="iin_error"{% endif %}>
+            <p id="iin_ok" class="ds-field-ok" role="status" hidden>{% t "✅ Формат ИИН верный" %}</p>
+            {% if iin_error %}<p class="ds-field-error iin-error" id="iin_error">{{ iin_error }}</p>{% endif %}
+        </div>
+        <div class="col-md-6 ds-field" id="category_group">
+            <label for="category" class="ds-req">{% t "Категория" %}</label>
+            <select class="form-select" id="category" name="category">
+                {% for category in categories %}<option value="{{ category.category_code }}"{% if category.category_code == fv.category %} selected{% endif %}>{{ category|lname:lang }}</option>{% endfor %}
+            </select>
+        </div>
+    </div>
+</section>
+
+<section class="ds-section" aria-labelledby="sec-doc">
+    <h2 class="ds-section-title" id="sec-doc">{% t "Документ" %}</h2>
+    <div class="row">
+        <div class="col-md-6 ds-field">
+            <label for="document_type" class="ds-req">{% t "Тип документа" %}</label>
+            <select class="form-select" name="document_type" id="document_type" required>
+                {% for dc in document_types %}<option value="{{ dc.doc_code }}"{% if dc.doc_code == fv.document_type %} selected{% endif %}>{{ dc|lname:lang }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-md-6 ds-field">
+            <label for="doc_series">{% t "Серия" %}</label>
+            <input type="text" class="form-control" id="doc_series" name="doc_series" value="{{ fv.doc_series }}">
+        </div>
+        <div class="col-md-6 ds-field">
+            <label for="doc_number" class="ds-req">{% t "Номер документа" %}</label>
+            <input type="text" required class="form-control" id="doc_number" name="doc_number" value="{{ fv.doc_number }}">
+        </div>
+        <div class="col-md-6 ds-field">
+            <label for="doc_issuer">{% t "Кем выдан" %}</label>
+            <input type="text" class="form-control" id="doc_issuer" name="doc_issuer" value="{{ fv.doc_issuer }}">
+        </div>
+        <div class="col-md-6 ds-field">
+            <label for="doc_date_start" class="ds-req">{% t "Дата выдачи" %}</label>
+            <input type="date" required class="form-control" id="doc_date_start" name="doc_date_start" value="{{ fv.doc_date_start }}">
+        </div>
+        <div class="col-md-6 ds-field">
+            <label for="doc_date_end" class="ds-req">{% t "Действителен до" %}</label>
+            <input type="date" required class="form-control" id="doc_date_end" name="doc_date_end" value="{{ fv.doc_date_end }}">
+        </div>
+    </div>
+</section>
+
+<section class="ds-section" aria-labelledby="sec-visit">
+    <h2 class="ds-section-title" id="sec-visit">{% t "Посещение и файлы" %}</h2>
+    <div class="row">
+        <div class="col-12 ds-field">
+            <label for="visit_objects" class="ds-req">{% t "Планируемые объекты посещения" %}</label>
+            <textarea class="form-control" required rows="3" id="visit_objects" name="visit_objects">{{ fv.visit_objects }}</textarea>
+        </div>
+        {% if mode == "edit" %}
+        <div class="col-md-6 ds-field">
+            <label for="photo">{% t "Новое фото участника — только если нужно заменить: JPG, PNG или WEBP, вертикальное 3×4, не меньше 600×800, до 5 МБ" %}</label>
+            <input type="file" class="form-control" id="photo" name="photo" accept=".jpg,.jpeg,.png,.webp" onchange="checkFileFormat('photo')">
+        </div>
+        <div class="col-md-6 ds-field">
+            <label for="doc_photo">{% t "Новый скан документа — только если нужно заменить: JPG, PNG, WEBP или PDF, вертикальный, не меньше 600×800, до 5 МБ" %}</label>
+            <input type="file" class="form-control" id="doc_photo" name="doc_photo" accept=".jpg,.jpeg,.png,.webp,.pdf" onchange="checkFileFormat('doc_photo')">
+        </div>
+        {% else %}
+        <div class="col-md-6 ds-field">
+            <label for="photo" class="ds-req">{% t "Фото участника: JPG, PNG или WEBP, вертикальное 3×4, не меньше 600×800, до 5 МБ" %}</label>
+            <input type="file" required class="form-control" id="photo" name="photo" accept=".jpg,.jpeg,.png,.webp" onchange="checkFileFormat('photo')">
+        </div>
+        <div class="col-md-6 ds-field">
+            <label for="doc_photo" class="ds-req">{% t "Скан документа: JPG, PNG, WEBP или PDF, вертикальный, не меньше 600×800, до 5 МБ" %}</label>
+            <input type="file" required class="form-control" id="doc_photo" name="doc_photo" accept=".jpg,.jpeg,.png,.webp,.pdf" onchange="checkFileFormat('doc_photo')">
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<script>
+function checkFileFormat(inputId) {
+  const input = document.getElementById(inputId);
+  if (!input.files.length) return;
+  // Допустимые расширения берутся из accept поля (фото — без PDF, скан — с PDF).
+  const validFormats = input.accept.split(',');
+  const name = input.files[0].name.toLowerCase();
+  if (!validFormats.some(f => name.endsWith(f))) {
+    alert('{% t "Недопустимый файл. Допустимые форматы: " as bad_file %}{{ bad_file|escapejs }}' + validFormats.join(', '));
+    input.value = '';
+  }
+}
+
+function process(input) {
+  const digits = input.value.replace(/[^0-9]/g, '');
+  input.value = digits;
+  // Story 3.5: мгновенная подсказка формата (полная проверка — на сервере).
+  document.getElementById('iin_ok').hidden = digits.length !== 12;
+}
+
+(function () {
+  // Story 3.5: поле ИИН — только для РК (1000000105); категория — только нерезидентам.
+  // Типы документов: резиденту — удостоверение и паспорт РК, остальным — иностранные.
+  const KZ = '1000000105';
+  const KZ_DOCS = ['1000000001', '1000000003'];
+  const FOREIGN_DOCS = ['1000000002', '1000000004', '1000000005'];
+  const country = document.getElementById('citizenship');
+  const iin = document.getElementById('iin');
+  const docType = document.getElementById('document_type');
+  const allDocs = Array.from(docType.options).map(o => ({ value: o.value, text: o.text }));
+
+  function applyResidency(clearIin) {
+    const resident = country.value === KZ;
+    document.getElementById('iin_group').hidden = !resident;
+    document.getElementById('category_group').hidden = resident;
+    document.getElementById('category').required = !resident;
+    iin.required = resident;
+    if (!resident && clearIin) iin.value = '';   // ИИН нерезидента не отправляется
+    // Список типов документов под гражданство; выбранный тип сохраняется, если подходит
+    // (раньше правка на загрузке страницы сбрасывала сохранённый тип на первый в списке).
+    const allowed = resident ? KZ_DOCS : FOREIGN_DOCS;
+    const keep = docType.value;
+    const rows = allDocs.filter(d => allowed.includes(d.value));
+    const list = rows.length ? rows : allDocs;
+    docType.replaceChildren(...list.map(d => new Option(d.text, d.value)));
+    docType.value = list.some(d => d.value === keep) ? keep : (resident ? '1000000003' : '1000000002');
+    if (!docType.value && list.length) docType.value = list[0].value;
+  }
+
+  country.addEventListener('change', () => applyResidency(true));
+  applyResidency(false);
+
+  // Даты: рождение и выдача документа — не позже сегодня, срок действия — не раньше.
+  const d = new Date();
+  const today = [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+  document.getElementById('dob').max = today;
+  {% if mode != "edit" %}document.getElementById('doc_date_start').max = today;
+  document.getElementById('doc_date_end').min = today;{% endif %}
+})();
+</script>

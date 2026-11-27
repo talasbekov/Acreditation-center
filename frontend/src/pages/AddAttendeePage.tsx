@@ -1,13 +1,16 @@
 import { AttendeeForm } from '@/components/AttendeeForm'
+import { BackToRegistry, CancelLink } from '@/components/BackToRegistry'
+import { PageHeader } from '@/components/ui/form'
 
-/** Страница добавления участника (Story 5.2). */
+/** Страница добавления участника (Story 5.2, вид — эталон этапа D). */
 export function AddAttendeePage() {
   return (
-    <main className="mx-auto max-w-2xl p-6">
-      <h1 className="mb-6 text-2xl font-semibold text-neutral-900">
-        Добавить участника
-      </h1>
-      <AttendeeForm />
+    <main data-ds className="min-h-svh bg-section text-ink">
+      <div className="mx-auto max-w-3xl px-4 py-6 md:px-8 md:py-8">
+        <BackToRegistry />
+        <PageHeader title="Добавить участника" context="Участник попадает в выбранную заявку как черновик." />
+        <AttendeeForm cancel={<CancelLink />} />
+      </div>
     </main>
   )
 }

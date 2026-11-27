@@ -8,19 +8,29 @@ const OPERATOR = { username: 'e2e_operator', password: 'E2eOperatorPass123!' };
 
 // ИИН граждан РК для seed-события (countryId == "1000000105").
 const VALID_IIN = '900215300007'; // проходит iin_kz_validator (корректная контрольная цифра)
-const INVALID_IIN = '900215300008'; // 12 цифр, но неверная контрольная цифра
 
 const FIXTURES = path.join(__dirname, '..', 'fixtures');
 const PHOTO = path.join(FIXTURES, 'photo.png');
 const DOC = path.join(FIXTURES, 'doc.png');
 
-// Уникальный 12-значный ИИН для каждого участника. Дубликат ИИН в пределах
-// события отклоняется (check_dublicate), а add_attendee не проверяет контрольную
-// цифру — нужен лишь уникальный 12-значный номер.
-let _iinCounter = 0;
-function uniqueIin() {
-  _iinCounter += 1;
-  return (String(Date.now()) + String(_iinCounter).padStart(3, '0')).slice(-12);
+// Синтетические резиденты одной даты рождения. Разделяем номера по заявкам,
+// чтобы редактирование и повторные тесты не столкнулись с проверкой дублей.
+function fixtureIin(requestId) {
+  for (let seq = Number(requestId) * 10; seq < 10000; seq++) {
+    const prefix = '9002153' + String(seq).padStart(4, '0');
+    const check = [...prefix].reduce((sum, digit, i) => sum + Number(digit) * (i + 1), 0) % 11;
+    if (check < 10) return prefix + String(check);
+  }
+  throw new Error('The synthetic E2E request sequence is exhausted');
+}
+
+function futureDate(days) {
+  return new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
+}
+
+async function submitForm(page, action) {
+  const form = page.locator(`form[method="post" i][action="${action}"]`);
+  await Promise.all([page.waitForNavigation(), form.locator('button[type="submit"]').click()]);
 }
 
 /** Логин через основную форму /user_login/ (рус. кабинет). */
@@ -54,7 +64,7 @@ async function newOperatorRequest(page) {
   await page.goto('/application/');
   await Promise.all([
     page.waitForNavigation(),
-    page.locator('a[href^="/create/"]').first().click(),
+    page.locator('form[action^="/create/"] button[type="submit"]').first().click(),
   ]);
   const href = await page.locator('a[href^="/add_attendee/"]').first().getAttribute('href');
   const m = /\/add_attendee\/(\d+)\//.exec(href || '');
@@ -77,7 +87,7 @@ async function addAttendee(page, reqId, overrides = {}) {
     first_name: 'Тест',
     patronymic: 'Тестович',
     latin_name: 'Testov Test',
-    iin: uniqueIin(),
+    iin: fixtureIin(reqId),
     dob: '1990-02-15',
     sex: '1',
     citizenship: '1000000105',
@@ -105,11 +115,10 @@ module.exports = {
   ADMIN,
   OPERATOR,
   VALID_IIN,
-  INVALID_IIN,
-  PHOTO,
-  DOC,
   login,
   csrfToken,
   newOperatorRequest,
+  futureDate,
+  submitForm,
   addAttendee,
 };

@@ -88,6 +88,7 @@ class OperatorReadSerializer(serializers.ModelSerializer):
             "event_ids",
             "category_id",
         ]
+        read_only_fields = fields
 
     def get_event_ids(self, obj):
         return list(obj.events.values_list("id", flat=True))
@@ -145,6 +146,7 @@ class OperatorRegistryListSerializer(serializers.ModelSerializer):
             "is_active",
             "inactivity_warning",
         ]
+        read_only_fields = fields
 
     def get_full_name(self, obj):
         parts = [obj.user.last_name, obj.user.first_name, obj.patronymic]

@@ -3,9 +3,9 @@ import { useEffect, useRef, useState } from 'react'
 export interface UploadZoneProps {
   /** id input'а (совпадает с именем поля FormData: photo / docScan). */
   id: string
-  /** Крупная высококонтрастная метка (AC-1: ≥18px bold). */
+  /** Название зоны — оно же метка поля выбора файла. */
   label: string
-  /** Инструкция под меткой. */
+  /** Форматы и лимиты — те же, что проверяет сервер (validators/photo.py). */
   instruction?: string
   /** Список MIME, напр. "image/jpeg,image/png" или "...,application/pdf". */
   accept: string
@@ -16,11 +16,13 @@ export interface UploadZoneProps {
   existingUrl?: string | null
 }
 
+const previewStyle = { minWidth: 150, minHeight: 200, maxHeight: 320, objectFit: 'contain' as const }
+
 /**
- * Story 5.3 — переиспользуемая зона загрузки с обязательным preview (AC-2).
- * Изображение → preview через `URL.createObjectURL` (≥150×200px). PDF (документ)
- * браузер не рисует в `<img>` — показываем badge «PDF: <имя>»; JPEG-preview
- * приходит от сервера после сохранения (AC-4). Метка крупная/контрастная (AC-1).
+ * Story 5.3 / этап D — зона загрузки с обязательным превью.
+ * Изображение → превью через `URL.createObjectURL`. PDF браузер в `<img>` не рисует —
+ * показываем имя файла; JPEG-превью приходит от сервера после сохранения.
+ * Состояния: нет файла, текущий файл (правка), выбран новый файл, ошибка.
  */
 export function UploadZone({
   id,
@@ -35,7 +37,7 @@ export function UploadZone({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Preview только для изображений; cleanup objectURL — обязателен (утечка иначе).
+  // Превью только для изображений; objectURL обязательно освобождать.
   useEffect(() => {
     if (file && file.type.startsWith('image/')) {
       const url = URL.createObjectURL(file)
@@ -51,33 +53,38 @@ export function UploadZone({
     if (!file && inputRef.current) inputRef.current.value = ''
   }, [file])
 
+  const hintId = instruction ? `${id}-hint` : ''
+  const errorId = error ? `${id}-error` : ''
+
   return (
-    <div className="rounded-md border border-neutral-400 p-4">
-      <label htmlFor={id} className="block">
-        <span className="mb-1 block text-lg font-bold text-neutral-900">{label}</span>
-        {instruction && (
-          <span className="mb-2 block text-sm text-neutral-700">{instruction}</span>
-        )}
+    <div className={`min-w-0 rounded-lg border-2 border-dashed p-4 ${error ? 'border-danger' : 'border-line'}`}>
+      <label htmlFor={id} className="block text-base leading-6 font-semibold text-ink">
+        {label}
       </label>
+      {instruction && (
+        <p id={hintId} className="mt-1 text-sm leading-5 text-ink-2">
+          {instruction}
+        </p>
+      )}
       <input
         id={id}
         ref={inputRef}
         type="file"
         accept={accept}
-        className="block w-full text-base"
+        aria-describedby={[hintId, errorId].filter(Boolean).join(' ') || undefined}
+        aria-invalid={error ? true : undefined}
+        className="mt-3 block w-full max-w-full text-base text-ink file:mr-3 file:h-11 file:cursor-pointer file:rounded-md file:border file:border-field file:bg-surface file:px-4 file:font-semibold file:text-ink hover:file:bg-section"
         onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
       />
       {file && (
         <div className="mt-3">
+          <p className="mb-2 text-sm leading-5 font-semibold text-success [overflow-wrap:anywhere]">
+            Выбран файл: {file.name}. Он загрузится при сохранении.
+          </p>
           {previewUrl ? (
-            <img
-              src={previewUrl}
-              alt={`Превью: ${label}`}
-              className="rounded border border-neutral-300"
-              style={{ minWidth: 150, minHeight: 200, maxHeight: 320, objectFit: 'contain' }}
-            />
+            <img src={previewUrl} alt={`Превью: ${label}`} className="rounded border border-line" style={previewStyle} />
           ) : (
-            <span className="inline-block rounded bg-neutral-200 px-2 py-1 text-sm">
+            <span className="inline-block rounded-md bg-info-bg px-2 py-1 text-sm text-info [overflow-wrap:anywhere]">
               PDF: {file.name}
             </span>
           )}
@@ -87,17 +94,12 @@ export function UploadZone({
           хранит docScan как JPEG (PDF конвертируется при сохранении) → всегда <img>. */}
       {!file && existingUrl && (
         <div className="mt-3">
-          <p className="mb-1 text-sm text-neutral-600">Текущее изображение:</p>
-          <img
-            src={existingUrl}
-            alt={`Текущее: ${label}`}
-            className="rounded border border-neutral-300"
-            style={{ minWidth: 150, minHeight: 200, maxHeight: 320, objectFit: 'contain' }}
-          />
+          <p className="mb-1 text-sm leading-5 text-ink-2">Текущий файл. Чтобы заменить, выберите новый.</p>
+          <img src={existingUrl} alt={`Текущее: ${label}`} className="rounded border border-line" style={previewStyle} />
         </div>
       )}
       {error && (
-        <p role="alert" className="mt-1 text-sm text-red-600">
+        <p id={errorId} role="alert" className="mt-2 text-sm leading-5 font-semibold text-danger">
           {error}
         </p>
       )}

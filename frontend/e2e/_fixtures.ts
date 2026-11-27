@@ -65,6 +65,21 @@ export async function mockApi(page: Page, detail = ATTENDEE_DETAIL) {
       },
     }),
   )
+  // Этап D: справочники формы участника.
+  await page.route('**/api/v1/directories/', (route) =>
+    route.fulfill({
+      status: 200,
+      json: {
+        sexes: [{ code: '1', name: 'Мужской' }],
+        document_types: [{ code: '1000000002', name: 'Паспорт' }],
+        categories: [{ code: '8', name: 'Гость' }],
+        countries: [
+          { code: '1000000105', name: 'Казахстан' },
+          { code: '643', name: 'Россия' },
+        ],
+      },
+    }),
+  )
   await page.route('**/api/v1/attendees/1/', (route) =>
     route.fulfill({ status: 200, json: detail }),
   )

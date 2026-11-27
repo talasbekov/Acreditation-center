@@ -53,6 +53,8 @@ class RFC7807HandlerTests(SimpleTestCase):
                 "title": "Bad Request",
                 "detail": "name: This field is required.",
                 "field": "name",
+                # Этап D: ошибки по каждому полю (дополнение; field/detail прежние).
+                "errors": {"name": "This field is required."},
             },
         )
 

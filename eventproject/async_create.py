@@ -1,6 +1,6 @@
 import os
 import shutil
-from distutils.dir_util import copy_tree
+from shutil import copytree
 
 
 def download_photos_async(event_id):
@@ -27,7 +27,7 @@ def download_photos_async(event_id):
     else:
         # file not found message
         print("File not found in the directory")
-    copy_tree(dir_name, output_filename)
+    copytree(dir_name, output_filename, dirs_exist_ok=True)
     print("copied")
     zip_address = "output/event_" + str(event_id)
     file = open(zip_address + "/test.txt", "w")

@@ -19,6 +19,11 @@ export interface Attendee {
   category: number | null
   dateAdd: string
   iin_masked: string
+  /** Этап C: черновик, возвращённый проверяющим (причина — только в detail). */
+  returned?: boolean
+  /** Этап D: контекст строки — номер заявки и мероприятие. */
+  request_name?: string
+  event_name?: string
 }
 
 /** Detail (`GET /api/v1/attendees/{id}/`) — полный AttendeeSerializer (для edit, 5.5). */
@@ -32,7 +37,21 @@ export interface AttendeeDetail {
   iin: string | null
   request: number
   status: string
+  /** Этап D: остальные поля формы (как у HTML-формы). */
+  transcription?: string
+  sexId?: string
+  post?: string
+  stickId?: string
+  docTypeId?: string
+  docSeries?: string
+  docNumber?: string | null
+  docBegin?: string | null
+  docEnd?: string | null
+  docIssue?: string
+  visitObjects?: string
   /** P2-7: URL загруженного фото/документа (для превью в edit). */
   photo: string | null
   docScan: string | null
+  /** Этап C: причина возврата от проверяющего (пусто, если не возвращали). */
+  review_comment?: string
 }

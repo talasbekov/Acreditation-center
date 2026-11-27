@@ -41,6 +41,11 @@ class RequireEnvTests(SimpleTestCase):
         self.assertEqual(out, {"SECRET_KEY": "val-SECRET_KEY",
                                "ALLOWED_HOSTS": "val-ALLOWED_HOSTS"})
 
+    def test_rejects_empty_values_including_empty_key_lists(self):
+        for value in ("", "  ", [], ["synthetic", " "], ["your-fernet-key-here"], "change-me-db-password"):
+            with self.subTest(value=value), self.assertRaises(ImproperlyConfigured):
+                require_env(lambda name: value, {"FERNET_KEYS": {}})
+
     def test_forwards_cast_kwarg(self):
         seen = {}
 

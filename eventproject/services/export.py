@@ -7,15 +7,21 @@
 
 Ключевые нюансы:
 - «Категория» экспорта = `Request` (ExportLog.category — FK на Request, не Category).
-- Delta-граница: dateAdd > last_export.exported_before (строго) И dateAdd <= now (без gap).
+- Состав пакета (этап C): все `ready`-участники категории. Граница по dateAdd не
+  используется: карточка, созданная раньше прошлой выгрузки и одобренная позже,
+  попадает в следующую. Повтор исключён терминальным переходом ready → exported.
+- Архив детерминирован: фиксированные метка времени (момент пакета), порядок и
+  атрибуты элементов. Манифест хранит SHA-256 каждого элемента для повторной выдачи.
 - iin — EncryptedCharField: расшифровывается при доступе; в экспорт идёт только для резидента.
 - Справочники: countryId=Country.country_code, sexId=Sex.sex_code, docTypeId=DocumentType.doc_code.
 """
 
+import hashlib
 import json
 import os
 import zipfile
 from datetime import datetime
+from datetime import timezone as dt_timezone
 
 from django.utils import timezone
 
@@ -112,52 +118,105 @@ def get_last_export(request_obj):
     )
 
 
-def select_new_attendees(request_obj, lower_boundary, upper_boundary):
-    """`ready`-участники категории с dateAdd > lower_boundary и dateAdd <= upper_boundary.
+class ExportSourceChanged(Exception):
+    """Файл участника исчез между подготовкой пакета и записью архива."""
 
-    lower_boundary=None → первый экспорт (нижней границы нет). Граница строгая по
-    нижнему краю (__gt: не включаем уже выгруженных) и нестрогая по верхнему
-    (__lte=now: исключаем gap для записей, добавленных во время экспорта).
-    """
-    qs = Attendee.objects.filter(
-        request=request_obj,
-        status=AttendeeStatus.READY,
-        dateAdd__lte=upper_boundary,
+
+def select_ready_attendees(request_obj):
+    """Все `ready`-участники категории в порядке id — состав следующего пакета."""
+    return (
+        Attendee.objects.filter(request=request_obj, status=AttendeeStatus.READY)
+        .select_related("request__event", "category")
+        .order_by("id")
     )
-    if lower_boundary is not None:
-        qs = qs.filter(dateAdd__gt=lower_boundary)
-    return qs.order_by("id")
 
 
-def _add_media(zipf, filefield, arcname):
-    """Добавляет файл в архив; возвращает arcname если добавлен, иначе None.
-
-    None → файла нет на диске (или ссылка пустая): write_export_archive обнулит
-    соответствующее поле в attendees.json, чтобы не было битой ссылки (ревью 4.3, D5).
-    """
-    if arcname is None or not (filefield and filefield.name):
+def _media_path(filefield):
+    """Путь к существующему файлу участника или None (пустая ссылка / нет на диске)."""
+    if not (filefield and filefield.name):
         return None
     try:
         path = filefield.path
     except (ValueError, NotImplementedError):
         return None
-    if not os.path.exists(path):
-        return None
-    zipf.write(path, arcname)
-    return arcname
+    return path if os.path.exists(path) else None
 
 
-def write_export_archive(zip_path, attendees, objects):
-    """Записать attendees.json + photos/<id>.<ext> + documents/<id>.<ext> в ZIP.
+def prepare_package_objects(attendees, dir_names=None):
+    """Пары (attendee, объект Spec v1.0) в порядке пакета.
 
-    Ссылки photo_file/doc_scan_file в JSON синхронизируются с фактическим наличием
-    файла на диске: нет файла → поле = null (ревью 4.3, D5; не битая ссылка).
+    Ссылки photo_file/doc_scan_file сразу синхронизируются с наличием файла на
+    диске: нет файла → null (ревью 4.3, D5; не битая ссылка). `status` фиксируется
+    как `ready` — пакет описывает участника в момент выгрузки, и при повторной
+    выдаче уже выгруженного участника содержимое не должно меняться.
     """
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED, compresslevel=1) as zipf:
-        for attendee, obj in zip(attendees, objects):
-            obj["photo_file"] = _add_media(zipf, attendee.photo, obj["photo_file"])
-            obj["doc_scan_file"] = _add_media(zipf, attendee.docScan, obj["doc_scan_file"])
-        zipf.writestr(
-            "attendees.json",
-            json.dumps(objects, ensure_ascii=False, indent=2),
-        )
+    if dir_names is None:
+        dir_names = load_directory_names()
+    pairs = []
+    for attendee in attendees:
+        obj = build_export_object(attendee, dir_names)
+        obj["status"] = AttendeeStatus.READY
+        if _media_path(attendee.photo) is None:
+            obj["photo_file"] = None
+        if _media_path(attendee.docScan) is None:
+            obj["doc_scan_file"] = None
+        pairs.append((attendee, obj))
+    return pairs
+
+
+def attendees_json_bytes(objects):
+    return json.dumps(objects, ensure_ascii=False, indent=2).encode("utf-8")
+
+
+def sha256_hex(data):
+    return hashlib.sha256(data).hexdigest()
+
+
+def write_package(fileobj, pairs, packaged_at):
+    """Записать детерминированный ZIP пакета и вернуть манифест {имя: SHA-256}.
+
+    Состав: photos/<id>.<ext> и documents/<id>.<ext> в порядке участников, затем
+    attendees.json. Метка времени всех элементов — `packaged_at` в UTC, атрибуты
+    не зависят от ОС и mtime файлов, поэтому та же исходная информация даёт тот же
+    архив. Если упомянутый в JSON файл пропал — ExportSourceChanged.
+    """
+    date_time = packaged_at.astimezone(dt_timezone.utc).timetuple()[:6]
+    manifest = {}
+
+    with zipfile.ZipFile(fileobj, "w", zipfile.ZIP_DEFLATED, compresslevel=1) as zipf:
+        def put(name, data):
+            info = zipfile.ZipInfo(name, date_time=date_time)
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.create_system = 3
+            info.external_attr = 0o644 << 16
+            zipf.writestr(info, data, compresslevel=1)
+            manifest[name] = sha256_hex(data)
+
+        for attendee, obj in pairs:
+            for key, filefield in (("photo_file", attendee.photo), ("doc_scan_file", attendee.docScan)):
+                arcname = obj[key]
+                if arcname is None:
+                    continue
+                path = _media_path(filefield)
+                if path is None:
+                    raise ExportSourceChanged(arcname)
+                with open(path, "rb") as source:
+                    put(arcname, source.read())
+        put("attendees.json", attendees_json_bytes([obj for _, obj in pairs]))
+    return manifest
+
+
+def file_sha256(fileobj):
+    """SHA-256 содержимого файла; позиция возвращается в начало."""
+    fileobj.seek(0)
+    digest = hashlib.sha256()
+    for chunk in iter(lambda: fileobj.read(1024 * 1024), b""):
+        digest.update(chunk)
+    fileobj.seek(0)
+    return digest.hexdigest()
+
+
+def manifest_differences(expected, actual):
+    """Имена элементов, которые отсутствуют, добавились или изменились."""
+    names = set(expected or {}) | set(actual or {})
+    return sorted(n for n in names if (expected or {}).get(n) != (actual or {}).get(n))

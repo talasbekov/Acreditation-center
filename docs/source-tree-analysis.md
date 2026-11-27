@@ -52,14 +52,13 @@ eventproject/                       # Корень репозитория
 │   │   ├── health.py               # /health/, /api/health/
 │   │   └── integration/
 │   │       ├── integrate_kazenergy.py  # Async pull из KazEnergy (не в urls!)
-│   │       ├── integrate.py            # Async pull из Avalon/KazExpo
-│   │       └── services.py             # process_avalon_payload
+│   │       └── integrate.py            # Async pull из Avalon/KazExpo (общая логика — services/partner_import.py)
 │   ├── migrations/                 # 15 миграций (0009-0010 — шифрование ИИН)
 │   └── tests/                      # 44+ тестов: security, rbac, audit, encryption, logging
 │
 ├── directories/                    # Справочники: Sex, Country, DocumentType, City, Category
 ├── qr_event/                       # QR-приложение: модель QrIin, /qr/ формы, валидатор ИИН РК
-├── en_event/ , kz_event/           # Языковые зеркала view-слоя (без моделей)
+├── en_event/ , kz_event/           # Пустые приложения: KZ/EN обслуживают общие обработчики (page_lang.py)
 │
 ├── templates/                      # HTML-шаблоны (рус. в корне, en/, kz/, qr_event/)
 │   ├── gov*.html                   # Иерархия: gov_base → gov (логин) → gov2 (кабинет) → gov3 (форма участника)

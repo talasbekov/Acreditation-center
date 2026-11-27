@@ -28,10 +28,19 @@ def rfc7807_exception_handler(exc, context):
     else:
         detail_str = _flatten_detail(detail)
 
-    response.data = {
+    data = {
         "type": f"https://httpstatuses.com/{response.status_code}",
         "title": response.status_text,
         "detail": detail_str,
         "field": field,
     }
+    # Этап D: ошибки по каждому полю (`field` и `detail` остаются для прежних клиентов) —
+    # SPA-форма показывает их под своими полями, без префикса «post: …».
+    if field is not None:
+        data["errors"] = {
+            key: _flatten_detail(value)
+            for key, value in detail.items()
+            if key not in {"non_field_errors", "detail"}
+        }
+    response.data = data
     return response

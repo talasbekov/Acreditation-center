@@ -13,6 +13,7 @@
 from decouple import UndefinedValueError
 from django.core.exceptions import ImproperlyConfigured
 
+_EXAMPLE_VALUES = {"", "change-me-secret-key", "change-me-db-password", "your-fernet-key-here"}
 _TRUTHY = {"1", "true", "yes", "on"}
 _FALSY = {"0", "false", "no", "off", ""}
 
@@ -29,7 +30,12 @@ def require_env(config, specs):
     missing = []
     for name, kwargs in specs.items():
         try:
-            values[name] = config(name, **kwargs)
+            value = config(name, **kwargs)
+            entries = value if isinstance(value, (list, tuple)) else [value]
+            if not entries or any(v is None or str(v).strip() in _EXAMPLE_VALUES for v in entries):
+                missing.append(name)
+            else:
+                values[name] = value
         except UndefinedValueError:
             missing.append(name)
     if missing:

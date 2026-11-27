@@ -1,15 +1,11 @@
-# Frontend dev-сервер (Vite + React). Для прода нужен отдельный multi-stage
-# (npm run build → отдача статики nginx/whitenoise); этот образ — для разработки
-# с hot-reload (исходники прокидываются bind-mount'ом из compose).
-FROM node:22-alpine
+# Development server. Dockerfile.release builds the TLS-served static application.
+FROM node:22-alpine@sha256:1314fb30ec37592d5845e5a160d522c0e680972aa534549940b8d73bde88481a
 
 WORKDIR /app
 
 # Сначала только манифесты — слой install кэшируется, пока не менялись зависимости.
-# npm install (не ci): lock-файл сгенерён на другой ОС и не содержит alpine/linux
-# optional-deps (@emnapi/*, нативные биндинги Vite/oxlint) — ci падал бы на рассинхроне.
 COPY package.json package-lock.json ./
-RUN npm install --no-audit --no-fund
+RUN npm ci --no-audit --no-fund
 
 COPY . .
 

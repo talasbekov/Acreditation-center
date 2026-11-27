@@ -11,34 +11,38 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import PermissionDenied, ValidationError
+from rest_framework.exceptions import APIException, PermissionDenied, ValidationError
 from rest_framework.filters import SearchFilter
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 
 from eventproject.audit import audit_log
 from eventproject.models import Attendee
-from eventproject.permissions import IsOperator
+from eventproject.permissions import IsOperator, IsSuperoperator
+from eventproject.services import intake, lifecycle
 from eventproject.validators.iin import mask_iin
 from eventproject.serializers.attendee import (
     AttendeeListSerializer,
     AttendeeSerializer,
+    raise_if_duplicate,
 )
 from eventproject.serializers.rbac import get_operator_events
-from eventproject.state_machine import (
-    ATTENDEE_STATUSES,
-    AttendeeStatus,
-    InvalidStatusTransition,
-    assert_transition,
-)
+from eventproject.state_machine import ATTENDEE_STATUSES, AttendeeStatus
 from eventproject.validators.residency import resolve_residency
 
 logger = logging.getLogger("eventproject")
+
+
+class Conflict(APIException):
+    status_code = 409
+    default_detail = "Переход статуса невозможен."
+    default_code = "conflict"
 
 # Статусы, после которых редактирование заблокировано (FR22).
 _EDIT_LOCKED_STATUSES = {AttendeeStatus.READY, AttendeeStatus.EXPORTED}
 
 _EDIT_LOCKED_MESSAGE = "Редактирование заблокировано после одобрения"
+_SENT_LOCKED_MESSAGE = "Участник отправлен на проверку — правка закрыта до решения проверяющего"
 
 
 class AttendeeViewSet(viewsets.ModelViewSet):
@@ -65,7 +69,7 @@ class AttendeeViewSet(viewsets.ModelViewSet):
         events = get_operator_events(self.request.user)
         qs = (
             Attendee.objects.filter(request__event__in=events)
-            .select_related("request", "category")
+            .select_related("request__event", "category")
             .order_by("-dateAdd")
         )
 
@@ -102,7 +106,11 @@ class AttendeeViewSet(viewsets.ModelViewSet):
         # если аудит упадёт — удаляем только что записанные медиафайлы, чтобы не
         # осталось orphaned files (файл без записи). Удаление записи (любой статус)
         # чистит файлы через post_delete Signal (eventproject/signals.py).
-        with transaction.atomic():
+        # Этап C: повторная проверка дубля под блокировкой мероприятия — два
+        # одновременных POST с одним ИИН/документом не создадут двух участников.
+        event_id = serializer.validated_data["request"].event_id
+        with intake.event_intake(event_id):
+            raise_if_duplicate(event_id, serializer.validated_data)
             attendee = serializer.save(dateAdd=timezone.now())
             try:
                 audit_log(
@@ -121,9 +129,12 @@ class AttendeeViewSet(viewsets.ModelViewSet):
 
     # ── Edit-lock после ready/exported (FR22) ────────────────────────────
     def _ensure_editable(self):
+        # Этап C: оператор правит только черновик; после одобрения правка закрыта всем.
         instance = self.get_object()
-        if instance.status in _EDIT_LOCKED_STATUSES:
-            raise PermissionDenied(_EDIT_LOCKED_MESSAGE)
+        if not lifecycle.can_modify(self.request.user, instance):
+            raise PermissionDenied(
+                _EDIT_LOCKED_MESSAGE if instance.status in _EDIT_LOCKED_STATUSES else _SENT_LOCKED_MESSAGE
+            )
         return instance
 
     def _audit_write(self, request, action, obj_id):
@@ -163,7 +174,8 @@ class AttendeeViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         instance = self._ensure_editable()
         old_iin = instance.iin
-        with transaction.atomic():
+        # Валидация (включая проверку дубля) выполняется под блокировкой мероприятия.
+        with intake.event_intake(instance.request.event_id):
             response = super().update(request, *args, **kwargs)
             instance.refresh_from_db()
             self._audit_iin_discard(request, old_iin, instance)
@@ -182,28 +194,48 @@ class AttendeeViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"], permission_classes=[IsOperator])
     def submit(self, request, pk=None):
         attendee = self.get_object()
+        # Все обязательные данные (ИИН для резидента РК, фото, скан) проверяет сервис.
+        if attendee.status == AttendeeStatus.DRAFT:
+            result = resolve_residency(attendee.countryId, attendee.iin, attendee.birthDate)
+            if result.error:
+                raise ValidationError({"iin": result.error})
+        return self._transition(request, lambda: lifecycle.submit_attendee(
+            attendee.pk, request.user, request.META.get("REMOTE_ADDR", ""),
+        ))
 
-        # Все обязательные поля + валидный ИИН (для резидента РК).
-        result = resolve_residency(
-            attendee.countryId, attendee.iin, attendee.birthDate
-        )
-        if result.error:
-            raise ValidationError({"iin": result.error})
+    # ── Этап C: решения проверяющего (супероператор / суперпользователь) ──
+    @action(detail=True, methods=["post"], url_path="start-review", permission_classes=[IsSuperoperator])
+    def start_review(self, request, pk=None):
+        attendee = self.get_object()
+        return self._transition(request, lambda: lifecycle.start_review(
+            attendee.pk, request.user, request.META.get("REMOTE_ADDR", ""),
+        ))
 
+    @action(detail=True, methods=["post"], permission_classes=[IsSuperoperator])
+    def approve(self, request, pk=None):
+        attendee = self.get_object()
+        return self._transition(request, lambda: lifecycle.approve(
+            attendee.pk, request.user, request.META.get("REMOTE_ADDR", ""),
+        ))
+
+    @action(detail=True, methods=["post"], url_path="return", permission_classes=[IsSuperoperator])
+    def return_for_changes(self, request, pk=None):
+        attendee = self.get_object()
+        return self._transition(request, lambda: lifecycle.return_for_changes(
+            attendee.pk, request.user, request.data.get("reason", ""), request.META.get("REMOTE_ADDR", ""),
+        ))
+
+    def _transition(self, request, run):
         try:
-            assert_transition(attendee.status, AttendeeStatus.SUBMITTED)
-        except InvalidStatusTransition as exc:
-            raise ValidationError({"status": str(exc)})
-
-        old_status = attendee.status
-        attendee.status = AttendeeStatus.SUBMITTED
-        attendee.save(update_fields=["status"])
-        audit_log(
-            user=request.user,
-            action="attendee.status_change",
-            obj_type="Attendee",
-            obj_id=str(attendee.id),
-            ip=request.META.get("REMOTE_ADDR", ""),
-            extra={"from": old_status, "to": AttendeeStatus.SUBMITTED},
-        )
+            attendee = run()
+        except lifecycle.LifecycleError as exc:
+            message = exc.message
+            if exc.problems:
+                # Ответ RFC 7807 несёт одну строку: перечисляем недостающее словами.
+                codes = [code for found in exc.problems.values() for code in found]
+                message = f"{message}: {', '.join(lifecycle.text(code) for code in codes)}"
+            detail = {"status": message}
+            if exc.conflict:
+                raise Conflict(detail)
+            raise ValidationError(detail)
         return Response(AttendeeSerializer(attendee).data)

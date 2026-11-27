@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM python:3.10-slim
+FROM python:3.12-slim-trixie@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -7,26 +7,22 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Системные зависимости
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libpq-dev \
-    gcc \
-    curl \
-    postgresql-client \
-    redis-tools \
-    poppler-utils \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
+# The development Compose waits for PostgreSQL with pg_isready and probes with curl.
+ARG INSTALL_DEV_CLIENTS=0
+# Этап F: уже выпущенные исправления безопасности дистрибутива ставятся при сборке
+# (сканер нашёл исправление для libzstd1, остальные High ждут исправлений Debian).
+RUN apt-get update && apt-get upgrade -y --no-install-recommends \
+    && apt-get install -y --no-install-recommends zlib1g poppler-utils \
+    && if [ "$INSTALL_DEV_CLIENTS" = "1" ]; then apt-get install -y --no-install-recommends curl postgresql-client; fi \
+    && rm -rf /var/lib/apt/lists/*
 
 # Копируем requirements.txt в рабочую директорию
 COPY requirements.txt /app/
 
 # Устанавливаем Python зависимости
-RUN pip install --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt
 
-# Копируем весь проект
+# Копируются только файлы из разрешённого контекста .dockerignore
 COPY . /app/
 
 # Создаем директории
@@ -55,14 +51,15 @@ RUN FERNET_KEYS="$(python -c 'from cryptography.fernet import Fernet; print(Fern
     ALLOWED_HOSTS=* \
     DB_NAME=build DB_USER=build DB_PASSWORD=build \
     DJANGO_SETTINGS_MODULE=eventproject.settings \
-    python manage.py collectstatic --noinput
+    python manage.py collectstatic --noinput \
+    && rm -f /app/logs/app.log
 
 # Открываем порт
 EXPOSE 8000
 
 # L5: healthcheck через health-эндпоинт (вернёт 503, если БД недоступна).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
-    CMD curl -fsS http://localhost:8000/api/health/ || exit 1
+    CMD ["python", "-c", "from http.client import HTTPConnection; c = HTTPConnection('127.0.0.1', 8000, timeout=3); c.request('GET', '/api/health/'); raise SystemExit(c.getresponse().status != 200)"]
 
 # Команда по умолчанию
 CMD ["gunicorn", "eventproject.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "120"]

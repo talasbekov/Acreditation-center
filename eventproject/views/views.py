@@ -1,12 +1,14 @@
-import os
+from django.shortcuts import get_object_or_404
+from eventproject.operator_activation import send_operator_link
+from django.views.decorators.csrf import csrf_protect
+from django.views.decorators.http import require_POST, require_http_methods
+from pathlib import Path
 import re
 import logging
 import datetime
-import secrets
 import mimetypes
 
 from datetime import date, timedelta, datetime
-from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.http import HttpResponse, Http404, HttpResponseRedirect, FileResponse, HttpResponseNotFound
 from django.template import RequestContext
@@ -16,10 +18,16 @@ from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required, user_passes_test
 
 from django.conf import settings
-from directories.models import Sex, Country, DocumentType, City
+from django.views.decorators.cache import never_cache
+from directories.models import Sex, Country, DocumentType, City, Category
+from eventproject.view_helpers import get_operator_events, owned_request, owned_requests
 from eventproject.models import Event, Operator, Request, Attendee
 from eventproject.audit import audit_log
 from eventproject.services.access_events import record_access_event
+from eventproject.services import lifecycle
+from eventproject.services.lifecycle import lifecycle_message
+from eventproject import page_lang
+from eventproject.views.request import _request_page_context
 
 logger = logging.getLogger("eventproject")
 
@@ -31,37 +39,41 @@ def auth_check(request):
     return HttpResponse()
 
 
-@login_required(login_url="/user_login/")
+@never_cache
 def protected_media(request, file_path):
-    # Защита от path traversal: путь после realpath обязан остаться внутри MEDIA_ROOT
-    media_root = os.path.realpath(settings.MEDIA_ROOT)
-    full_path = os.path.realpath(os.path.join(media_root, file_path))
-    if os.path.commonpath([full_path, media_root]) != media_root:
-        raise Http404
+    media_root = Path(settings.MEDIA_ROOT).resolve()
+    try:
+        target = (media_root / file_path).resolve()
+        relative = target.relative_to(media_root)
+        historical_dir = (media_root / "qr_codes").resolve()
+    except (OSError, RuntimeError, ValueError):
+        return HttpResponseNotFound()
 
-    # Авторизация на уровне объекта: оператор получает файлы только своих событий.
-    # Медиа лежит в каталогах вида event_<id>/...  Суперпользователь — без ограничений.
-    # 404 (а не 403), чтобы не раскрывать существование чужих файлов.
+    # Historical QR files contain the identifier, even under randomized names.
+    # Deny before login so a redirect never copies a legacy filename into "next".
+    supplied = Path(file_path).parts
+    if (
+        not relative.parts or not supplied or supplied[0].casefold() == "qr_codes"
+        or historical_dir == target or historical_dir in target.parents
+    ):
+        return HttpResponseNotFound()
+    return _serve_authorized_media(request, target, relative.parts[0])
+
+
+@login_required(login_url="/user_login/")
+def _serve_authorized_media(request, target, directory):
     if not request.user.is_superuser:
-        match = re.match(r"event_(\d+)/", file_path)
-        if not match:
-            raise Http404
-        try:
-            operator = Operator.objects.get(user=request.user)
-        except Operator.DoesNotExist:
-            raise Http404
-        if not operator.events.filter(pk=int(match.group(1))).exists():
+        event = re.fullmatch(r"event_([0-9]{1,19})", directory)
+        if not event or not Operator.objects.filter(
+            user=request.user, events__pk=event.group(1),
+        ).exists():
             raise Http404
 
-    if not os.path.isfile(full_path):
+    if not target.is_file():
         raise Http404
+    content_type = mimetypes.guess_type(str(target))[0] or "application/octet-stream"
+    return FileResponse(target.open("rb"), content_type=content_type)
 
-    content_type, _ = mimetypes.guess_type(full_path)
-    if content_type is None:
-        content_type = "application/octet-stream"
-
-    # Файл закрывается самим FileResponse после стриминга — не использовать with
-    return FileResponse(open(full_path, "rb"), content_type=content_type)
 
 # from django.shortcuts import redirect
 # from django.http import HttpResponseNotFound
@@ -81,61 +93,40 @@ def protected_media(request, file_path):
 #         return redirect('/')
 
 
-@user_passes_test(lambda u: u.is_superuser, login_url="/user_login/")
-def index(request):
-    # Construct a dictionary to pass to the template engine as its context.
-    # Note the key boldmessage is the same as {{ boldmessage }} in the template!
+def _admin_context(**extra):
+    """Главная администратора: мероприятия на 900 дней вперёд, операторы, города.
+
+    P2: пользователь и мероприятия оператора загружаются вместе со списком —
+    шаблон обращается к `operator.user` и `operator.events.all` для каждой строки.
+    """
     startdate = date.today()
     enddate = startdate + timedelta(days=900)
-    event_list = Event.objects.filter(date_end__range=[startdate, enddate]).order_by(
-        "date_start"
-    )
-    operators = Operator.objects.all().order_by("user__last_name", "user__first_name")
-    cities = City.objects.all()
-    context_dict = {"events": event_list}
-    context_dict["operators"] = operators
-    context_dict["cities"] = cities
-    return render(request, "index.html", context=context_dict)
+    context_dict = {
+        "events": Event.objects.filter(date_end__range=[startdate, enddate]).order_by("date_start"),
+        "operators": Operator.objects.select_related("user")
+        .prefetch_related("events")
+        .order_by("user__last_name", "user__first_name"),
+        "cities": City.objects.all(),
+    }
+    context_dict.update(extra)
+    return context_dict
+
+
+@user_passes_test(lambda u: u.is_superuser, login_url="/user_login/")
+def index(request):
+    return render(request, "index.html", context=_admin_context())
 
 
 def show_admin(request, success_message):
-    # Construct a dictionary to pass to the template engine as its context.
-    # Note the key boldmessage is the same as {{ boldmessage }} in the template!
-    startdate = date.today()
-    enddate = startdate + timedelta(days=900)
-    event_list = Event.objects.filter(date_end__range=[startdate, enddate]).order_by(
-        "date_start"
-    )
-    operators = Operator.objects.all()
-    cities = City.objects.all()
-    context_dict = {"events": event_list}
-    context_dict["operators"] = operators
-    context_dict["success_message"] = success_message
-    context_dict["cities"] = cities
-    return render(request, "index.html", context=context_dict)
+    return render(request, "index.html", context=_admin_context(success_message=success_message))
 
 
 def show_admin_error(request, error_message):
-    # Construct a dictionary to pass to the template engine as its context.
-    # Note the key boldmessage is the same as {{ boldmessage }} in the template!
-    startdate = date.today()
-    enddate = startdate + timedelta(days=900)
-    event_list = Event.objects.filter(date_end__range=[startdate, enddate]).order_by(
-        "date_start"
-    )
-    operators = Operator.objects.all()
-    cities = City.objects.all()
-    context_dict = {"events": event_list}
-    context_dict["operators"] = operators
-    context_dict["error_message"] = error_message
-    context_dict["cities"] = cities
-    return render(request, "index.html", context=context_dict)
+    return render(request, "index.html", context=_admin_context(error_message=error_message))
 
 
-@login_required(login_url="/user_login/")
-def application(request):
-    if not request.user.is_authenticated:
-        return HttpResponse("You are logged in.")
+@page_lang.login_required
+def application(request, lang="ru"):
     user = request.user
     if user.is_superuser:
         return HttpResponseRedirect("/avmac/")
@@ -143,143 +134,109 @@ def application(request):
         operator = Operator.objects.get(user=user)
     except Operator.DoesNotExist:
         return HttpResponse("You are logged in.")
-    cities = City.objects.all()
     startdate = date.today()
     enddate = startdate + timedelta(days=600)
-    events = operator.events.filter(date_end__range=[startdate, enddate])
-    reqs = Request.objects.filter(created_by=operator).order_by("-date_created")
     return render(
         request,
-        "gov2.html",
+        page_lang.template(lang, "gov2.html"),
         {
             "user": user,
             "operator": operator,
-            "events": events,
-            "reqs": reqs,
-            "cities": cities,
+            "events": get_operator_events(user).filter(date_end__range=[startdate, enddate]),
+            "reqs": owned_requests(user).order_by("-date_created"),
+            "cities": City.objects.all(),
         },
     )
 
-
 @user_passes_test(lambda u: u.is_superuser, login_url="/user_login/")
+@require_POST
+@csrf_protect
 def new_password(request, username):
-    context_dict = {}
-    try:
-        user = User.objects.get(username=username)
-        operator = Operator.objects.get(user=user)
-        password = secrets.token_urlsafe(8)
-        user.set_password(password)
-        user.save()
-        startdate = date.today()
-        enddate = startdate + timedelta(days=900)
-        event_list = operator.events.filter(
-            date_end__range=[startdate, enddate]
-        ).order_by("-date_start")
-        reqs = Request.objects.filter(created_by=operator).order_by("-date_created")
-        context_dict["events"] = event_list
-        context_dict["operator"] = operator
-        context_dict["requests"] = reqs
-        context_dict["success_message"] = "Сгенерирован новый пароль: " + password
-    except (User.DoesNotExist, Operator.DoesNotExist):
-        return HttpResponse("Could not find operator")
-    return render(request, "operator.html", context_dict)
+    operator = get_object_or_404(Operator.objects.select_related("user"), user__username=username)
+    context = {"operator": operator}
+    if send_operator_link(operator):
+        context["success_message"] = "Ссылка для установки пароля отправлена оператору."
+    else:
+        context["error_message"] = "Письмо не отправлено. Проверьте активность учётной записи, email оператора и настройки почты."
+    start = date.today()
+    context["events"] = operator.events.filter(date_end__range=[start, start + timedelta(days=900)]).order_by("-date_start")
+    context["reqs"] = Request.objects.filter(created_by=operator).order_by("-date_created")
+    return render(request, "operator.html", context)
 
 
-@login_required(login_url="/user_login/")
-def preview(request, request_id):
-    context_dict = {}
+@page_lang.login_required
+@require_http_methods(["GET", "POST"])
+@csrf_protect
+def preview(request, request_id, lang="ru"):
+    """Предпросмотр перед отправкой — только чтение: статус заявки не меняется.
+
+    POST принимается для страниц, открытых до обновления (там была форма).
+    """
     try:
-        req = Request.objects.get(pk=request_id)
-        context_dict["req"] = req
-        operator = Operator.objects.get(user=request.user)
-        if req.created_by != operator:
-            return HttpResponse("You are not authorised to see this page")
-        req.status = "Checking"
-        req.save()
-        attendees = Attendee.objects.filter(request=req)
-        context_dict["attendees"] = attendees
-        countries = Country.objects.all()
-        context_dict["countries"] = countries
-        document_types = DocumentType.objects.all()
-        context_dict["document_types"] = document_types
-        sexs = Sex.objects.all()
-        context_dict["sexs"] = sexs
-        context_dict["success_message"] = "Заявка готова к отправлению"
-        context_dict[
-            "delete_message"
-        ] = "Внимание!!! Отправка заявки не гарантирует допуск участника в зону проведения охранного мероприятия в установленную дату"
+        req = owned_request(request.user, request_id)
     except Request.DoesNotExist:
         return HttpResponse("Could not find event")
-    return render(request, "request.html", context_dict)
+    if not lifecycle.can_preview(req):
+        return HttpResponseRedirect(page_lang.url(lang, f"/show/{req.pk}/"))
+    context_dict = _request_page_context(
+        req,
+        preview=True,
+        success_message=page_lang.text("ready_to_send", lang),
+        delete_message=page_lang.text("send_warning", lang),
+    )
+    return render(request, page_lang.template(lang, "request.html"), context_dict)
 
 
-@login_required(login_url="/user_login/")
-def back_to_change(request, request_id):
-    context_dict = {}
+@page_lang.login_required
+@require_POST
+@csrf_protect
+def back_to_change(request, request_id, lang="ru"):
+    """Выход из предпросмотра. Снимает только прежний статус Checking; отправленную заявку не открывает."""
     try:
-        req = Request.objects.get(pk=request_id)
-        context_dict["req"] = req
-        operator = Operator.objects.get(user=request.user)
-        if req.created_by != operator:
-            return HttpResponse("You are not authorised to see this page")
-        req.status = "Active"
-        req.save()
-        attendees = Attendee.objects.filter(request=req)
-        context_dict["attendees"] = attendees
-        countries = Country.objects.all()
-        context_dict["countries"] = countries
-        document_types = DocumentType.objects.all()
-        context_dict["document_types"] = document_types
-        sexs = Sex.objects.all()
-        context_dict["sexs"] = sexs
+        req = owned_request(request.user, request_id)
     except Request.DoesNotExist:
         return HttpResponse("Could not find event")
-    return render(request, "request.html", context_dict)
+    lifecycle.leave_legacy_preview(req)
+    return HttpResponseRedirect(page_lang.url(lang, f"/show/{req.pk}/"))
 
 
-@login_required(login_url="/user_login/")
-def send(request, request_id):
-    context_dict = {}
+@page_lang.login_required
+@require_POST
+@csrf_protect
+def send(request, request_id, lang="ru"):
     try:
-        req = Request.objects.get(pk=request_id)
-        context_dict["req"] = req
-        operator = Operator.objects.get(user=request.user)
-        if req.created_by != operator:
-            return HttpResponse("You are not authorised to see this page")
-        req.status = "Sent"
-        req.registration_time = timezone.now()
-        req.save()
-        attendees = Attendee.objects.filter(request=req)
-        context_dict["attendees"] = attendees
-        countries = Country.objects.all()
-        context_dict["countries"] = countries
-        document_types = DocumentType.objects.all()
-        context_dict["document_types"] = document_types
-        sexs = Sex.objects.all()
-        context_dict["sexs"] = sexs
-        context_dict["success_message"] = "Отправлено " + str(req.registration_time)
+        req = owned_request(request.user, request_id)
     except (Request.DoesNotExist, Operator.DoesNotExist):
         return HttpResponse("Could not find request")
-    return render(request, "request.html", context_dict)
+    extra = {}
+    try:
+        lifecycle.submit_request(req.pk, request.user, request.META.get("REMOTE_ADDR"))
+    except lifecycle.LifecycleError as exc:
+        extra["delete_message"] = lifecycle_message(exc, lang)
+    req.refresh_from_db()
+    if req.status == "Sent":
+        extra["success_message"] = page_lang.text("sent_at", lang, time=lifecycle.local_time(req.registration_time))
+    return render(request, page_lang.template(lang, "request.html"), _request_page_context(req, **extra))
 
 
-@login_required(login_url="/user_login/")
-def user_logout(request):
+@page_lang.login_required
+def user_logout(request, lang="ru"):
     logout(request)
-    return HttpResponseRedirect("/user_login/")
+    return HttpResponseRedirect(page_lang.url(lang, "/user_login/"))
 
 
-@login_required(login_url="/user_login/")
-def change_password(request):
+@page_lang.login_required
+def change_password(request, lang="ru"):
     context_dict = {}
+    result_template = page_lang.template(lang, "change_password_result.html")
     try:
         if request.method == "POST":
             old_password = request.POST["old_password"]
             new_password = request.POST["new_password"]
             new_password_repeat = request.POST["new_password_repeat"]
             if new_password != new_password_repeat:
-                context_dict["error_message"] = "Введите новый пароль два раза"
-                return render(request, "change_password_result.html", context_dict)
+                context_dict["error_message"] = page_lang.text("pw_mismatch", lang)
+                return render(request, result_template, context_dict)
             if request.user.check_password(old_password):
                 request.user.set_password(new_password)
                 request.user.save()
@@ -308,24 +265,16 @@ def change_password(request):
                             ip=ip,
                         )
                     except Exception:
-                        logger.exception(
-                            "failed to record password_changed event for user=%s",
-                            request.user.id,
-                        )
-                context_dict["success_message"] = "Пароль успешно изменен"
-                return render(request, "change_password_result.html", context_dict)
-            else:
-                context_dict["error_message"] = "Не удалось подтвердить данные"
-                return render(request, "change_password_result.html", context_dict)
-    except Exception as e:
-        # L7: не глотаем ошибку молча (был print("unknown")) — логируем и
-        # показываем пользователю, что смена пароля не удалась.
-        logger.error(
-            "change_password failed for user=%s: %s",
-            getattr(request.user, "id", None), e,
-        )
-        context_dict["error_message"] = "Не удалось изменить пароль. Попробуйте ещё раз."
-    return render(request, "change_password.html", context_dict)
+                        logger.error("failed to record password_changed event")
+                context_dict["success_message"] = page_lang.text("pw_changed", lang)
+                return render(request, result_template, context_dict)
+            context_dict["error_message"] = page_lang.text("pw_wrong_old", lang)
+            return render(request, result_template, context_dict)
+    except Exception:
+        # L7: не глотаем ошибку молча — логируем и показываем, что смена не удалась.
+        logger.error("change_password failed")
+        context_dict["error_message"] = page_lang.text("pw_failed", lang)
+    return render(request, page_lang.template(lang, "change_password.html"), context_dict)
 
 
 def _safe_next_url(request):
@@ -343,12 +292,12 @@ def _safe_next_url(request):
     return None
 
 
-def user_login(request):
-    context = RequestContext(request)
+def user_login(request, lang="ru"):
+    login_template = page_lang.template(lang, "gov.html")
     if request.method == "POST":
         # P1-2: malformed POST без полей не должен падать KeyError'ом/500.
-        username = request.POST.get('username', '')
-        password = request.POST.get('password', '')
+        username = request.POST.get("username", "")
+        password = request.POST.get("password", "")
         # BE-1: если axes уже заблокировал источник — отдаём локализованное
         # сообщение. Проверяем ДО authenticate: иначе backend выставит
         # request.axes_locked_out и AxesMiddleware подменит ответ на голый
@@ -357,19 +306,12 @@ def user_login(request):
 
         if AxesProxyHandler.is_locked(request, {"username": username}):
             return render(
-                request,
-                "gov.html",
-                context={
-                    "error_message": (
-                        "Аккаунт временно заблокирован из-за множества неудачных "
-                        "попыток входа. Повторите попытку позже."
-                    ),
-                },
+                request, login_template,
+                context={"error_message": page_lang.text("login_locked", lang)},
                 status=429,
             )
         user = authenticate(request, username=username, password=password)
         if user is not None:
-
             if user.is_active:
                 login(request, user)
                 # Story 2.4 (AC-3): фиксируем вход оператора в истории доступа + audit.
@@ -387,9 +329,7 @@ def user_login(request):
                             ip=ip,
                         )
                     except Exception:
-                        logger.exception(
-                            "failed to record login access event for user=%s", user.id
-                        )
+                        logger.error("failed to record login access event")
                 # P2-9: возврат на исходную страницу (SPA) после входа — только
                 # на безопасный (этот хост) next; иначе дефолт по роли.
                 next_url = _safe_next_url(request)
@@ -397,35 +337,24 @@ def user_login(request):
                     return HttpResponseRedirect(next_url)
                 if user.is_superuser:
                     return HttpResponseRedirect("/avmac/")
-                else:
-                    return HttpResponseRedirect("/application/")
-            else:
-                # Story 2.4 (AC-4): локализованное сообщение о деактивации.
-                return render(
-                    request,
-                    "gov.html",
-                    context={"error_message": "Аккаунт деактивирован"},
-                )
-        else:
-            # Story 2.4 (AC-4): дефолтный ModelBackend возвращает None и для
-            # неактивных аккаунтов (authenticate проверяет is_active) — поэтому
-            # отличаем деактивированный аккаунт от неверных credentials.
-            if User.objects.filter(username=username, is_active=False).exists():
-                return render(
-                    request,
-                    "gov.html",
-                    context={"error_message": "Аккаунт деактивирован"},
-                )
-            return render(
-                request,
-                "gov.html",
-                context={
-                    "error_message": "Неправильный логин или пароль",
-                    "next": request.POST.get("next", ""),
-                },
-            )
+                return HttpResponseRedirect(page_lang.url(lang, "/application/"))
+            # Story 2.4 (AC-4): локализованное сообщение о деактивации.
+            return render(request, login_template, context={"error_message": page_lang.text("account_disabled", lang)})
+        # Story 2.4 (AC-4): дефолтный ModelBackend возвращает None и для
+        # неактивных аккаунтов (authenticate проверяет is_active) — поэтому
+        # отличаем деактивированный аккаунт от неверных credentials.
+        if User.objects.filter(username=username, is_active=False).exists():
+            return render(request, login_template, context={"error_message": page_lang.text("account_disabled", lang)})
+        return render(
+            request,
+            login_template,
+            context={
+                "error_message": page_lang.text("login_bad", lang),
+                "next": request.POST.get("next", ""),
+            },
+        )
     # P2-9: прокидываем next в форму (скрытое поле), чтобы вход вернул на исходную страницу.
-    return render(request, "gov.html", context={"next": request.GET.get("next", "")})
+    return render(request, login_template, context={"next": request.GET.get("next", "")})
 
 
 def ratelimited_error(request, exception):

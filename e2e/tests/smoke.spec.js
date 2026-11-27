@@ -1,16 +1,7 @@
 // @ts-check
 const { test, expect } = require('@playwright/test');
 
-const ADMIN = { username: 'e2e_admin', password: 'E2eAdminPass123!' };
-const OPERATOR = { username: 'e2e_operator', password: 'E2eOperatorPass123!' };
-const VALID_IIN = '900215300007';
-
-async function login(page, { username, password }) {
-  await page.goto('/user_login/');
-  await page.fill('input[name="username"]', username);
-  await page.fill('input[name="password"]', password);
-  await Promise.all([page.waitForNavigation(), page.click('form[action="/user_login/"] button[type="submit"], form[action="/user_login/"] input[type="submit"]')]);
-}
+const { ADMIN, OPERATOR, login, csrfToken, futureDate, newOperatorRequest } = require('./helpers');
 
 test.describe('Health и доступность', () => {
   test('GET /api/health/ — БД доступна', async ({ request }) => {
@@ -20,10 +11,16 @@ test.describe('Health и доступность', () => {
   });
 
   test('страницы логина рендерятся на 3 языках', async ({ page }) => {
+    await page.addInitScript(() => {
+      localStorage.setItem('attendee_draft_v1', 'synthetic-legacy-draft');
+      localStorage.setItem('language', 'ru');
+    });
     for (const path of ['/user_login/', '/kz/', '/en/']) {
       await page.goto(path);
       await expect(page.locator('input[name="username"]')).toBeVisible();
       await expect(page.locator('input[name="password"]')).toBeVisible();
+      expect(await page.evaluate(() => localStorage.getItem('attendee_draft_v1'))).toBeNull();
+      expect(await page.evaluate(() => localStorage.getItem('language'))).toBe('ru');
     }
   });
 });
@@ -60,8 +57,8 @@ test.describe('Администратор: мероприятия', () => {
     await form.locator('input[name="name_kaz"]').fill('Playwright Саммиті');
     await form.locator('input[name="name_eng"]').fill('Playwright Summit');
     await form.locator('input[name="event_code"]').fill('PW-001');
-    await form.locator('input[name="date_start"]').fill('2026-07-01');
-    await form.locator('input[name="date_end"]').fill('2026-07-03');
+    await form.locator('input[name="date_start"]').fill(futureDate(1));
+    await form.locator('input[name="date_end"]').fill(futureDate(3));
     await form.locator('select[name="city"]').selectOption({ index: 0 });
     await Promise.all([page.waitForNavigation(), form.locator('button[type="submit"], input[type="submit"]').first().click()]);
     await expect(page.locator('body')).toContainText('Playwright Саммит');
@@ -78,7 +75,7 @@ test.describe('Администратор: мероприятия', () => {
 test.describe('Оператор: заявка', () => {
   test('создание заявки и форма добавления участника', async ({ page }) => {
     await login(page, OPERATOR);
-    await Promise.all([page.waitForNavigation(), page.click('a[href^="/create/"]')]);
+    await newOperatorRequest(page);
     // создание заявки ведёт на request.html; на странице есть переход к форме участника
     await expect(page).toHaveURL(/\/(create|show)\//);
     await expect(page.locator('body')).toContainText(/участник|заявк/i);
@@ -98,22 +95,14 @@ test.describe('Оператор: заявка', () => {
 });
 
 test.describe('QR-модуль', () => {
-  // /qr/ требует логина (security hardening) — авторизуемся оператором.
-  test('валидный ИИН → страница успеха с QR-кодом', async ({ page }) => {
+  test('запрос выдачи возвращает 503 без QR и без кэширования', async ({ page }) => {
     await login(page, OPERATOR);
-    await page.goto('/qr/');
-    await page.fill('input[name="iin"]', VALID_IIN);
-    await Promise.all([page.waitForNavigation(), page.click('#submitBtn, button[type="submit"]')]);
-    await expect(page).toHaveURL(/\/qr\/success\/\d+/);
-    await expect(page.locator('img.qr-code-image')).toBeVisible();
-  });
-
-  test('невалидный ИИН (не 12 цифр) не проходит', async ({ page }) => {
-    await login(page, OPERATOR);
-    await page.goto('/qr/');
-    await page.fill('input[name="iin"]', '123');
-    await page.click('#submitBtn, button[type="submit"]');
-    await expect(page).toHaveURL(/\/qr\/?$/); // остаёмся на форме
+    const response = await page.request.post('/qr/', {
+      form: { csrfmiddlewaretoken: await csrfToken(page) },
+    });
+    expect(response.status()).toBe(503);
+    expect(response.headers()['cache-control']).toContain('no-store');
+    expect(await response.text()).not.toContain('class="qr-code-image"');
   });
 });
 

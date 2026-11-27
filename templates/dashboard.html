@@ -1,92 +1,99 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Дашборд статусов — {{ event.name_rus|default:event.title|default:event.event_code }}</title>
-    <style>
-        /* Anti-fatigue: крупный шрифт, высокий контраст. */
-        body { font-family: system-ui, Arial, sans-serif; font-size: 18px; color: #1a1a1a;
-               background: #f5f6f8; margin: 0; padding: 24px; }
-        h1 { font-size: 28px; margin: 0 0 4px; }
-        .sub { color: #555; margin-bottom: 24px; }
-        .cards { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 28px; }
-        .card { flex: 1 1 180px; background: #fff; border-radius: 10px; padding: 18px 20px;
-                box-shadow: 0 1px 3px rgba(0,0,0,.12); border-left: 6px solid #ccc; }
-        .card .num { font-size: 40px; font-weight: 700; line-height: 1; }
-        .card .lbl { font-size: 16px; color: #444; margin-top: 6px; }
-        .card.ready { border-left-color: #198754; }
-        .card.review { border-left-color: #fd7e14; }
-        .card.draft { border-left-color: #6c757d; }
-        .card.exported { border-left-color: #0d6efd; }
-        .all-ready { background: #d1e7dd; color: #0f5132; padding: 18px 22px; border-radius: 10px;
-                     font-size: 22px; font-weight: 600; margin-bottom: 28px; }
-        .flags h2 { font-size: 22px; }
-        .flag { background: #fff; border-radius: 10px; padding: 16px 20px; margin-bottom: 16px;
-                box-shadow: 0 1px 3px rgba(0,0,0,.1); border-left: 6px solid #dc3545; }
-        .flag .ftitle { font-size: 19px; font-weight: 600; color: #842029; }
-        .flag ul { margin: 10px 0 0; padding-left: 22px; }
-        .flag li { margin: 4px 0; }
-        .flag a { color: #0d6efd; text-decoration: none; font-size: 18px; }
-        .flag a:hover { text-decoration: underline; }
-        .empty { color: #198754; font-weight: 600; }
-        .overflow { color: #842029; font-style: italic; margin-top: 8px; }
-    </style>
-</head>
-<body>
-    <h1>Дашборд статусов</h1>
-    <div class="sub">{{ event.name_rus|default:event.title|default:event.event_code }} · всего участников: {{ total }}</div>
-
-    <div class="cards">
-        <div class="card ready"><div class="num">{{ ready }}</div><div class="lbl">✅ Готовы (ready)</div></div>
-        <div class="card review"><div class="num">{{ review }}</div><div class="lbl">🔄 На проверке (submitted + in_review)</div></div>
-        <div class="card draft"><div class="num">{{ draft }}</div><div class="lbl">✏️ Черновики (draft)</div></div>
-        <div class="card exported"><div class="num">{{ exported }}</div><div class="lbl">📦 Выгружены (exported)</div></div>
+{% extends "ds_staff_base.html" %}
+{% block title %}Дашборд и выгрузка{% endblock %}
+{% block content %}
+    <div class="ds-header">
+        <h1 class="ds-h1">Дашборд и выгрузка</h1>
+        <p class="ds-context">{{ event.name_rus|default:event.title|default:event.event_code }} · всего участников: {{ total }}</p>
     </div>
+
+    <h2 class="ds-h2" id="statuses">Статусы участников</h2>
+    <ul class="ds-stats" aria-labelledby="statuses">
+        <li class="ds-stat"><span class="ds-stat-num">{{ ready }}</span><span class="ds-stat-label"><span class="ds-badge ds-badge-success">Допущены</span> готовы к выгрузке</span></li>
+        <li>
+            {# Отчёт 05: число проверяемых открывает соответствующую выборку. #}
+            <a class="ds-stat" href="{% url 'review_queue' event.id %}">
+                <span class="ds-stat-num">{{ review }}</span>
+                <span class="ds-stat-label"><span class="ds-badge ds-badge-warning">На проверке</span> <span class="ds-stat-link">открыть очередь →</span></span>
+            </a>
+        </li>
+        <li class="ds-stat"><span class="ds-stat-num">{{ draft }}</span><span class="ds-stat-label"><span class="ds-badge ds-badge-info">Черновики</span> у операторов</span></li>
+        <li class="ds-stat"><span class="ds-stat-num">{{ exported }}</span><span class="ds-stat-label"><span class="ds-badge ds-badge-success">Выгружены</span> переданы в службу</span></li>
+    </ul>
 
     {% if all_ready %}
-        <div class="all-ready">✅ Все {{ total }} участников готовы к экспорту</div>
+        <p class="ds-notice ds-notice-success" style="margin-top:16px">Все {{ total }} участников готовы к экспорту</p>
     {% endif %}
 
-    <div class="flags">
-        <h2>🚩 Требуют проверки{% if flags_total %} ({{ flags_total }}){% endif %}</h2>
-        {% for flag in flags %}
-            <div class="flag">
-                <div class="ftitle">{{ flag.label }} — {{ flag.total }} записей</div>
-                {% if flag.items %}
-                    <ul>
-                        {% for a in flag.items %}
-                            <li><a href="/update_attendee/{{ a.id }}/">{{ a.name|default:a.id }}</a></li>
-                        {% endfor %}
-                    </ul>
-                    {% if flag.overflow %}
-                        <div class="overflow">Показаны первые {{ flag.shown }} — есть ещё. Уточните выборку.</div>
-                    {% endif %}
+    <h2 class="ds-h2">Требуют внимания{% if flags_total %} ({{ flags_total }}){% endif %}</h2>
+    {% for flag in flags %}
+        <section class="ds-panel" aria-labelledby="flag-{{ forloop.counter }}">
+            <div class="ds-panel-head">
+                <h3 class="ds-panel-title" id="flag-{{ forloop.counter }}">{{ flag.label }}</h3>
+                {% if flag.total %}<span class="ds-badge ds-badge-danger">{{ flag.total }}</span>{% else %}<span class="ds-badge ds-badge-success">0</span>{% endif %}
+            </div>
+            {% if flag.items %}
+                <ul class="ds-list">
+                    {% for a in flag.items %}
+                        <li><a href="/update_attendee/{{ a.id }}/">{{ a.name|default:a.id }}</a></li>
+                    {% endfor %}
+                </ul>
+                {% if flag.overflow %}
+                    <p class="ds-hint">Показаны первые {{ flag.shown }} — есть ещё. Уточните выборку.</p>
+                {% endif %}
+            {% else %}
+                <p class="ds-hint">Нет записей с этой проблемой.</p>
+            {% endif %}
+        </section>
+    {% endfor %}
+
+    <h2 class="ds-h2">Выгрузка новых записей</h2>
+    <p class="ds-muted">Пакет включает допущенных участников заявки, которых ещё не выгружали.</p>
+    {% for cat in categories %}
+        <section class="ds-panel">
+            <form method="post" action="/export_delta/{{ event.id }}/{{ cat.id }}/" class="ds-row">
+                {% csrf_token %}
+                <h3 class="ds-panel-title">Заявка {{ cat.name }}</h3>
+                <button type="submit" class="ds-btn ds-btn-primary">Скачать новые записи</button>
+            </form>
+        </section>
+    {% empty %}
+        <p class="ds-hint">Нет категорий (заявок) в этом мероприятии.</p>
+    {% endfor %}
+
+    <h2 class="ds-h2">Пакеты выгрузки</h2>
+    {% for pkg in packages %}
+        <section class="ds-panel">
+            <div class="ds-panel-head">
+                <h3 class="ds-panel-title">{% if pkg.category %}Заявка {{ pkg.category.name }}{% else %}Все категории{% endif %}</h3>
+                {% if pkg.acknowledged_at %}
+                    <span class="ds-badge ds-badge-success">Приём подтверждён</span>
                 {% else %}
-                    <div class="empty">Нет записей с этой проблемой.</div>
+                    <span class="ds-badge ds-badge-warning">Приём не подтверждён</span>
                 {% endif %}
             </div>
-        {% endfor %}
-    </div>
-
-    <div class="flags">
-        <h2>📤 Экспорт по категориям</h2>
-        {% for cat in categories %}
-            <div class="flag" style="border-left-color:#0d6efd">
-                <form method="post" action="/export_delta/{{ event.id }}/{{ cat.id }}/"
-                      style="display:flex;justify-content:space-between;align-items:center;gap:16px;margin:0;">
-                    {% csrf_token %}
-                    <span class="ftitle" style="color:#084298">{{ cat.name }}</span>
-                    <button type="submit"
-                            style="font-size:17px;padding:10px 18px;border:0;border-radius:8px;
-                                   background:#0d6efd;color:#fff;cursor:pointer;">
-                        Скачать новые записи
-                    </button>
-                </form>
+            <p class="ds-hint">{{ pkg.exported_before|date:"d.m.Y H:i" }} · участников: {{ pkg.attendee_count }}</p>
+            <p class="ds-hint">Пакет <span class="ds-code">{{ pkg.package_id }}</span>{% if pkg.archive_name %} · <span class="ds-code">{{ pkg.archive_name }}</span>{% endif %}</p>
+            {% if pkg.acknowledged_at %}
+                <p class="ds-hint">Получатель подтвердил приём {{ pkg.acknowledged_at|date:"d.m.Y H:i" }}{% if pkg.acknowledged_by %} (отметил {{ pkg.acknowledged_by.username }}){% endif %}</p>
+            {% endif %}
+            <div class="ds-actions">
+                {% if pkg.can_redownload %}
+                    <form method="post" action="{% url 'export_package_download' pkg.package_id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="ds-btn ds-btn-secondary">Скачать повторно</button>
+                    </form>
+                {% else %}
+                    <p class="ds-hint">Повторная выдача недоступна: пакет сформирован до записи состава</p>
+                {% endif %}
+                {% if not pkg.acknowledged_at %}
+                    <form method="post" action="{% url 'export_package_acknowledge' pkg.package_id %}">
+                        {% csrf_token %}
+                        <button type="submit" class="ds-btn ds-btn-primary">Получатель подтвердил приём</button>
+                    </form>
+                {% endif %}
             </div>
-        {% empty %}
-            <div class="empty">Нет категорий (заявок) в этом мероприятии.</div>
-        {% endfor %}
-    </div>
-</body>
-</html>
+        </section>
+    {% empty %}
+        <p class="ds-hint">Выгрузок по этому мероприятию ещё не было.</p>
+    {% endfor %}
+{% endblock %}

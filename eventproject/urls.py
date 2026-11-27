@@ -13,6 +13,7 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
+from eventproject.operator_activation import OperatorSetPasswordView
 from django.contrib import admin
 from django.urls import path, include, re_path
 from django.http import JsonResponse
@@ -25,7 +26,7 @@ from eventproject.views import (
     index, application, new_password, send, change_password,
     back_to_change, user_login, preview, user_logout, auth_check,
     protected_media, ratelimited_error, health_check,
-    create_event, add_operator_to_event, flush_outdated_events,
+    create_event, add_operator_to_event,
     unbind_event, show_event, delete_event,
     download_file, download_json, download_photos, download_guests_json,
     download_request_json, download_all_guests_json,
@@ -34,10 +35,13 @@ from eventproject.views import (
     add_operator, show_operator, delete_operator, bind_operators,
 )
 from eventproject.views.dashboard import superoperator_dashboard
-from eventproject.views.export import export_delta
+from eventproject.views.review import review_decision, review_queue
+from eventproject.views.export import (
+    export_delta,
+    export_package_acknowledge,
+    export_package_download,
+)
 from eventproject.views.file_download import check_archive_status
-from kz_event import views as kviews
-from en_event import views as eviews
 
 
 def health_ok(_request):
@@ -56,6 +60,7 @@ urlpatterns = [
     path("api/v1/", include("eventproject.api.urls")),
 
     path("create_event/", create_event, name="create_event"),
+    path("operator-access/<uidb64>/<token>/", OperatorSetPasswordView.as_view(), name="operator-set-password"),
     path("add_operator/", add_operator, name="add_operator"),
     path("add_operator_to_event/", add_operator_to_event, name="add_operator_to_event"),
     path("user_login/", user_login, name="user_login"),
@@ -82,7 +87,6 @@ urlpatterns = [
         name="show_request_to_admin",
     ),
     path("avmac/", index, name="index"),
-    path("flush_outdated_events/", flush_outdated_events, name="flush_outdated_events"),
     path("new_password/<str:username>/", new_password, name="new_password"),
     path("delete_operator/<str:username>/", delete_operator, name="delete_operator"),
     path(
@@ -90,7 +94,23 @@ urlpatterns = [
     ),
     path("show_event/<int:event_id>/", show_event, name="show_event"),
     path("dashboard/<int:event_id>/", superoperator_dashboard, name="superoperator_dashboard"),
+    path("review/<int:event_id>/", review_queue, name="review_queue"),
+    path(
+        "review/attendee/<int:attendee_id>/<str:decision>/",
+        review_decision,
+        name="review_decision",
+    ),
     path("export_delta/<int:event_id>/<int:request_id>/", export_delta, name="export_delta"),
+    path(
+        "export_package/<uuid:package_id>/download/",
+        export_package_download,
+        name="export_package_download",
+    ),
+    path(
+        "export_package/<uuid:package_id>/acknowledge/",
+        export_package_acknowledge,
+        name="export_package_acknowledge",
+    ),
     path("delete_event/<int:event_id>/", delete_event, name="delete_event"),
     path("download_json/<int:event_id>/", download_json, name="download_json"),
     path(
@@ -119,46 +139,48 @@ urlpatterns = [
     # уводя пользователей дефолтной (RU) локали на англоязычные хендлеры. RU — канонические
     # bare-имена (выше), KZ/EN — с префиксом kz_/en_.
     path("", user_login, name="user_login_root"),
-    path("kz/", kviews.user_login, name="kz_user_login_root"),
-    path("en/", eviews.user_login, name="en_user_login_root"),
-    path("kz/user_login/", kviews.user_login, name="kz_user_login"),
-    path("en/user_login/", eviews.user_login, name="en_user_login"),
-    path("kz/application/", kviews.application, name="kz_application"),
-    path("en/application/", eviews.application, name="en_application"),
-    path("kz/logout/", kviews.user_logout, name="kz_logout"),
-    path("en/logout/", eviews.user_logout, name="en_logout"),
-    path("kz/change_password/", kviews.change_password, name="kz_change_password"),
-    path("en/change_password/", eviews.change_password, name="en_change_password"),
-    path("kz/create/<int:event_id>/", kviews.create_request, name="kz_create_request"),
-    path("en/create/<int:event_id>/", eviews.create_request, name="en_create_request"),
-    path("kz/show/<int:request_id>/", kviews.show_request, name="kz_show_request"),
-    path("en/show/<int:request_id>/", eviews.show_request, name="en_show_request"),
-    path("kz/add_attendee/<int:request_id>/", kviews.add_attendee, name="kz_add_attendee"),
-    path("en/add_attendee/<int:request_id>/", eviews.add_attendee, name="en_add_attendee"),
+    path("kz/", user_login, {"lang": "kz"}, name="kz_user_login_root"),
+    path("en/", user_login, {"lang": "en"}, name="en_user_login_root"),
+    path("kz/user_login/", user_login, {"lang": "kz"}, name="kz_user_login"),
+    path("en/user_login/", user_login, {"lang": "en"}, name="en_user_login"),
+    path("kz/application/", application, {"lang": "kz"}, name="kz_application"),
+    path("en/application/", application, {"lang": "en"}, name="en_application"),
+    path("kz/logout/", user_logout, {"lang": "kz"}, name="kz_logout"),
+    path("en/logout/", user_logout, {"lang": "en"}, name="en_logout"),
+    path("kz/change_password/", change_password, {"lang": "kz"}, name="kz_change_password"),
+    path("en/change_password/", change_password, {"lang": "en"}, name="en_change_password"),
+    path("kz/create/<int:event_id>/", create_request, {"lang": "kz"}, name="kz_create_request"),
+    path("en/create/<int:event_id>/", create_request, {"lang": "en"}, name="en_create_request"),
+    path("kz/show/<int:request_id>/", show_request, {"lang": "kz"}, name="kz_show_request"),
+    path("en/show/<int:request_id>/", show_request, {"lang": "en"}, name="en_show_request"),
+    path("kz/add_attendee/<int:request_id>/", add_attendee, {"lang": "kz"}, name="kz_add_attendee"),
+    path("en/add_attendee/<int:request_id>/", add_attendee, {"lang": "en"}, name="en_add_attendee"),
     path(
         "kz/back_to_change/<int:request_id>/",
-        kviews.back_to_change,
+        back_to_change, {"lang": "kz"},
         name="kz_back_to_change",
     ),
     path(
         "en/back_to_change/<int:request_id>/",
-        eviews.back_to_change,
+        back_to_change, {"lang": "en"},
         name="en_back_to_change",
     ),
-    path("kz/preview/<int:request_id>/", kviews.preview, name="kz_preview"),
-    path("en/preview/<int:request_id>/", eviews.preview, name="en_preview"),
-    path("kz/send/<int:request_id>/", kviews.send, name="kz_send"),
-    path("en/send/<int:request_id>/", eviews.send, name="en_send"),
-    path("kz/delete_attendee/", kviews.delete_attendee, name="kz_delete_attendee"),
-    path("en/delete_attendee/", eviews.delete_attendee, name="en_delete_attendee"),
+    path("kz/preview/<int:request_id>/", preview, {"lang": "kz"}, name="kz_preview"),
+    path("en/preview/<int:request_id>/", preview, {"lang": "en"}, name="en_preview"),
+    path("kz/send/<int:request_id>/", send, {"lang": "kz"}, name="kz_send"),
+    path("en/send/<int:request_id>/", send, {"lang": "en"}, name="en_send"),
+    path("kz/delete_attendee/", delete_attendee, {"lang": "kz"}, name="kz_delete_attendee"),
+    path("kz/update_attendee/<int:attendee_id>/", update_attendee, {"lang": "kz"}, name="kz_update_attendee"),
+    path("en/update_attendee/<int:attendee_id>/", update_attendee, {"lang": "en"}, name="en_update_attendee"),
+    path("en/delete_attendee/", delete_attendee, {"lang": "en"}, name="en_delete_attendee"),
     path(
         "kz/delete_request/<int:request_id>/",
-        kviews.delete_request,
+        delete_request, {"lang": "kz"},
         name="kz_delete_request",
     ),
     path(
         "en/delete_request/<int:request_id>/",
-        eviews.delete_request,
+        delete_request, {"lang": "en"},
         name="en_delete_request",
     ),
     path("bind_operators/", bind_operators, name="bind_operators"),

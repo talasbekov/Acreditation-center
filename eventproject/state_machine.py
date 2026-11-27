@@ -31,8 +31,10 @@ ATTENDEE_STATUS_CHOICES = [(s, s) for s in ATTENDEE_STATUSES]
 ALLOWED_TRANSITIONS = {
     AttendeeStatus.DRAFT: frozenset({AttendeeStatus.SUBMITTED}),
     AttendeeStatus.SUBMITTED: frozenset({AttendeeStatus.IN_REVIEW}),
-    # in_review: одобрить (ready) либо вернуть на доработку (submitted).
-    AttendeeStatus.IN_REVIEW: frozenset({AttendeeStatus.READY, AttendeeStatus.SUBMITTED}),
+    # in_review: одобрить (ready) либо вернуть оператору на доработку (draft) с
+    # причиной. Этап C: возврат в draft, потому что править участника может только
+    # оператор и только в черновике; после исправления он отправляется заново.
+    AttendeeStatus.IN_REVIEW: frozenset({AttendeeStatus.READY, AttendeeStatus.DRAFT}),
     AttendeeStatus.READY: frozenset({AttendeeStatus.EXPORTED}),
     AttendeeStatus.EXPORTED: frozenset(),  # терминальный
 }

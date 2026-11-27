@@ -8,6 +8,7 @@ const {
   login,
   csrfToken,
   newOperatorRequest,
+  submitForm,
   addAttendee,
 } = require('./helpers');
 
@@ -28,17 +29,19 @@ test.describe('Заявка: жизненный цикл', () => {
   }) => {
     const reqId = await newOperatorRequest(page);
 
+    expect(await (await addAttendee(page, reqId)).text()).toContain('успешно добавлен');
+    await page.goto(`/show/${reqId}/`);
     // preview: статус становится Checking
-    await page.goto(`/preview/${reqId}/`);
+    await submitForm(page, `/preview/${reqId}/`);
     await expect(page.locator('body')).toContainText('Заявка готова к отправлению');
 
     // back_to_change: возвращаемся в Active (снова видна кнопка "Добавить участника")
-    await page.goto(`/back_to_change/${reqId}/`);
+    await submitForm(page, `/back_to_change/${reqId}/`);
     await expect(page.locator(`a[href="/add_attendee/${reqId}/"] button`)).toBeVisible();
 
     // preview → send: статус Sent
-    await page.goto(`/preview/${reqId}/`);
-    await page.goto(`/send/${reqId}/`);
+    await submitForm(page, `/preview/${reqId}/`);
+    await submitForm(page, `/send/${reqId}/`);
     await expect(page.locator('body')).toContainText('Отправлено');
   });
 

@@ -1,0 +1,229 @@
+/*
+ * Этап D: утверждённый эталон (docs/modernization-audit/17, 18) для HTML-страниц
+ * проверяющего — очередь проверки и дашборд. Те же токены, что в SPA
+ * (frontend/src/index.css); пары текст/фон проверены по контрасту в отчёте 05.
+ */
+:root {
+  --surface: #ffffff;
+  --section: #f5f7fa;
+  --ink: #182637;
+  --ink-2: #465466;
+  --field: #6b7785;
+  --line: #d5dbe3;
+  --primary: #164873;
+  --primary-hover: #0f3557;
+  --focus: #1e68b3;
+  --info: #164873;
+  --info-bg: #e9f0f8;
+  --success: #095a3c;
+  --success-bg: #e4f3ea;
+  --warning: #744400;
+  --warning-bg: #fff1ce;
+  --danger: #92312f;
+  --danger-bg: #fce9e7;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body.ds {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--section);
+  color: var(--ink);
+  font-family: system-ui, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.ds a { color: var(--primary); text-underline-offset: 2px; }
+.ds a:hover { color: var(--primary-hover); }
+
+/* Видимый фокус: 2 px #1E68B3 с отступом 2 px. */
+.ds :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds * { animation: none !important; transition: none !important; }
+}
+
+.ds-skip {
+  position: absolute; left: 16px; top: -100px;
+  background: var(--surface); padding: 8px 12px; border-radius: 6px; z-index: 10;
+}
+.ds-skip:focus { top: 8px; }
+
+/* Шапка и навигация между разделами проверяющего. */
+.ds-top { background: var(--surface); border-bottom: 1px solid var(--line); }
+.ds-top-inner { max-width: 1152px; margin: 0 auto; padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 8px 24px; align-items: center; }
+.ds-brand { font-weight: 600; color: var(--ink); }
+.ds-nav { display: flex; flex-wrap: wrap; gap: 4px; }
+.ds-nav a {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px;
+  border-radius: 6px; font-weight: 600; text-decoration: none; color: var(--ink-2);
+}
+.ds-nav a:hover { background: var(--section); color: var(--ink); }
+.ds-nav a[aria-current="page"] { background: var(--info-bg); color: var(--info); }
+
+.ds-main { max-width: 1152px; margin: 0 auto; padding: 24px 16px 48px; }
+@media (min-width: 768px) {
+  .ds-top-inner { padding: 12px 32px; }
+  .ds-main { padding: 32px 32px 64px; }
+}
+
+.ds-h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 600; overflow-wrap: anywhere; }
+@media (min-width: 768px) { .ds-h1 { font-size: 28px; line-height: 36px; } }
+.ds-context { margin: 4px 0 0; font-size: 14px; line-height: 20px; color: var(--ink-2); overflow-wrap: anywhere; }
+.ds-header { margin-bottom: 20px; }
+
+.ds-h2 { margin: 32px 0 12px; font-size: 18px; line-height: 28px; font-weight: 600; }
+.ds-muted { color: var(--ink-2); font-size: 14px; line-height: 20px; }
+
+/* Плитки чисел. */
+.ds-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; }
+.ds-stat {
+  display: block; background: var(--surface); border: 1px solid var(--line); border-radius: 8px;
+  padding: 16px; text-decoration: none; color: var(--ink);
+}
+a.ds-stat:hover { border-color: var(--field); color: var(--ink); }
+.ds-stat-num { display: block; font-size: 32px; line-height: 40px; font-weight: 600; }
+.ds-stat-label { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 4px; font-size: 14px; line-height: 20px; color: var(--ink-2); }
+.ds-stat-link { font-weight: 600; color: var(--primary); }
+
+/* Поверхности. */
+.ds-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 12px; min-width: 0; }
+@media (min-width: 768px) { .ds-panel { padding: 20px 24px; } }
+.ds-panel-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 16px; }
+.ds-panel-title { margin: 0; font-size: 16px; line-height: 24px; font-weight: 600; overflow-wrap: anywhere; }
+.ds-list { margin: 8px 0 0; padding-left: 20px; }
+.ds-list li { margin: 4px 0; overflow-wrap: anywhere; }
+
+/* Статусы: всегда текстом, цвет — дополнительный признак. */
+.ds-badge { display: inline-block; border-radius: 6px; padding: 2px 8px; font-size: 14px; line-height: 20px; font-weight: 600; }
+.ds-badge-info { background: var(--info-bg); color: var(--info); }
+.ds-badge-success { background: var(--success-bg); color: var(--success); }
+.ds-badge-warning { background: var(--warning-bg); color: var(--warning); }
+.ds-badge-danger { background: var(--danger-bg); color: var(--danger); }
+
+/* Сообщения. */
+.ds-notice { border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; font-weight: 600; }
+.ds-notice-success { background: var(--success-bg); color: var(--success); }
+.ds-notice-danger, .ds-notice-error { background: var(--danger-bg); color: var(--danger); }
+.ds-notice-info { background: var(--info-bg); color: var(--info); }
+.ds-notice-warning { background: var(--warning-bg); color: var(--warning); }
+
+/* Кнопки: зона нажатия от 44 px. */
+.ds-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 8px 20px; border-radius: 6px; border: 1px solid transparent;
+  font: inherit; font-weight: 600; line-height: 24px; text-align: center; text-decoration: none; cursor: pointer;
+}
+.ds-btn-primary { background: var(--primary); color: #fff; }
+.ds-btn-primary:hover { background: var(--primary-hover); color: #fff; }
+.ds-btn-success { background: var(--success); color: #fff; }
+.ds-btn-success:hover { background: #07452e; color: #fff; }
+.ds-btn-secondary { background: var(--surface); border-color: var(--field); color: var(--ink); }
+.ds-btn-secondary:hover { background: var(--section); color: var(--ink); }
+.ds-btn-danger { background: var(--surface); border-color: var(--danger); color: var(--danger); }
+.ds-btn-danger:hover { background: var(--danger-bg); color: var(--danger); }
+.ds-actions { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-start; margin-top: 16px; }
+.ds-actions form { margin: 0; }
+@media (max-width: 639px) {
+  .ds-actions > *, .ds-actions form, .ds-actions .ds-btn { width: 100%; }
+}
+
+/* Раскрывающееся действие (<details>): сам <summary> — кнопка. */
+.ds-disclosure > summary { list-style: none; }
+.ds-disclosure > summary::-webkit-details-marker { display: none; }
+.ds-disclosure[open] > summary { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.ds-disclosure-body { border: 1px solid var(--danger); border-top: 0; border-radius: 0 0 6px 6px; padding: 12px; background: var(--surface); }
+
+/* Поля. */
+.ds-label { display: block; font-weight: 600; margin-bottom: 4px; }
+.ds-hint { margin: 4px 0 0; font-size: 14px; line-height: 20px; color: var(--ink-2); }
+.ds-textarea {
+  display: block; width: 100%; min-height: 96px; padding: 8px 12px; border: 1px solid var(--field);
+  border-radius: 6px; font: inherit; color: var(--ink); background: var(--surface);
+}
+
+/* Карточка участника в очереди. */
+.ds-person { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 12px; }
+.ds-media { display: flex; gap: 8px; }
+.ds-media a { display: block; border-radius: 6px; }
+.ds-media img { width: 110px; height: 140px; object-fit: cover; border-radius: 6px; background: var(--section); border: 1px solid var(--line); }
+.ds-facts { flex: 1 1 260px; min-width: 0; margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px; font-size: 14px; line-height: 20px; }
+.ds-facts dt { color: var(--ink-2); }
+.ds-facts dd { margin: 0; overflow-wrap: anywhere; }
+@media (max-width: 380px) {
+  .ds-facts { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .ds-facts dd { margin-bottom: 6px; }
+}
+
+.ds-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px 16px; }
+.ds-code { font-family: ui-monospace, Consolas, monospace; font-size: 14px; overflow-wrap: anywhere; }
+
+/* ---------------------------------------------------------------------------
+ * Страницы оператора (HTML, RU/KZ/EN). Сетка — локальный Bootstrap 5.1;
+ * поля, кнопки и отметки Bootstrap приведены к токенам эталона.
+ * ------------------------------------------------------------------------- */
+.ds-brand-link { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; min-width: 0; }
+.ds-brand-link:hover { color: var(--ink); }
+.ds-brand-link img { width: 36px; height: 36px; flex: none; }
+.ds-brand-text { font-weight: 600; line-height: 20px; overflow-wrap: anywhere; }
+.ds-top-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-left: auto; }
+.ds-lang { display: flex; gap: 2px; }
+.ds-lang a {
+  display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px;
+  border-radius: 6px; text-decoration: none; color: var(--ink-2); font-weight: 600;
+}
+.ds-lang a:hover { background: var(--section); color: var(--ink); }
+.ds-lang a[aria-current="true"] { background: var(--info-bg); color: var(--info); }
+.ds-lang b { font-weight: 700; }
+@media (max-width: 639px) {
+  .ds-top-tools { margin-left: 0; width: 100%; }
+}
+
+.ds .form-control, .ds .form-select {
+  min-height: 44px; border: 1px solid var(--field); border-radius: 6px; color: var(--ink); font-size: 16px;
+}
+.ds textarea.form-control { min-height: 96px; }
+.ds .form-control:focus, .ds .form-select:focus, .ds .form-check-input:focus {
+  border-color: var(--focus); box-shadow: none; outline: 2px solid var(--focus); outline-offset: 2px;
+}
+.ds .form-control[type="file"] { padding-top: 9px; }
+.ds .form-check-input { width: 20px; height: 20px; margin-top: 2px; border-color: var(--field); }
+.ds .form-check-input:checked { background-color: var(--primary); border-color: var(--primary); }
+.ds .form-check { display: flex; gap: 10px; align-items: flex-start; padding-left: 0; }
+.ds .form-check .form-check-input { float: none; margin-left: 0; flex: none; }
+
+.ds-req::after { content: " *"; color: var(--danger); font-weight: 600; }
+.ds-field { margin-bottom: 16px; min-width: 0; }
+.ds-field > label, .ds-field .ds-label { display: block; font-weight: 600; margin-bottom: 4px; }
+.ds-field-error { margin: 4px 0 0; font-size: 14px; line-height: 20px; font-weight: 600; color: var(--danger); }
+.ds-field-ok { margin: 4px 0 0; font-size: 14px; line-height: 20px; font-weight: 600; color: var(--success); }
+.ds-section { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px 16px 0; margin-bottom: 16px; }
+@media (min-width: 768px) { .ds-section { padding: 20px 24px 4px; } }
+.ds-section-title { margin: 0 0 4px; font-size: 18px; line-height: 28px; font-weight: 600; }
+.ds-section-desc { margin: 0 0 12px; font-size: 14px; line-height: 20px; color: var(--ink-2); }
+
+.ds-narrow { max-width: 480px; margin: 0 auto; }
+.ds-page-actions { display: flex; flex-wrap: wrap; gap: 8px 12px; margin: 16px 0; }
+@media (max-width: 639px) { .ds-page-actions > *, .ds-page-actions form, .ds-page-actions .ds-btn { width: 100%; } }
+.ds-link-danger { background: none; border: 0; padding: 0; font: inherit; color: var(--danger); text-decoration: underline; cursor: pointer; min-height: 44px; }
+.ds-req-list { list-style: none; margin: 12px 0 0; padding: 0; }
+.ds-req-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+.ds-req-name { font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.ds-req-list .ds-req-actions { margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+@media (max-width: 639px) { .ds-req-list .ds-req-actions { margin-left: 0; width: 100%; } .ds-req-list .ds-req-actions .ds-btn { width: 100%; } }
+
+.ds-person-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.ds-person-actions form { margin: 0; }
+.ds-skip-inline { display: inline-flex; align-items: center; min-height: 44px; margin-bottom: 8px; font-weight: 600; }
+
+/* Кнопки-ссылки: правило `.ds a` специфичнее `.ds-btn-*` и красило текст в цвет ссылки
+   (синий текст на синем фоне). Цвет кнопки важнее цвета ссылки. */
+.ds a.ds-btn-primary, .ds a.ds-btn-primary:hover, .ds a.ds-btn-success, .ds a.ds-btn-success:hover { color: #fff; }
+.ds a.ds-btn-secondary, .ds a.ds-btn-secondary:hover { color: var(--ink); }
+.ds a.ds-btn-danger, .ds a.ds-btn-danger:hover { color: var(--danger); }
+.ds a.ds-btn { text-decoration: none; }

@@ -24,16 +24,18 @@ logger = logging.getLogger("eventproject")
 @user_passes_test(lambda u: u.is_superuser, login_url="/user_login/")
 def create_event(request):
     if request.method == "POST":
-        name_rus = request.POST["name_rus"]
-        name_kaz = request.POST["name_kaz"]
-        name_eng = request.POST["name_eng"]
-        event_code = request.POST["event_code"]
-        date_start = request.POST["date_start"]
-        date_end = request.POST["date_end"]
-        city = request.POST["city"]
+        # Этап E: неполная форма из прямого POST раньше давала 500 (KeyError/ValueError).
+        name_rus = request.POST.get("name_rus", "")
+        name_kaz = request.POST.get("name_kaz", "")
+        name_eng = request.POST.get("name_eng", "")
+        event_code = request.POST.get("event_code", "")
+        city = request.POST.get("city", "")
         today = date.today()
-        sd = datetime.strptime(date_start, "%Y-%m-%d").date()
-        ed = datetime.strptime(date_end, "%Y-%m-%d").date()
+        try:
+            sd = datetime.strptime(request.POST.get("date_start", ""), "%Y-%m-%d").date()
+            ed = datetime.strptime(request.POST.get("date_end", ""), "%Y-%m-%d").date()
+        except ValueError:
+            return show_admin_error(request, "Не удалось создать мероприятие. Укажите даты начала и окончания.")
         if name_rus == "":
             error_message = (
                 "Не удалось создать мероприятие. Название мероприятия отсутствует"
@@ -50,8 +52,11 @@ def create_event(request):
             name_rus=name_rus,
             name_eng=name_eng,
             event_code=event_code,
-            date_start=date_start,
-            date_end=date_end,
+            date_start=sd,
+            date_end=ed,
+            title=name_rus,
+            start_date=sd,
+            end_date=ed,
             city_code=city,
         )
         event.save()
@@ -81,7 +86,7 @@ def add_operator_to_event(request):
             )
             return show_admin(request, success_message)
     except Exception as e:
-        logger.exception("add_operator_to_event failed: %s", e)
+        logger.error("add_operator_to_event failed")
         error_message = "Не удалось добавить пользователя."
         return show_admin_error(request, error_message)
 
@@ -89,37 +94,8 @@ def add_operator_to_event(request):
 
 
 @user_passes_test(lambda u: u.is_superuser, login_url="/user_login/")
-def flush_outdated_events(request):
-    context_dict = {}
-    try:
-        enddate = date.today()
-        startdate = enddate - timedelta(days=900)
-        event_list = Event.objects.filter(date_end__range=[startdate, enddate])
-        count = len(event_list)
-        print(count)
-        for event in event_list:
-            print(event.id)
-            mydir = os.path.join(settings.MEDIA_ROOT, "event_" + str(event.id))
-            print(mydir)
-            try:
-                shutil.rmtree(mydir)
-                print("perfect")
-            except OSError as e:
-                print("Error: %s - %s." % (e.filename, e.strerror))
-            event.delete()
-        try:
-            shutil.rmtree("output")
-        except OSError as e:
-            print("Error: %s - %s." % (e.filename, e.strerror))
-        success_message = str(count) + " мероприятии успешно удалены"
-        return show_admin(request, success_message)
-    except Exception as e:
-        logger.exception("flush_outdated_events failed: %s", e)
-        return HttpResponse("Some error occured")
-    return render(request, "operator.html", context_dict)
-
-
-@user_passes_test(lambda u: u.is_superuser, login_url="/user_login/")
+@require_POST
+@csrf_protect
 def unbind_event(request, event_id, username):
     context_dict = {}
     try:
@@ -136,7 +112,7 @@ def unbind_event(request, event_id, username):
         )
         return show_admin(request, success_message)
     except Exception as e:
-        logger.exception("unbind_event failed: %s", e)
+        logger.error("unbind_event failed")
         return HttpResponse("Could not find operator")
     return render(request, "operator.html", context_dict)
 
@@ -146,25 +122,25 @@ def show_event(request, event_id):
     context_dict = {}
     try:
         event = Event.objects.get(pk=event_id)
-        operators = Operator.objects.filter(events__in=[event])
-        reqs = Request.objects.filter(event=event, status__in=["Sent", "Exported"])
+        # P2: пользователь оператора и автор заявки загружаются одним JOIN —
+        # шаблон выводит их имена для каждой строки.
+        operators = list(Operator.objects.filter(events=event).select_related("user"))
+        assigned_ids = {o.pk for o in operators}
+        reqs = Request.objects.filter(event=event, status__in=["Sent", "Exported"]).select_related("created_by__user")
         active_reqs = Request.objects.filter(
             event=event, status__in=["Active", "Checking"]
-        )
+        ).select_related("created_by__user")
         cities = City.objects.all()
         context_dict = {"events": [event]}
         context_dict["operators"] = operators
-        all_operators = Operator.objects.all().order_by("user__last_name")
-        other_operators = []
-        for a in all_operators:
-            if a not in operators:
-                other_operators.append(a)
-        context_dict["other_operators"] = other_operators
+        context_dict["other_operators"] = list(
+            Operator.objects.exclude(pk__in=assigned_ids).select_related("user").order_by("user__last_name")
+        )
         context_dict["event"] = event
         context_dict["reqs"] = reqs
         context_dict["active_reqs"] = active_reqs
         context_dict["cities"] = cities
-        context_dict["unexported"] = len(reqs.exclude(status="Exported"))
+        context_dict["unexported"] = reqs.exclude(status="Exported").count()
         zip_name = "event_" + str(event_id) + ".zip"
         if os.path.isfile(zip_name):
             context_dict["file"] = zip_name
@@ -186,17 +162,18 @@ def delete_event(request, event_id):
         event = Event.objects.get(pk=event_id)
         # Абсолютный путь из MEDIA_ROOT — rmtree не должен зависеть от CWD.
         mydir = os.path.join(settings.MEDIA_ROOT, "event_" + str(event.id))
-        print(mydir)
         try:
             shutil.rmtree(mydir)
-            print("perfect")
-        except OSError as e:
-            print("Error: %s - %s." % (e.filename, e.strerror))
+        except FileNotFoundError:
+            pass
+        except OSError:
+            logging.getLogger(__name__).error("Event media cleanup failed")
+            return HttpResponse("Не удалось удалить файлы мероприятия.", status=503)
         success_message = "Мероприятие: " + event.name_rus + " успешно удалено"
         event.delete()
         return show_admin(request, success_message)
-    except Request.DoesNotExist:
-        return HttpResponse("Could not find event")
+    except Event.DoesNotExist:
+        return HttpResponse("Could not find event", status=404)
     return render(request, "event.html", context_dict)
 
 from django.db.models import Count, Prefetch

@@ -18,7 +18,7 @@ VALID_TRANSITIONS = [
     (S.DRAFT, S.SUBMITTED),
     (S.SUBMITTED, S.IN_REVIEW),
     (S.IN_REVIEW, S.READY),
-    (S.IN_REVIEW, S.SUBMITTED),   # возврат на доработку (5-й переход)
+    (S.IN_REVIEW, S.DRAFT),       # возврат оператору на доработку (этап C)
     (S.READY, S.EXPORTED),
 ]
 
@@ -28,7 +28,7 @@ INVALID_TRANSITIONS = [
     (S.SUBMITTED, S.EXPORTED),
     (S.READY, S.DRAFT),
     (S.EXPORTED, S.READY),        # терминальный
-    (S.IN_REVIEW, S.DRAFT),
+    (S.IN_REVIEW, S.SUBMITTED),   # возврат идёт в черновик, не в очередь
 ]
 
 
