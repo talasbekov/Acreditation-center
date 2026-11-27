@@ -60,8 +60,7 @@ test.describe('Внутренняя сверка идентификаторов'
     await login(page, OPERATOR);
     const reqId = await newOperatorRequest(page);
     expect(await (await addAttendee(page, reqId)).text()).toContain('успешно добавлен');
-    await page.goto(`/show/${reqId}/`);
-    await submitForm(page, `/preview/${reqId}/`);
+    await page.goto(`/preview/${reqId}/`);
     await submitForm(page, `/send/${reqId}/`);
 
     // 2) администратор сверяет ID участников события
