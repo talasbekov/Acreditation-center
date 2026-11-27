@@ -144,7 +144,7 @@ class HealthCheckTests(TestCase):
                 "action": "health.check",
                 "obj_type": "db",
                 "obj_id": None,
-                "ip": "10.1.2.3",
+                "ip": None,
                 "method": "GET",
                 "path": "/api/health/",
                 "status": 503,
@@ -182,8 +182,8 @@ class HealthCheckTests(TestCase):
         )
 
     @patch("eventproject.views.health.logger")
-    def test_health_critical_log_defaults_missing_ip(self, mocked_logger):
-        """Без REMOTE_ADDR в CRITICAL-логе ip не null, а 'unknown'."""
+    def test_health_critical_log_omits_client_ip(self, mocked_logger):
+        """Health diagnostics do not record the client address."""
         from django.db.utils import OperationalError
 
         failing_connection = type(
@@ -203,6 +203,4 @@ class HealthCheckTests(TestCase):
             response = self.client.get("/api/health/", REMOTE_ADDR="")
 
         self.assertEqual(response.status_code, 503)
-        self.assertEqual(
-            mocked_logger.critical.call_args.kwargs["extra"]["ip"], "unknown"
-        )
+        self.assertIsNone(mocked_logger.critical.call_args.kwargs["extra"]["ip"])

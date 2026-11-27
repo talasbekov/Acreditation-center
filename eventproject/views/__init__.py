@@ -17,7 +17,6 @@ from .views import (
 from .event import (
     create_event,
     add_operator_to_event,
-    flush_outdated_events,
     unbind_event,
     show_event,
     delete_event,
@@ -37,6 +36,6 @@ from .request import (
     create_request2,
     delete_request,
 )
-from .attendee import check_dublicate, add_attendee, update_attendee, delete_attendee
+from .attendee import add_attendee, update_attendee, delete_attendee
 from .operator import add_operator, show_operator, delete_operator, bind_operators
 from .health import health_check

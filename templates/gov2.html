@@ -1,80 +1,41 @@
 {% extends 'gov_base.html' %}
-
+{% load ui_tags directory_tags %}
 {% block body_block %}
 
-<div class="container mt-4">
-    <div class="row justify-content-between align-items-center">
-        <div class="col-12">
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center">
-                <a class="btn btn-light mb-2 mb-md-0">Добро пожаловать, {{ user.first_name }} {{ user.last_name }}&#160;</a>
-                <div class="d-flex flex-column flex-md-row gap-2">
-                    <a href="/change_password/" class="btn btn-secondary">Изменить пароль</a>
-                    <a href="/logout/" class="btn btn-danger">Выйти</a>
-                </div>
-            </div>
-            <hr>
-        </div>
-    </div>
-
-    <div class="col-12 mt-4">
-        {% if events %}
-            <h4>Список мероприятий, на которые Вам был предоставлен доступ</h4>
-        {% else %}
-            <h4>Нет предстоящих активных мероприятий</h4>
-        {% endif %}
-        <hr>
-
-        {% for event in events %}
-        <div class="mb-4">
-            <h5><b>Мероприятие:&#160;{{ event.name_rus }}</b></h5>
-            <h6>Город:&#160;
-                {% for city in cities %}
-                    {% if city.city_code == event.city_code %}
-                        {{ city.name_rus }}
-                    {% endif %}
-                {% endfor %}
-            </h6>
-            <h6>Дата:&#160;{{ event.date_start|date:"d.m.Y" }} - {{ event.date_end|date:"d.m.Y" }}</h6>
-            <div class="mt-3">
-                <a href="/create/{{ event.id }}" class="btn btn-primary mb-2">+ Создать новый список участников (заявку) для этого мероприятия</a>
-            </div>
-
-            {% for req in reqs %}
-                {% if req.event == event %}
-                <div class="mt-3">
-                    <a href="/show/{{ req.id }}" class="btn
-                        {% if req.status == 'Active' %} btn-secondary
-                        {% elif req.status == 'Checking' %} btn-warning
-                        {% elif req.status == 'Sent' %} btn-success
-                        {% elif req.status == 'Exported' %} btn-success
-                        {% else %} btn-primary {% endif %}">
-                        {% if req.status == 'Active' %}
-                            Редактировать список участников
-                        {% else %}
-                            Посмотреть список участников
-                        {% endif %}
-                    </a>
-                    <small>Номер заявки:&#160;{{ req.name }}. Статус:
-                        {% if req.status == "Active" %}
-                            Создано
-                            <form method="post" action="/delete_request/{{ req.id }}/" style="display:inline">{% csrf_token %}<button type="submit" class="btn btn-link btn-sm p-0 align-baseline text-danger">удалить список</button></form>
-                        {% elif req.status == "Checking" %}
-                            Предпросмотр
-                        {% elif req.status == "Sent" %}
-                            Отправлено
-                        {% elif req.status == "Exported" %}
-                            Принято
-                        {% else %}
-                            Неизвестен
-                        {% endif %}
-                    </small>
-                </div>
-                {% endif %}
-            {% endfor %}
-        </div>
-        <hr>
-        {% endfor %}
-    </div>
+<div class="ds-header">
+    <h1 class="ds-h1">{% if events %}{% t "Список мероприятий, на которые Вам был предоставлен доступ" %}{% else %}{% t "Нет предстоящих активных мероприятий" %}{% endif %}</h1>
+    <p class="ds-context">{% t "Добро пожаловать, {name}" name=user.get_full_name|default:user.username %}</p>
 </div>
+
+{% for event in events %}
+<section class="ds-panel" aria-labelledby="event-{{ event.id }}">
+    <h2 class="ds-panel-title" id="event-{{ event.id }}">{% t "Мероприятие:" %} {{ event|lname:lang }}</h2>
+    <p class="ds-hint">{% t "Город:" %} {% dir_name cities "city_code" event.city_code name_field %} · {% t "Дата:" %} {{ event.date_start|date:"d.m.Y" }} – {{ event.date_end|date:"d.m.Y" }}</p>
+    <div class="ds-actions">
+        <form method="post" action="{{ lp }}/create/{{ event.id }}/">{% csrf_token %}<button type="submit" class="ds-btn ds-btn-primary">{% t "+ Создать новый список участников (заявку) для этого мероприятия" %}</button></form>
+    </div>
+
+    <ul class="ds-req-list">
+    {% for req in reqs %}
+        {% if req.event_id == event.id %}
+        <li>
+            <span class="ds-req-name">{% t "Номер заявки:" %} {{ req.name }}</span>
+            {% if req.status == "Active" %}<span class="ds-badge ds-badge-info">{% t "Создано" %}</span>
+            {% elif req.status == "Checking" %}<span class="ds-badge ds-badge-warning">{% t "На предпросмотре" %}</span>
+            {% elif req.status == "Sent" %}<span class="ds-badge ds-badge-warning">{% t "Отправлено" %}</span>
+            {% elif req.status == "Exported" %}<span class="ds-badge ds-badge-success">{% t "Принято" %}</span>
+            {% else %}<span class="ds-badge ds-badge-info">{% t "Неизвестен" %}</span>{% endif %}
+            <span class="ds-req-actions">
+                <a href="{{ lp }}/show/{{ req.id }}/" class="ds-btn {% if req.status == 'Active' %}ds-btn-primary{% else %}ds-btn-secondary{% endif %}">{% if req.status == 'Active' %}{% t "Редактировать список участников" %}{% else %}{% t "Посмотреть список участников" %}{% endif %}</a>
+                {% if req.status == "Active" %}
+                <form method="post" action="{{ lp }}/delete_request/{{ req.id }}/" style="margin:0">{% csrf_token %}<button type="submit" class="ds-link-danger">{% t "удалить список" %}</button></form>
+                {% endif %}
+            </span>
+        </li>
+        {% endif %}
+    {% endfor %}
+    </ul>
+</section>
+{% endfor %}
 
 {% endblock %}

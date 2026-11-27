@@ -53,7 +53,7 @@ class ForcePasswordChangeMiddleware:
             return False
 
         path = request.path
-        if path.startswith(_EXEMPT_PREFIXES):
+        if path.startswith("/operator-access/") or path.startswith(_EXEMPT_PREFIXES):
             return False
         segments = {seg for seg in path.split("/") if seg}
         if segments & _EXEMPT_SEGMENTS:

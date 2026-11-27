@@ -6,6 +6,8 @@ export interface ProblemDetail {
   title?: string
   detail?: string
   field?: string
+  /** Этап D: ошибки по каждому полю `{поле: текст}` (есть, если ошибка относится к полям). */
+  errors?: Record<string, string>
 }
 
 export class ApiError extends Error {

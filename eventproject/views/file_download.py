@@ -1,3 +1,4 @@
+import logging
 import os
 import mimetypes
 import tempfile
@@ -5,15 +6,13 @@ import zipfile
 
 from django.conf import settings
 from django.http import HttpResponse, StreamingHttpResponse
-from django.forms.models import model_to_dict
 
 from wsgiref.util import FileWrapper
 
 from eventproject.cron import logger
 from eventproject.models import Event, Request, Attendee
-from eventproject.audit import audit_log
 
-from django.db import transaction
+from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_POST
 
@@ -22,11 +21,13 @@ from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.http import JsonResponse, FileResponse, Http404
 from django.utils import timezone
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_http_methods
 from django.core.cache import cache
 from django.views import View
 from pathlib import Path
+
+reconciliation_logger = logging.getLogger("eventproject.audit")
 
 # from eventproject.tasks import logger, cleanup_old_archives
 
@@ -154,7 +155,7 @@ def download_photos(request, event_id):
             raise
 
     except Exception as e:
-        logger.error(f"Ошибка архивации event {event_id}: {e}")
+        logger.error("Archive creation failed")
         # M5: не возвращаем str(e) клиенту — утечка путей/внутренних деталей сервера.
         return HttpResponse("Ошибка при создании архива", status=500)
 
@@ -336,137 +337,48 @@ def download_photos(request, event_id):
 #         logger.error(f"Error creating archive for event {event_id}: {e}")
 #         return HttpResponse(f"Ошибка при создании архива: {str(e)}", status=500)
 
-@user_passes_test(lambda u: u.is_superuser, login_url='/user_login/')
+def _reconcile_event_ids(event_id, statuses):
+    event = get_object_or_404(Event.objects.only("id"), pk=event_id)
+    rows = list(Attendee.objects.filter(
+        request__event=event, request__status__in=statuses,
+    ).order_by("pk").values("id", "request"))
+    reconciliation_logger.info("reconciliation.event", extra={"attendees": len(rows)})
+    return JsonResponse({"id": event.pk, "attendees": rows})
+
+
+@never_cache
+@user_passes_test(lambda u: u.is_superuser, login_url="/user_login/")
 @require_POST
 @csrf_protect
 def download_json(request, event_id):
-    try:
-        event = Event.objects.get(pk=event_id)
-    except Event.DoesNotExist:
-        return HttpResponse("Could not find event", status=404)
-
-    list_of_attendees = []
-    exported = 0
-    # Экспорт меняет статус заявок (Sent -> Exported), поэтому только POST + CSRF,
-    # а мутация статуса + аудит — атомарно (всё или ничего).
-    with transaction.atomic():
-        for req in Request.objects.filter(event=event, status='Sent'):
-            for attendee in Attendee.objects.filter(request=req):
-                list_of_attendees.append(model_to_dict(attendee))
-            req.status = "Exported"
-            req.save()
-            exported += 1
-        event_dict = model_to_dict(event)
-        event_dict['attendees'] = list_of_attendees
-        serialized_event = json.dumps(event_dict, indent=4, sort_keys=True, default=str, ensure_ascii=False)
-        audit_log(
-            user=request.user,
-            action="export.event_sent",
-            obj_type="Event",
-            obj_id=event_id,
-            ip=request.META.get("REMOTE_ADDR"),
-            extra={"requests_exported": exported, "attendees": len(list_of_attendees)},
-        )
-    return HttpResponse(serialized_event, content_type="application/json")
+    return _reconcile_event_ids(event_id, ["Sent"])
 
 
+@never_cache
 @user_passes_test(lambda u: u.is_superuser, login_url="/user_login/")
 @require_POST
 @csrf_protect
 def download_guests_json(request, event_id):
-    try:
-        event = Event.objects.get(pk=event_id)
-    except Event.DoesNotExist:
-        return HttpResponse("Could not find event", status=404)
-
-    list_of_attendees = []
-    exported = 0
-    with transaction.atomic():
-        for req in Request.objects.filter(event=event, status="Sent"):
-            for attendee in Attendee.objects.filter(request=req):
-                list_of_attendees.append(model_to_dict(attendee))
-            req.status = "Exported"
-            req.save()
-            exported += 1
-        event_dict = model_to_dict(event)
-        event_dict["attendees"] = list_of_attendees
-        serialized_event = json.dumps(
-            event_dict, indent=4, sort_keys=True, default=str, ensure_ascii=False
-        )
-        audit_log(
-            user=request.user,
-            action="export.guests_sent",
-            obj_type="Event",
-            obj_id=event_id,
-            ip=request.META.get("REMOTE_ADDR"),
-            extra={"requests_exported": exported, "attendees": len(list_of_attendees)},
-        )
-    return HttpResponse(serialized_event, content_type="application/json")
+    return _reconcile_event_ids(event_id, ["Sent"])
 
 
+@never_cache
 @user_passes_test(lambda u: u.is_superuser, login_url="/user_login/")
 @require_POST
 @csrf_protect
 def download_all_guests_json(request, event_id):
-    try:
-        event = Event.objects.get(pk=event_id)
-    except Event.DoesNotExist:
-        return HttpResponse("Could not find event", status=404)
-
-    list_of_attendees = []
-    exported = 0
-    with transaction.atomic():
-        for req in Request.objects.filter(event=event, status__in=["Sent", "Exported"]):
-            for attendee in Attendee.objects.filter(request=req):
-                list_of_attendees.append(model_to_dict(attendee))
-            req.status = "Exported"
-            req.save()
-            exported += 1
-        event_dict = model_to_dict(event)
-        event_dict["attendees"] = list_of_attendees
-        serialized_event = json.dumps(
-            event_dict, indent=4, sort_keys=True, default=str, ensure_ascii=False
-        )
-        audit_log(
-            user=request.user,
-            action="export.guests_all",
-            obj_type="Event",
-            obj_id=event_id,
-            ip=request.META.get("REMOTE_ADDR"),
-            extra={"requests_exported": exported, "attendees": len(list_of_attendees)},
-        )
-    return HttpResponse(serialized_event, content_type="application/json")
+    return _reconcile_event_ids(event_id, ["Sent", "Exported"])
 
 
+@never_cache
 @user_passes_test(lambda u: u.is_superuser, login_url="/user_login/")
 @require_POST
 @csrf_protect
 def download_request_json(request, request_id):
-    try:
-        with transaction.atomic():
-            req = Request.objects.get(id=request_id)
-            list_of_attendees = [
-                model_to_dict(a) for a in Attendee.objects.filter(request=req)
-            ]
-            request_dict = model_to_dict(req)
-            request_dict["attendees"] = list_of_attendees
-            request_dict["event"] = req.event
-            serialized_event = json.dumps(
-                request_dict, indent=4, sort_keys=True, default=str, ensure_ascii=False
-            )
-            req.status = "Exported"
-            req.save()
-            audit_log(
-                user=request.user,
-                action="export.request",
-                obj_type="Request",
-                obj_id=request_id,
-                ip=request.META.get("REMOTE_ADDR"),
-                extra={"attendees": len(list_of_attendees), "event_id": req.event_id},
-            )
-        return HttpResponse(serialized_event, content_type="application/json")
-    except Request.DoesNotExist:
-        return HttpResponse("Could not find request", status=404)
+    req = get_object_or_404(Request.objects.only("id", "event_id"), pk=request_id)
+    rows = list(Attendee.objects.filter(request=req).order_by("pk").values("id", "request"))
+    reconciliation_logger.info("reconciliation.request", extra={"attendees": len(rows)})
+    return JsonResponse({"id": req.pk, "event": str(req.event_id), "attendees": rows})
 
 
 # @user_passes_test(lambda u: u.is_superuser, login_url="/user_login/")
@@ -516,7 +428,7 @@ def download_file(request, event_id):
         # M5: реальное исключение при отсутствии файла (было: except Request.DoesNotExist — недостижимо).
         return HttpResponse("Архив не найден", status=404)
     except Exception as e:
-        logger.error("download_file error event=%s: %s", event_id, e)
+        logger.error("Archive download failed")
         return HttpResponse("Ошибка при скачивании файла", status=500)
 
 

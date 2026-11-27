@@ -17,11 +17,13 @@
 
 import logging
 
+from django.contrib.auth.signals import user_logged_in
 from django.db import transaction
 from django.db.models.signals import post_delete, pre_save
 from django.dispatch import receiver
 
 from eventproject.models import Attendee
+from eventproject.services.session_revocation import SESSION_GENERATION_KEY, active_generation
 
 logger = logging.getLogger("eventproject")
 
@@ -77,3 +79,8 @@ def delete_replaced_attendee_files(sender, instance, **kwargs):
         if old_name and old_name != new_name:
             replaced.append(old_file)
     _schedule_cleanup(replaced)
+
+
+@receiver(user_logged_in, dispatch_uid="remember_operator_session_generation")
+def remember_session_generation(sender, request, user, **kwargs):
+    request.session[SESSION_GENERATION_KEY] = active_generation(user.pk)

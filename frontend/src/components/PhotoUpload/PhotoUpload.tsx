@@ -16,9 +16,9 @@ export function PhotoUpload(props: PhotoUploadProps) {
   return (
     <UploadZone
       id="photo"
-      label="ФОТО УЧАСТНИКА (3×4)"
-      instruction="Анфас, светлый фон, без очков"
-      accept="image/jpeg,image/png"
+      label="Фото участника (3×4)"
+      instruction="Анфас, светлый фон, без очков. JPG, PNG или WEBP, вертикальное 3×4, не меньше 600×800, до 5 МБ."
+      accept="image/jpeg,image/png,image/webp"
       {...props}
     />
   )

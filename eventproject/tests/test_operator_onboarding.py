@@ -1,17 +1,18 @@
 """Story 2.3 — тесты онбординга операторов (AC-6)."""
 
+import re
 import smtplib
+from urllib.parse import urlsplit
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.core import mail
-from django.test import TestCase
+from django.test import Client, TestCase, override_settings
 from rest_framework.test import APIClient
 
 from eventproject.models import Event, Operator
 from eventproject.services.operator_onboarding import (
     create_operator,
-    generate_password,
     generate_username,
 )
 
@@ -26,6 +27,7 @@ def _make_operator(username, role, *, force_password_change=False, password="Str
     return user
 
 
+@override_settings(OPERATOR_PUBLIC_ORIGIN="https://operator.example.test")
 class OperatorOnboardingAPITests(TestCase):
     def setUp(self):
         self.superop = _make_operator("superop", "superoperator")
@@ -55,11 +57,11 @@ class OperatorOnboardingAPITests(TestCase):
         self.assertTrue(data["username"])
         self.assertEqual(data["role"], "operator")
         self.assertEqual(data["email_status"], "sent")
-        self.assertTrue(data["force_password_change"])
+        self.assertFalse(data["force_password_change"])
         self.assertTrue(User.objects.filter(username=data["username"]).exists())
         self.assertIn(self.event.id, data["event_ids"])
 
-    def test_email_sent_with_credentials(self):
+    def test_email_link_allows_operator_to_set_password_once(self):
         resp = self.client.post(
             "/api/v1/operators/",
             self._create_payload(last_name="Петров", email="petrov@example.com"),
@@ -70,11 +72,28 @@ class OperatorOnboardingAPITests(TestCase):
         msg = mail.outbox[0]
         self.assertIn("petrov@example.com", msg.to)
         self.assertIn(resp.json()["username"], msg.body)
-        self.assertIn("Временный пароль:", msg.body)
-        self.assertIn("/user_login/", msg.body)
+        user = User.objects.get(username=resp.json()["username"])
+        self.assertFalse(user.has_usable_password())
+        self.assertNotIn("Временный пароль:", msg.body)
+        url = re.search(r"https://\S+", msg.body).group()
+        self.assertEqual(urlsplit(url).netloc, "operator.example.test")
+        self.assertNotIn(url, resp.content.decode())
+        path = urlsplit(url).path
+        owner = Client()
+        first = owner.get(path)
+        self.assertEqual(first.status_code, 302)
+        self.assertIn("/set-password/", first.url)
+        self.assertNotIn(path, first.url)
+        password = "fresh-operator-test-secret!"
+        confirmed = owner.post(first.url, {"new_password1": password, "new_password2": password})
+        self.assertRedirects(confirmed, "/user_login/", fetch_redirect_response=False)
+        user.refresh_from_db()
+        self.assertTrue(user.check_password(password))
+        replay = Client().get(path)
+        self.assertFalse(replay.context["validlink"])
 
     @patch(
-        "eventproject.services.email.send_mail",
+        "eventproject.operator_activation.send_mail",
         side_effect=smtplib.SMTPException("smtp down"),
     )
     def test_smtp_error_keeps_operator_and_sets_error_status(self, _mock_send):
@@ -92,7 +111,7 @@ class OperatorOnboardingAPITests(TestCase):
         self.assertEqual(operator.email_status, "error")
         self.assertTrue(User.objects.filter(id=operator.user_id).exists())
 
-    def test_resend_credentials_generates_new_password(self):
+    def test_resend_credentials_preserves_password(self):
         resp = self.client.post(
             "/api/v1/operators/",
             self._create_payload(last_name="Кузнецов", email="kuz@example.com"),
@@ -111,7 +130,7 @@ class OperatorOnboardingAPITests(TestCase):
         self.assertEqual(resp2.json()["status"], "resent")
         operator.refresh_from_db()
         operator.user.refresh_from_db()
-        self.assertNotEqual(operator.user.password, old_hash)
+        self.assertEqual(operator.user.password, old_hash)
         self.assertEqual(len(mail.outbox), 1)
         # AC-4: статус/timestamp обновлены, audit-лог resend эмитится.
         self.assertEqual(operator.email_status, "sent")
@@ -183,11 +202,6 @@ class OperatorOnboardingAPITests(TestCase):
 
 
 class CredentialGenerationTests(TestCase):
-    def test_password_length_and_complexity(self):
-        pw = generate_password()
-        self.assertGreaterEqual(len(pw), 12)
-        self.assertNotEqual(generate_password(), generate_password())
-
     def test_username_transliterated_and_unique(self):
         u1 = generate_username("Иван", "Иванов")
         self.assertTrue(u1)
@@ -220,7 +234,7 @@ class CredentialGenerationTests(TestCase):
             )
 
         mock_create.side_effect = side_effect
-        operator, _pw = create_operator(
+        operator = create_operator(
             {"first_name": "Иван", "last_name": "Тестов", "email": "t@example.com"}
         )
         self.assertEqual(operator.user.username, "retried.user")

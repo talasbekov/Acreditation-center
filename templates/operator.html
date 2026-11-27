@@ -59,7 +59,10 @@
                     <b>Фамиилия:</b> {{ operator.user.first_name }}<br>
                     <b>Отчество:</b> {{ operator.patronymic }}<br>
                     <b>Логин:</b> {{ operator.user.username }}<br>
-                    <b>Пароль:</b> <a href="/new_password/{{ operator.user.username }}/">Сгенерировать новый пароль для пользователя</a><br>
+                    <form method="post" action="{% url 'new_password' operator.user.username %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-primary">Отправить ссылку для установки пароля</button>
+                    </form>
                     <b>Контактные данные:</b> {{ operator.phone_number }}<br>
                     <b>Место работы:</b> {{ operator.workplace }}<br>
                     <br><br>
@@ -79,15 +82,15 @@
                     <br>
                     <h6>{{ event.date_start|date:"d.m.Y" }}-{{ event.date_end|date:"d.m.Y" }}</h6>
                     {% for req in reqs %}
-                        {% if req.event == event %}
+                        {% if req.event_id == event.id %}
                     <a href="/show_request_to_admin/{{ req.id }}"> {{ req.name }}</a> статус: {% if req.status == "Active" %} <span class="text-primary">Создано</span> {% elif req.status == "Checking" %} <span class="text-warning">Предпросмотр </span>{% elif req.status == "Sent" %} <span class="text-success">Отправлено</span> {% elif req.status == "Exported" %} <span class="text-success">Выгружено</span>{% else %} Неизвестен {% endif %}
 
                     <br><br>
                         {% endif %}
                     {% endfor %}
-                    <a href="/unbind_event/{{ event.id }}/{{ operator.user.username }}/">
+                    <form method="post" action="/unbind_event/{{ event.id }}/{{ operator.user.username }}/" class="d-inline">{% csrf_token %}
                     <button class="w-100 btn btn-secondary btn-sm" type="submit">Открепить мероприятие от пользователя</button>
-                    </a>
+                    </form>
 
                     <hr class="my-4">
                     {% endfor %}

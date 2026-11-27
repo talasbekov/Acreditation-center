@@ -24,6 +24,12 @@ ERR_LOW_RES = "Разрешение слишком низкое (минимум 
 ERR_NOT_IMAGE = "Файл не является изображением"
 ERR_TOO_MANY_PIXELS = "Изображение слишком большое (превышен лимит пикселей)"
 ERR_PDF_FAILED = "Не удалось обработать PDF-документ"
+ERR_MISSING = "Файл не загружен"
+
+# Этап C: только эти декодеры Pillow запускаются на пользовательских файлах.
+# TIFF, BMP, GIF и прочие форматы не разбираются вовсе (меньше поверхность атаки
+# графических библиотек). PDF скана конвертируется в JPEG до проверки.
+ALLOWED_IMAGE_FORMATS = ("JPEG", "PNG", "WEBP")
 
 
 def _limits():
@@ -62,7 +68,7 @@ def validate_image_file(file):
 
     try:
         file.seek(0)
-        with Image.open(file) as img:
+        with Image.open(file, formats=ALLOWED_IMAGE_FORMATS) as img:
             width, height = img.size
             # Лимит пикселей — ДО декодирования (анти-bomb: 600×200000 и т.п.).
             if width * height > max_pixels:

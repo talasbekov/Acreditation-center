@@ -1,134 +1,75 @@
 {% extends 'gov_base.html' %}
-{% load static %}
+{% load lifecycle_tags static directory_tags ui_tags %}
 {% block body_block %}
 
-<div class="container mt-4">
-    <div class="row justify-content-between align-items-center">
-        <div class="col-12">
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-center">
-                <h2>Добро пожаловать, {{ user.first_name }} {{ user.last_name }}&#160;</h2>
-                <a href="/logout/" class="btn btn-danger mt-3 mt-md-0">Выйти</a>
-            </div>
-            <hr>
-        </div>
-    </div>
-    <div class="col-12 mt-4">
-        <h5>Заявка ({{ req.name }}) на мероприятие {{ req.event.name_rus }}, в заявке {{ attendees|length }} участников</h5>
-        {% if success_message %}
-        <h6 class="text-success">{{ success_message }}</h6>
-        {% endif %}
-        {% if delete_message %}
-        <h6 class="text-danger">{{ delete_message }}</h6>
-        {% endif %}
-        <hr>
-
-        <div class="row gy-3">
-            <div class="col-12 col-md-4">
-                <a href="/add_attendee/{{ req.id }}/">
-                    {% if req.status == "Active" %}
-                    <button class="w-100 btn btn-primary btn-lg" type="submit">Добавить участника</button>
-                    {% endif %}
-                </a>
-            </div>
-            <div class="col-12 col-md-4">
-                {% if req.status == "Checking" %}
-                <a href="/back_to_change/{{ req.id }}/">
-                    <button class="w-100 btn btn-secondary btn-lg" type="submit">Вернуться к редактированию</button>
-                </a>
-                {% endif %}
-            </div>
-            <div class="col-12 col-md-4">
-                {% if attendees %}
-                    {% if req.status == "Active" %}
-                    <a href="/preview/{{ req.id }}/">
-                        <button class="w-100 btn btn-warning btn-lg" type="submit">Предпросмотр</button>
-                    </a>
-                    {% elif req.status == "Checking" %}
-                    <a href="/send/{{ req.id }}/">
-                        <button class="w-100 btn btn-success btn-lg" type="submit">Отправить</button>
-                    </a>
-                    {% elif req.status == "Sent" %}
-                    {% endif %}
-                {% endif %}
-            </div>
-        </div>
-
-        {% if attendees %}
-        {% for attendee in attendees %}
-        <hr>
-        <div class="row gy-3">
-            <div class="col-12 col-md-2 col-lg-1">
-                {% if attendee.photo %}
-                    <img src="{{ attendee.photo.url }}" class="img-fluid">
-                {% endif %}
-            </div>
-            <div class="col-12 col-md-2 col-lg-1">
-                {% if attendee.docScan %}
-                    <img src="{{ attendee.docScan.url }}" class="img-fluid">
-                {% endif %}
-            </div>
-            <div class="col-12 col-md-6 col-lg-3">
-                <p><b>{{ attendee.surname }} {{ attendee.firstname }} {{ attendee.patronymic }}</b></p>
-                <p>{{ attendee.transcription }}</p>
-            </div>
-            <div class="col-12 col-md-6 col-lg-3">
-                <p><b>Дата рождения:</b> {{ attendee.birthDate|date:"d.m.Y" }}</p>
-                <p><b>ИИН:</b> {{ attendee.iin }}</p>
-                <p>
-                    {% for country in countries %}
-                    {% if country.country_code == attendee.countryId %}
-                        <b>Гражданство:</b> {{ country.name_rus }}
-                    {% endif %}
-                    {% endfor %}
-                </p>
-                <p>
-                    {% for sex in sexs %}
-                    {% if sex.sex_code == attendee.sexId %}
-                        <b>Пол:</b> {{ sex.name_rus }}
-                    {% endif %}
-                    {% endfor %}
-                </p>
-                <p><b>Должность:</b> {{ attendee.post }}</p>
-                <p><b>Объекты:</b> {{ attendee.visitObjects }}</p>
-                <p>
-                    {% for category in  categories %}
-                    {% if category.category_code == attendee.stickId %}
-                        <b>Категория:</b> {{ category.name_rus }}
-                    {% endif %}
-                    {% endfor %}
-                </p>
-            </div>
-            <div class="col-12 col-md-6 col-lg-3">
-                <p>
-                    {% for dc in document_types %}
-                    {% if dc.doc_code == attendee.docTypeId %}
-                        <b>Тип документа:</b> {{ dc.name_rus }}
-                    {% endif %}
-                    {% endfor %}
-                </p>
-                {% if attendee.docSeries %}
-                <p><b>Серия:</b> {{ attendee.docSeries }}</p>
-                {% endif %}
-                <p><b>Номер документа:</b> {{ attendee.docNumber }}</p>
-                <p><b>Дата выдачи:</b> {{ attendee.docBegin|date:"d.m.Y" }}</p>
-                <p><b>Действителен до:</b> {{ attendee.docEnd|date:"d.m.Y" }}</p>
-                <p><b>Кем выдан:</b> {{ attendee.docIssue }}</p>
-            </div>
-            <div class="col-12 col-md-2 col-lg-1 text-center">
-                <form action="/delete_attendee/" method="POST">{% csrf_token %}
-                    <input type="hidden" name="attendee_id" value="{{ attendee.id }}">
-                    <button type="submit" class="btn btn-link p-0">
-                        <img src="{% static 'img/korzina.jpg' %}" class="img-fluid">
-                    </button>
-                    <a href="{% url 'update_attendee' attendee.id %}" class="btn btn-link p-0">
-                        <img src="{% static 'img/pencil.png' %}" class="img-fluid" width="30px" height="30px">
-                    </a>
-                </form>
-            </div>
-        </div>
-        {% endfor %}
-        {% endif %}
-    </div>
+<div class="ds-header">
+    <h1 class="ds-h1">{% t "Заявка ({req}) на мероприятие {event}, в заявке {count} участников" req=req.name event=req.event|lname:lang count=attendees|length %}</h1>
+    <p class="ds-context">{% t "Добро пожаловать, {name}" name=user.get_full_name|default:user.username %}</p>
 </div>
+
+{% if success_message %}<p class="ds-notice ds-notice-success" role="status">{{ success_message }}</p>{% endif %}
+{% if delete_message %}<p class="ds-notice ds-notice-danger" role="alert">{{ delete_message }}</p>{% endif %}
+
+<div class="ds-page-actions">
+    {% if preview %}
+        <a href="{{ lp }}/show/{{ req.id }}/" class="ds-btn ds-btn-secondary">{% t "Вернуться к редактированию" %}</a>
+    {% elif req.status == "Active" or req.status == "Checking" %}
+        <a href="{{ lp }}/add_attendee/{{ req.id }}/" class="ds-btn ds-btn-primary">{% t "Добавить участника" %}</a>
+    {% endif %}
+    {% if attendees %}{% if req.status == "Active" or req.status == "Checking" %}
+        {% if preview %}
+            <form method="post" action="{{ lp }}/send/{{ req.id }}/">{% csrf_token %}
+                <button class="ds-btn ds-btn-success" type="submit">{% t "Отправить" %}</button>
+            </form>
+        {% else %}
+            <a href="{{ lp }}/preview/{{ req.id }}/" class="ds-btn ds-btn-secondary">{% t "Предпросмотр" %}</a>
+        {% endif %}
+    {% endif %}{% endif %}
+</div>
+
+{% for attendee in attendees %}
+<article class="ds-panel" aria-labelledby="att-{{ attendee.id }}">
+    <div class="ds-panel-head">
+        <h2 class="ds-panel-title" id="att-{{ attendee.id }}">{{ attendee.surname }} {{ attendee.firstname }} {{ attendee.patronymic|default_if_none:'' }}</h2>
+        <span class="ds-badge ds-badge-{{ attendee|attendee_tone }} attendee-status">{{ attendee|attendee_state:lang }}</span>
+    </div>
+    <p class="ds-hint">{{ attendee.transcription }}</p>
+    {% if attendee.status == "draft" and attendee.review_comment %}
+    <p class="ds-notice ds-notice-danger" style="margin-top:8px"><b>{{ lang|reason_label }}:</b> {{ attendee.review_comment }}</p>
+    {% endif %}
+    <div class="ds-person">
+        {% if attendee.photo or attendee.docScan %}
+        <div class="ds-media">
+            {% if attendee.photo %}<img loading="lazy" decoding="async" src="{{ attendee.photo.url }}" alt="">{% endif %}
+            {% if attendee.docScan %}<img loading="lazy" decoding="async" src="{{ attendee.docScan.url }}" alt="">{% endif %}
+        </div>
+        {% endif %}
+        <dl class="ds-facts">
+            <dt>{% t "Дата рождения:" %}</dt><dd>{{ attendee.birthDate|date:"d.m.Y" }}</dd>
+            {% if attendee.iin %}<dt>{% t "ИИН:" %}</dt><dd>{{ attendee.iin }}</dd>{% endif %}
+            {% dir_name countries "country_code" attendee.countryId name_field as countryId_label %}{% if countryId_label %}<dt>{% t "Гражданство:" %}</dt><dd>{{ countryId_label }}</dd>{% endif %}
+            {% dir_name sexs "sex_code" attendee.sexId name_field as sexId_label %}{% if sexId_label %}<dt>{% t "Пол:" %}</dt><dd>{{ sexId_label }}</dd>{% endif %}
+            <dt>{% t "Должность:" %}</dt><dd>{{ attendee.post }}</dd>
+            <dt>{% t "Объекты:" %}</dt><dd>{{ attendee.visitObjects }}</dd>
+            {% dir_name categories "category_code" attendee.stickId name_field as stickId_label %}{% if stickId_label %}<dt>{% t "Категория:" %}</dt><dd>{{ stickId_label }}</dd>{% endif %}
+            {% dir_name document_types "doc_code" attendee.docTypeId name_field as docTypeId_label %}{% if docTypeId_label %}<dt>{% t "Тип документа:" %}</dt><dd>{{ docTypeId_label }}</dd>{% endif %}
+            {% if attendee.docSeries %}<dt>{% t "Серия:" %}</dt><dd>{{ attendee.docSeries }}</dd>{% endif %}
+            <dt>{% t "Номер документа:" %}</dt><dd>{{ attendee.docNumber|default_if_none:'' }}</dd>
+            <dt>{% t "Дата выдачи:" %}</dt><dd>{{ attendee.docBegin|date:"d.m.Y" }}</dd>
+            <dt>{% t "Действителен до:" %}</dt><dd>{{ attendee.docEnd|date:"d.m.Y" }}</dd>
+            {% if attendee.docIssue %}<dt>{% t "Кем выдан:" %}</dt><dd>{{ attendee.docIssue }}</dd>{% endif %}
+        </dl>
+    </div>
+    {% if attendee.status == "draft" and not preview %}
+    <div class="ds-person-actions">
+        <a href="{{ lp }}/update_attendee/{{ attendee.id }}/" class="ds-btn ds-btn-secondary">{% t "Изменить" %}</a>
+        <form action="{{ lp }}/delete_attendee/" method="POST">{% csrf_token %}
+            <input type="hidden" name="attendee_id" value="{{ attendee.id }}">
+            <button type="submit" class="ds-btn ds-btn-danger">{% t "Удалить" %}</button>
+        </form>
+    </div>
+    {% endif %}
+</article>
+{% endfor %}
 
 {% endblock %}

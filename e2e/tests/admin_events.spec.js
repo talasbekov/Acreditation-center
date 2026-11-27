@@ -2,7 +2,7 @@
 // Админ: управление событиями и операторами (суперпользователь /avmac/).
 // Профиль: eventproject.settings_e2e + e2e/seed.py.
 const { test, expect } = require('@playwright/test');
-const { ADMIN, login, csrfToken } = require('./helpers');
+const { ADMIN, login, csrfToken, futureDate } = require('./helpers');
 
 test.beforeEach(async ({ page }) => {
   await login(page, ADMIN);
@@ -22,13 +22,17 @@ async function createOperator(page, ts) {
       last_name: lastName,
       patronymic: 'Иванович',
       login: loginName,
+      email: `${loginName}@example.test`,
       phone_number: '+77001112233',
       workplace: 'Тест',
       event_code: '1',
     },
   });
   expect(res.status()).toBe(200);
-  expect(await res.text()).toContain('успешно создан');
+  const html = await res.text();
+  expect(html).toContain('Оператор создан. Ссылка для установки пароля отправлена на его email.');
+  expect(html).not.toContain('Пароль:');
+  expect(html).not.toContain('/operator-access/');
 
   await page.goto('/avmac/');
   const href = await page
@@ -61,8 +65,8 @@ test.describe('Админ: события', () => {
         name_eng: evName,
         event_code: `TMP-${ts}`,
         // даты в пределах окна дашборда (today+900д), иначе событие не отрисуется
-        date_start: '2027-01-01',
-        date_end: '2027-01-05',
+        date_start: futureDate(1),
+        date_end: futureDate(5),
         city: '1',
       },
     });
@@ -84,10 +88,9 @@ test.describe('Админ: события', () => {
     expect(await del.text()).toContain('успешно удалено');
   });
 
-  test('flush_outdated_events выполняется и не трогает будущее seed-событие', async ({ page }) => {
+  test('исторический URL массового удаления больше недоступен', async ({ page }) => {
     const res = await page.request.get('/flush_outdated_events/');
-    expect(res.status()).toBe(200);
-    expect(await res.text()).toContain('успешно удалены');
+    expect(res.status()).toBe(404);
     // seed-событие заканчивается в будущем → должно остаться
     await page.goto('/avmac/');
     await expect(page.locator('body')).toContainText('E2E Мероприятие');
@@ -95,14 +98,15 @@ test.describe('Админ: события', () => {
 });
 
 test.describe('Админ: операторы', () => {
-  test('создание оператора показывает сгенерированный пароль', async ({ page }) => {
+  test('создание оператора не раскрывает пароль или одноразовую ссылку', async ({ page }) => {
     const { loginName } = await createOperator(page, Date.now());
     expect(loginName).toMatch(/^op_\d+$/);
   });
 
   test('открепление события от оператора (unbind_event)', async ({ page }) => {
     const { loginName } = await createOperator(page, Date.now());
-    const res = await page.request.get(`/unbind_event/1/${loginName}/`);
+    const token = await csrfToken(page);
+    const res = await page.request.post(`/unbind_event/1/${loginName}/`, { form: { csrfmiddlewaretoken: token } });
     expect(res.status()).toBe(200);
     expect(await res.text()).toContain('успешно откреплен');
   });
@@ -110,7 +114,8 @@ test.describe('Админ: операторы', () => {
   test('повторная привязка оператора к событию (bind_operators)', async ({ page }) => {
     const { loginName, opId, lastName } = await createOperator(page, Date.now());
     // сначала открепляем
-    await page.request.get(`/unbind_event/1/${loginName}/`);
+    const unbound = await page.request.post(`/unbind_event/1/${loginName}/`, { form: { csrfmiddlewaretoken: await csrfToken(page) } });
+    expect(unbound.status()).toBe(200);
     // затем привязываем заново через bind_operators
     const token = await csrfToken(page);
     const res = await page.request.post('/bind_operators/', {

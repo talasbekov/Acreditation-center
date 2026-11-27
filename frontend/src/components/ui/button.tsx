@@ -13,6 +13,10 @@ const buttonVariants = cva(
         outline:
           'border border-neutral-400 bg-white text-neutral-900 hover:bg-neutral-100',
         ghost: 'text-neutral-900 hover:bg-neutral-100',
+        // Этап D: варианты эталона на токенах (index.css). Формы перейдут на них
+        // после утверждения эталона; до тех пор default/outline не меняются.
+        primary: 'bg-primary font-semibold text-white hover:bg-primary-hover',
+        secondary: 'border border-field bg-surface font-semibold text-ink hover:bg-section',
       },
       size: {
         default: 'h-11 px-5 py-2',

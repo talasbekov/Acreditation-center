@@ -129,3 +129,15 @@ class DashboardViewTests(DashboardBase):
         resp = self.client.get(f"/update_attendee/{a.id}/")
         self.assertEqual(resp.status_code, 200)
         self.assertNotContains(resp, "not authorised")
+
+    def test_superoperator_returns_to_the_event_dashboard_after_editing(self):
+        attendee = self._mk("draft")
+        self.client.force_login(self.super_user)
+        response = self.client.post(f"/update_attendee/{attendee.pk}/", {
+            "csrfmiddlewaretoken": "test-token", "last_name": "Fixture", "first_name": "Edited",
+            "citizenship": NON_KZ, "dob": "2000-01-01",
+            "doc_date_start": "2024-01-01", "doc_date_end": "2034-01-01",
+        })
+        self.assertRedirects(response, self._url())
+        attendee.refresh_from_db()
+        self.assertEqual(attendee.firstname, "Edited")

@@ -1,0 +1,14 @@
+**
+!package.json
+!package-lock.json
+!index.html
+!tsconfig*.json
+!vite.config.ts
+!release.nginx.conf
+!src/**/*.ts
+!src/**/*.tsx
+!src/**/*.css
+src/**/*.test.ts
+src/**/*.test.tsx
+!public/favicon.svg
+!public/icons.svg

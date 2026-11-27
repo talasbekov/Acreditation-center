@@ -5,17 +5,17 @@ import { PhotoUpload } from './PhotoUpload'
 describe('PhotoUpload (Story 5.3)', () => {
   it('AC-1: крупная метка «ФОТО УЧАСТНИКА (3×4)» + инструкция', () => {
     render(<PhotoUpload file={null} onFileChange={() => {}} />)
-    expect(screen.getByText('ФОТО УЧАСТНИКА (3×4)')).toBeInTheDocument()
-    expect(screen.getByText('Анфас, светлый фон, без очков')).toBeInTheDocument()
-    const input = screen.getByLabelText(/ФОТО УЧАСТНИКА/) as HTMLInputElement
-    expect(input.accept).toBe('image/jpeg,image/png')
+    expect(screen.getByText('Фото участника (3×4)')).toBeInTheDocument()
+    expect(screen.getByText(/Анфас, светлый фон, без очков/)).toBeInTheDocument()
+    const input = screen.getByLabelText(/Фото участника/) as HTMLInputElement
+    expect(input.accept).toBe('image/jpeg,image/png,image/webp')
   })
 
   it('AC-2: выбор изображения → onFileChange и preview <img>', () => {
     const onFileChange = vi.fn()
     const { rerender } = render(<PhotoUpload file={null} onFileChange={onFileChange} />)
     const file = new File([new Uint8Array([1, 2, 3])], 'p.jpg', { type: 'image/jpeg' })
-    fireEvent.change(screen.getByLabelText(/ФОТО УЧАСТНИКА/), { target: { files: [file] } })
+    fireEvent.change(screen.getByLabelText(/Фото участника/), { target: { files: [file] } })
     expect(onFileChange).toHaveBeenCalledWith(file)
     rerender(<PhotoUpload file={file} onFileChange={onFileChange} />)
     expect(screen.getByAltText(/Превью/)).toBeInTheDocument()

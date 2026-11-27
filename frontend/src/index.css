@@ -1,6 +1,52 @@
 @import 'tailwindcss';
 
 /*
+ * Этап D: токены эталона (docs/modernization-audit/05-UX-UI-AUDIT.md, «Токены и компоненты»).
+ * Пары текст/фон проверены по контрасту в отчёте 05. Классы: text-ink, bg-section, bg-primary…
+ */
+@theme {
+  --color-surface: #ffffff;
+  --color-section: #f5f7fa;
+  --color-ink: #182637;
+  --color-ink-2: #465466;
+  /* граница поля: 4,6:1 на белом — заметна (WCAG 1.4.11 ≥ 3:1) */
+  --color-field: #6b7785;
+  /* разделители карточек и строк — декоративные */
+  --color-line: #d5dbe3;
+  --color-primary: #164873;
+  --color-primary-hover: #0f3557;
+  --color-focus: #1e68b3;
+  --color-info: #164873;
+  --color-info-bg: #e9f0f8;
+  --color-success: #095a3c;
+  --color-success-bg: #e4f3ea;
+  --color-warning: #744400;
+  --color-warning-bg: #fff1ce;
+  --color-danger: #92312f;
+  --color-danger-bg: #fce9e7;
+}
+
+/* Видимый фокус эталонных экранов: 2 px #1E68B3 с отступом 2 px. */
+#react-root [data-ds] :is(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* Строка реестра, на которую вернулись из карточки: фокус ставится программно после
+   щелчка мышью, и браузер не считает его «видимым» — показываем рамку всегда. */
+#react-root [data-ds] [data-open-id]:focus {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #react-root [data-ds] * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/*
  * Anti-fatigue базовая тема (Story 5.1 AC-5): высокий контраст (WCAG AA),
  * шрифт form-labels ≥16px, touch target ≥44px для интерактивных элементов.
  * CSS isolation (AC-4): всё ограничено контейнером #react-root.

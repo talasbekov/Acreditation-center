@@ -23,6 +23,9 @@ export default defineConfig({
       '/api': { target: BACKEND, changeOrigin: true },
       '/user_login': { target: BACKEND, changeOrigin: true },
       '/logout': { target: BACKEND, changeOrigin: true },
+      // Этап E: превью фото и скана в карточке — защищённые файлы Django (в выпуске их
+      // отдаёт тот же nginx-прокси, release.nginx.conf `location /`).
+      '/media': { target: BACKEND, changeOrigin: true },
     },
   },
   test: {

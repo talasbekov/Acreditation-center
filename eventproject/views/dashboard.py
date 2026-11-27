@@ -13,25 +13,19 @@ from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404, render
 
-from eventproject.models import Attendee, Event, Operator, Request
+from eventproject.models import Attendee, Event, ExportLog, Request
 from eventproject.state_machine import AttendeeStatus
 
 logger = logging.getLogger("eventproject")
 
 # Ограничение списка имён на флаг — защита от гигантской страницы при массовой проблеме.
 _FLAG_DISPLAY_CAP = 200
+_PACKAGE_DISPLAY_CAP = 20
 _DASHBOARD_CACHE_TTL = 60  # сек
 
 
 def _is_superoperator(user):
-    if not user.is_authenticated:
-        return False
-    if user.is_superuser:
-        return True
-    try:
-        return user.operator.role in ("superoperator", "superuser")
-    except Operator.DoesNotExist:
-        return False
+    return user.is_authenticated and user.role in ("superoperator", "superuser")
 
 
 def _name(attendee):
@@ -111,4 +105,13 @@ def superoperator_dashboard(request, event_id):
         cache.set(cache_key, data, _DASHBOARD_CACHE_TTL)
     # Категории (Request) события — для кнопок delta-экспорта (Story 4.3); не кэшируем.
     categories = Request.objects.filter(event=event).order_by("name")
-    return render(request, "dashboard.html", {"event": event, "categories": categories, **data})
+    # Этап C: последние пакеты — повторная выдача и подтверждение получателя; не кэшируем.
+    packages = (
+        ExportLog.objects.filter(event=event)
+        .select_related("category", "user", "acknowledged_by")
+        .order_by("-exported_before", "-id")[:_PACKAGE_DISPLAY_CAP]
+    )
+    return render(
+        request, "dashboard.html",
+        {"event": event, "categories": categories, "packages": packages, "section": "dashboard", **data},
+    )

@@ -17,9 +17,9 @@ export function DocumentUpload(props: DocumentUploadProps) {
   return (
     <UploadZone
       id="docScan"
-      label="ФОТО ДОКУМЕНТА"
-      instruction="Вертикально, формат 3×4 (можно PDF)"
-      accept="image/jpeg,image/png,application/pdf"
+      label="Скан документа"
+      instruction="JPG, PNG, WEBP или PDF, вертикальный, не меньше 600×800, до 5 МБ."
+      accept="image/jpeg,image/png,image/webp,application/pdf"
       {...props}
     />
   )

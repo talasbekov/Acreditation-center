@@ -1,4 +1,7 @@
-import secrets
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
+from django.db import IntegrityError, transaction
+from eventproject.operator_activation import send_operator_link
 import logging
 
 from datetime import date, timedelta
@@ -17,44 +20,29 @@ logger = logging.getLogger("eventproject")
 
 
 @user_passes_test(lambda u: u.is_superuser, login_url="/user_login/")
+@require_POST
+@csrf_protect
 def add_operator(request):
     try:
-        if request.method == "POST":
-            first_name = request.POST["first_name"]
-            last_name = request.POST["last_name"]
-            patronymic = request.POST["patronymic"]
-            login = request.POST["login"]
-            phone_number = request.POST["phone_number"]
-            password = secrets.token_urlsafe(16)
-            event_code = request.POST["event_code"]
-            workplace = request.POST["workplace"]
-
+        email = request.POST.get("email", "").strip()
+        validate_email(email)
+        with transaction.atomic():
+            event = Event.objects.get(pk=request.POST["event_code"])
             user = User.objects.create_user(
-                username=login,
-                password=password,
-                first_name=first_name,
-                last_name=last_name,
+                username=request.POST["login"], email=email, password=None,
+                first_name=request.POST["first_name"], last_name=request.POST["last_name"],
             )
-            event = Event.objects.get(pk=event_code)
-            operator = Operator(
-                user=user,
-                phone_number=phone_number,
-                patronymic=patronymic,
-                workplace=workplace,
+            operator = Operator.objects.create(
+                user=user, phone_number=request.POST["phone_number"],
+                patronymic=request.POST["patronymic"], workplace=request.POST["workplace"],
             )
-            operator.save()
             operator.events.add(event)
-            operator.save()
-            success_message = (
-                "Пользователь " + login + " успешно создан! Пароль: " + password
-            )
-            return show_admin(request, success_message)
-    except Exception as e:
-        logger.exception("create operator failed: %s", e)
-        error_message = "Не удалось создать пользователя. Возможно повторояется логин с другим пользователем"
-        return show_admin_error(request, error_message)
+    except (KeyError, ValueError, ValidationError, IntegrityError, Event.DoesNotExist):
+        return show_admin_error(request, "Проверьте данные оператора, email и уникальность логина.")
 
-    return HttpResponseRedirect("/avmac/")
+    if not send_operator_link(operator):
+        return show_admin_error(request, "Оператор создан. Письмо не отправлено. Проверьте настройки почты и повторите отправку из карточки оператора.")
+    return show_admin(request, "Оператор создан. Ссылка для установки пароля отправлена на его email.")
 
 
 @user_passes_test(lambda u: u.is_superuser, login_url="/user_login/")
@@ -62,13 +50,14 @@ def bind_operators(request):
     # try:
     if request.method == "POST":
         operators = request.POST.getlist("operator")
-        event_code = request.POST["event_code"]
-
-        event = Event.objects.get(id=event_code)
-        for o in operators:
-            operator = Operator.objects.get(id=o)
+        # Этап E: неполная или неверная форма раньше давала 500 — теперь сообщение администратору.
+        try:
+            event = Event.objects.get(id=request.POST.get("event_code", ""))
+            selected = [Operator.objects.get(id=o) for o in operators]
+        except (ValueError, Event.DoesNotExist, Operator.DoesNotExist):
+            return show_admin_error(request, "Не удалось привязать операторов. Проверьте мероприятие и выбранных операторов.")
+        for operator in selected:
             operator.events.add(event)
-            operator.save()
         success_message = "Операторы успешно добавлены"
         return HttpResponseRedirect("/show_event/%s/" % event.id)
         # return HttpResponseRedirect('/show_event/', event.id)
@@ -94,7 +83,7 @@ def show_operator(request, operator_id):
         context_dict["operator"] = operator
         context_dict["reqs"] = reqs
     except Exception as e:
-        logger.exception("show_operator failed: %s", e)
+        logger.error("show_operator failed")
         return HttpResponse("Could not find operator")
     return render(request, "operator.html", context_dict)
 
@@ -112,6 +101,6 @@ def delete_operator(request, username):
         user.delete()
         return show_admin(request, success_message)
     except Exception as e:
-        logger.exception("delete_operator failed: %s", e)
+        logger.error("delete_operator failed")
         return HttpResponse("Could not find operator")
     return render(request, "operator.html", context_dict)

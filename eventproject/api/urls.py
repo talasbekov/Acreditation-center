@@ -9,6 +9,7 @@ from eventproject.views.event import EventViewSet
 from eventproject.views.operator_api import OperatorViewSet
 from eventproject.views.attendee_api import AttendeeViewSet
 from eventproject.views.request_api import RequestViewSet
+from eventproject.views.directories_api import directories
 
 
 @ensure_csrf_cookie
@@ -33,4 +34,5 @@ def rbac_check(request):
 urlpatterns = router.urls + [
     path("rbac-check/", rbac_check, name="rbac_check"),
     path("csrf/", csrf_cookie, name="csrf_cookie"),
+    path("directories/", directories, name="directories"),
 ]

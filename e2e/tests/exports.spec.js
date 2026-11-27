@@ -2,7 +2,7 @@
 // Экспорт и выгрузки (только суперпользователь): JSON-экспорт, архивы, статус.
 // Профиль: eventproject.settings_e2e + e2e/seed.py.
 const { test, expect } = require('@playwright/test');
-const { ADMIN, OPERATOR, login, csrfToken, newOperatorRequest } = require('./helpers');
+const { ADMIN, OPERATOR, login, csrfToken, newOperatorRequest, addAttendee, submitForm } = require('./helpers');
 
 test.describe('Экспорт: контроль доступа и 404', () => {
   test('check_archive_status без архива → JSON not_found (админ)', async ({ page }) => {
@@ -54,14 +54,17 @@ test.describe('Экспорт: контроль доступа и 404', () => {
   });
 });
 
-test.describe('Экспорт: успешная выгрузка JSON', () => {
-  test('отправленная заявка экспортируется как JSON (Sent → Exported)', async ({ page }) => {
+test.describe('Внутренняя сверка идентификаторов', () => {
+  test('повторная сверка показывает ту же отправленную заявку', async ({ page }) => {
     // 1) оператор создаёт и отправляет заявку
     await login(page, OPERATOR);
     const reqId = await newOperatorRequest(page);
-    await page.goto(`/send/${reqId}/`); // статус → Sent
+    expect(await (await addAttendee(page, reqId)).text()).toContain('успешно добавлен');
+    await page.goto(`/show/${reqId}/`);
+    await submitForm(page, `/preview/${reqId}/`);
+    await submitForm(page, `/send/${reqId}/`);
 
-    // 2) админ выгружает событие в JSON
+    // 2) администратор сверяет ID участников события
     await login(page, ADMIN);
     const token = await csrfToken(page);
     const res = await page.request.post('/download_json/1/', {
@@ -72,10 +75,20 @@ test.describe('Экспорт: успешная выгрузка JSON', () => {
     expect(res.headers()['content-type']).toContain('application/json');
     const body = await res.json();
     expect(body).toHaveProperty('attendees');
-    expect(JSON.stringify(body)).toContain('E2E');
+    const row = body.attendees.find((attendee) => attendee.request === Number(reqId));
+    expect(row).toEqual({ id: expect.any(Number), request: Number(reqId) });
+    expect(res.headers()['cache-control']).toContain('no-store');
+    await page.goto('/show_event/1/');
+    await expect(page.getByText('Внутренняя сверка идентификаторов', { exact: true })).toBeVisible();
+    await expect(page.locator('a[href="/show_request_to_admin/' + reqId + '"]')).toHaveClass(/btn-warning/);
+    const repeated = await page.request.post('/download_json/1/', {
+      headers: { 'X-CSRFToken': token },
+      form: { csrfmiddlewaretoken: token },
+    });
+    expect((await repeated.json()).attendees).toContainEqual(row);
   });
 
-  test('download_request_json выгружает конкретную заявку', async ({ page }) => {
+  test('сверка идентификаторов одной заявки', async ({ page }) => {
     await login(page, OPERATOR);
     const reqId = await newOperatorRequest(page);
 

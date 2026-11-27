@@ -21,14 +21,13 @@ except OSError:
 # со списком ВСЕХ отсутствующих, а не криптичный per-var UndefinedValueError на первой.
 _required_env = require_env(config, {
     "SECRET_KEY": {},
-    "AVALON_API_KEY": {},
-    "KAZENERGY_API_KEY": {},
+    "DB_PASSWORD": {},
     "FERNET_KEYS": {"cast": Csv()},
     "ALLOWED_HOSTS": {"cast": Csv()},
 })
 SECRET_KEY = _required_env["SECRET_KEY"]
-AVALON_API_KEY = _required_env["AVALON_API_KEY"]
-KAZENERGY_API_KEY = _required_env["KAZENERGY_API_KEY"]
+AVALON_API_KEY = config("AVALON_API_KEY", default="").strip()
+KAZENERGY_API_KEY = config("KAZENERGY_API_KEY", default="").strip()
 FERNET_KEYS = _required_env["FERNET_KEYS"]
 ALLOWED_HOSTS = _required_env["ALLOWED_HOSTS"]
 
@@ -60,8 +59,12 @@ SESSION_COOKIE_SECURE = _env_flag("SESSION_COOKIE_SECURE", default=True)
 SECURE_HSTS_SECONDS = config("SECURE_HSTS_SECONDS", default=31536000, cast=int)
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_SSL_REDIRECT = _env_flag("SECURE_SSL_REDIRECT", default=True)
+# Only enable behind a trusted TLS terminator that overwrites this header.
+if _env_flag("TRUST_TLS_PROXY", default=False):
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SECURE_REDIRECT_EXEMPT = [r"^api/health/$"]
 SECURE_CONTENT_TYPE_NOSNIFF = True
-X_FRAME_OPTIONS = "SAMEORIGIN"
+X_FRAME_OPTIONS = "DENY"
 
 SESSION_COOKIE_AGE = 43200  # 12 часов по умолчанию (для Оператора)
 
@@ -130,6 +133,8 @@ TEMPLATES = [
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
                 "django.template.context_processors.media",
+                # Язык страниц оператора (RU/KZ/EN) для общих шаблонов.
+                "eventproject.page_lang.context",
             ],
         },
     },
@@ -143,8 +148,8 @@ DATABASES = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": config('DB_NAME'),
         "USER": config('DB_USER'),
-        "PASSWORD": config('DB_PASSWORD'),
-        "HOST": config('DB_HOST', default='192.168.0.104'),
+        "PASSWORD": _required_env["DB_PASSWORD"],
+        "HOST": config('DB_HOST', default='localhost'),
         "PORT": config('DB_PORT', default='5432'),
     }
 }
@@ -192,21 +197,18 @@ CACHES = {
     },
 }
 
-# Email (Story 2.3 — онбординг операторов). Значения берутся из .env; по умолчанию
-# console-backend (письма печатаются в stdout), чтобы dev/CI не требовали SMTP.
-EMAIL_BACKEND = config(
-    "EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend"
-)
+# Ссылки активации формируются только из заданного администратором origin.
+EMAIL_BACKEND = config("EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend")
 EMAIL_HOST = config("EMAIL_HOST", default="localhost")
-EMAIL_PORT = config("EMAIL_PORT", default=25, cast=int)
+EMAIL_PORT = config("EMAIL_PORT", default=587, cast=int)
 EMAIL_HOST_USER = config("EMAIL_HOST_USER", default="")
 EMAIL_HOST_PASSWORD = config("EMAIL_HOST_PASSWORD", default="")
-EMAIL_USE_TLS = _env_flag("EMAIL_USE_TLS", default=False)
-DEFAULT_FROM_EMAIL = config(
-    "DEFAULT_FROM_EMAIL", default="noreply@accreditation.local"
-)
-# Ссылка для входа в письме оператору.
-OPERATOR_LOGIN_URL = config("OPERATOR_LOGIN_URL", default="/user_login/")
+EMAIL_USE_SSL = _env_flag("EMAIL_USE_SSL", default=False)
+EMAIL_USE_TLS = _env_flag("EMAIL_USE_TLS", default=not EMAIL_USE_SSL)
+EMAIL_TIMEOUT = config("EMAIL_TIMEOUT", default=10, cast=int)
+DEFAULT_FROM_EMAIL = config("DEFAULT_FROM_EMAIL", default="noreply@accreditation.local")
+OPERATOR_PUBLIC_ORIGIN = config("OPERATOR_PUBLIC_ORIGIN", default="")
+PASSWORD_RESET_TIMEOUT = 3600
 
 # Настройки архивов
 ARCHIVE_STORAGE_DURATION = 24  # часов
@@ -337,6 +339,12 @@ LOGGING = {
         },
     },
 }
+
+# Framework and transport loggers can bypass the application's request middleware.
+LOGGING.setdefault("filters", {})["http_privacy"] = {"()": "eventproject.privacy_logging.HttpPrivacyFilter"}
+for _handler in LOGGING["handlers"].values():
+    _handler.setdefault("filters", []).append("http_privacy")
+LOGGING["loggers"]["django.server"] = {"handlers": [], "level": "INFO", "propagate": True}
 
 # Crontab
 CRONJOBS_LOGGING = True

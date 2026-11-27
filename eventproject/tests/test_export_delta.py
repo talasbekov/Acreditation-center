@@ -4,13 +4,18 @@ import importlib
 import io
 import json
 import tempfile
+import time
 import zipfile
+from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
+from unittest import skipUnless
+from unittest.mock import patch
 
 from django.apps import apps
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase, override_settings
+from django.db import connection, connections, transaction
+from django.test import Client, TestCase, TransactionTestCase, override_settings
 from django.utils import timezone
 
 from directories.models import Country, DocumentType, Sex
@@ -22,7 +27,7 @@ KZ = "1000000105"
 NON_KZ = "1000000840"
 
 
-class ExportDeltaBase(TestCase):
+class ExportDeltaFixtures:
     def setUp(self):
         # Справочники для resolve *_name.
         Country.objects.create(country_code=KZ, name_rus="Казахстан", name_kaz="", name_eng="", country_iso="KZ")
@@ -61,6 +66,10 @@ class ExportDeltaBase(TestCase):
 
     def _url(self):
         return f"/export_delta/{self.event.id}/{self.category.id}/"
+
+
+class ExportDeltaBase(ExportDeltaFixtures, TestCase):
+    pass
 
 
 class BuildExportObjectTests(ExportDeltaBase):
@@ -104,20 +113,21 @@ class BuildExportObjectTests(ExportDeltaBase):
 class DeltaSelectionTests(ExportDeltaBase):
     def test_first_export_selects_all_ready(self):
         self._mk("ready"); self._mk("ready"); self._mk("draft")
-        qs = export_service.select_new_attendees(self.category, None, timezone.now())
+        qs = export_service.select_ready_attendees(self.category)
         self.assertEqual(qs.count(), 2)
 
     def test_excludes_non_ready(self):
         self._mk("draft"); self._mk("submitted"); self._mk("exported")
-        qs = export_service.select_new_attendees(self.category, None, timezone.now())
+        qs = export_service.select_ready_attendees(self.category)
         self.assertEqual(list(qs), [])
 
-    def test_second_export_only_new(self):
-        old = self._mk("ready", dateAdd=timezone.now() - timedelta(hours=2))
-        boundary = timezone.now() - timedelta(hours=1)
+    def test_ready_selected_regardless_of_date_add(self):
+        # Этап C: состав определяется готовностью, а не датой добавления.
+        old = self._mk("ready", dateAdd=timezone.now() - timedelta(days=30))
         new = self._mk("ready", dateAdd=timezone.now())
-        qs = export_service.select_new_attendees(self.category, boundary, timezone.now())
-        self.assertEqual(list(qs.values_list("id", flat=True)), [new.id])
+        self._mk("exported", dateAdd=timezone.now())
+        qs = export_service.select_ready_attendees(self.category)
+        self.assertEqual(list(qs.values_list("id", flat=True)), [old.id, new.id])
 
     def test_other_category_excluded(self):
         other = Request.objects.create(
@@ -126,7 +136,7 @@ class DeltaSelectionTests(ExportDeltaBase):
         )
         self._mk("ready", request=other)
         mine = self._mk("ready")
-        qs = export_service.select_new_attendees(self.category, None, timezone.now())
+        qs = export_service.select_ready_attendees(self.category)
         self.assertEqual(list(qs.values_list("id", flat=True)), [mine.id])
 
 
@@ -149,10 +159,12 @@ class ExportViewTests(ExportDeltaBase):
         self.assertEqual(a2.status, "exported")
 
     def test_second_export_returns_only_new(self):
-        a_old = self._mk("ready")
+        first_boundary = timezone.now() - timedelta(minutes=1)
+        self._mk("ready", dateAdd=first_boundary - timedelta(seconds=1))
         self.client.force_login(self.super_user)
-        b"".join(self.client.post(self._url()).streaming_content)  # первый экспорт
-        a_new = self._mk("ready")  # добавлен после
+        with patch("eventproject.views.export.timezone.now", return_value=first_boundary):
+            b"".join(self.client.post(self._url()).streaming_content)
+        a_new = self._mk("ready", dateAdd=first_boundary + timedelta(seconds=1))
         resp = self.client.post(self._url())
         self.assertEqual(resp.status_code, 200)
         content = b"".join(resp.streaming_content)
@@ -174,7 +186,7 @@ class ExportViewTests(ExportDeltaBase):
             event=self.event, category=self.category, exported_before=timezone.now(),
             user=self.super_user, attendee_count=1,
         )
-        self._mk("ready", dateAdd=timezone.now() - timedelta(hours=1))  # старее границы
+        self._mk("exported", dateAdd=timezone.now() - timedelta(hours=1))  # уже выгружен
         self.client.force_login(self.super_user)
         resp = self.client.post(self._url())
         self.assertIn("Нет новых записей с момента последнего экспорта", resp.content.decode())
@@ -254,3 +266,52 @@ class BackfillStatusMigrationTests(ExportDeltaBase):
         for rstatus, expected in mapping.items():
             made[rstatus].refresh_from_db()
             self.assertEqual(made[rstatus].status, expected, f"{rstatus} → {expected}")
+
+
+@skipUnless(connection.vendor == "postgresql", "Requires PostgreSQL row locks")
+class ConcurrentDeltaExportTests(ExportDeltaFixtures, TransactionTestCase):
+    def test_overlapping_downloads_commit_one_archive(self):
+        first = self._mk("ready", is_resident=False, iin=None)
+        second = self._mk("ready", is_resident=False, iin=None)
+        clients = [Client(), Client()]
+        for client in clients:
+            client.force_login(self.super_user)
+
+        def download(client):
+            try:
+                response = client.post(self._url())
+                try:
+                    ids = []
+                    if response.streaming:
+                        with zipfile.ZipFile(io.BytesIO(b"".join(response.streaming_content))) as archive:
+                            ids = [row["attendee_id"] for row in json.loads(archive.read("attendees.json"))]
+                    return response.status_code, ids
+                finally:
+                    response.close()
+            finally:
+                connections.close_all()
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            with transaction.atomic():
+                # Both requests prepare their ZIP, then wait for this real row lock.
+                Attendee.objects.select_for_update().get(pk=first.pk)
+                futures = [pool.submit(download, client) for client in clients]
+                deadline = time.monotonic() + 20
+                with connection.cursor() as cursor:
+                    while True:
+                        cursor.execute("SELECT pg_stat_clear_snapshot()")
+                        cursor.execute(
+                            "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() "
+                            "AND wait_event_type = 'Lock' AND state = 'active' "
+                            "AND query ILIKE %s", ["%FOR UPDATE%"],
+                        )
+                        waiting = cursor.fetchone()[0]
+                        if waiting == 2 or time.monotonic() >= deadline or any(f.done() for f in futures):
+                            break
+                        time.sleep(0.02)
+            results = sorted(f.result(timeout=20) for f in futures)
+
+        self.assertEqual(waiting, 2, "Both exports must reach PostgreSQL row-lock contention")
+        self.assertEqual(results, [(200, [first.pk, second.pk]), (409, [])])
+        self.assertEqual(list(ExportLog.objects.values_list("attendee_count", flat=True)), [2])
+        self.assertEqual(Attendee.objects.filter(request=self.category, status="exported").count(), 2)

@@ -17,6 +17,7 @@ from datetime import date
 from django.contrib.auth.models import User
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
+from eventproject.tests.media_fixtures import valid_jpeg
 from django.test import Client, TestCase
 from django.utils import timezone
 
@@ -29,12 +30,19 @@ INVALID_IIN = "123456789012"
 KZ = "1000000105"
 NON_KZ = "1000000840"
 
-# Три локализованные копии формы добавления (один и тот же URL-name).
+# Три языковые версии формы добавления (один обработчик).
 ADD_ENDPOINTS = [
     "/add_attendee/{rid}/",
     "/kz/add_attendee/{rid}/",
     "/en/add_attendee/{rid}/",
 ]
+# Ошибки ИИН — на языке страницы (page_lang.residency_error).
+CONTROL_TEXT = dict(zip(ADD_ENDPOINTS, ["неверная контрольная цифра", "бақылау цифры дұрыс емес", "wrong check digit"]))
+MISMATCH_TEXT = dict(zip(ADD_ENDPOINTS, [
+    "Дата рождения в ИИН (01.01.1990) не совпадает с введённой (12.05.1985)",
+    "ЖСН-дағы туған күн (01.01.1990) енгізілген күнмен (12.05.1985) сәйкес келмейді",
+    "The date of birth in the IIN (01.01.1990) does not match the one entered (12.05.1985)",
+]))
 
 
 class LegacyAttendeeFormValidationTest(TestCase):
@@ -57,6 +65,7 @@ class LegacyAttendeeFormValidationTest(TestCase):
             date_end=date.today(),
             city_code="AK",
         )
+        self.operator.events.add(self.event)
         self.req = Request.objects.create(
             name="Test Request",
             event=self.event,
@@ -67,7 +76,7 @@ class LegacyAttendeeFormValidationTest(TestCase):
         self.client.force_login(self.user)
 
     def _upload(self, name="f.jpg"):
-        return SimpleUploadedFile(name, b"x" * 2048, content_type="image/jpeg")
+        return valid_jpeg(name)
 
     def _payload(self, **overrides):
         data = {
@@ -139,7 +148,7 @@ class LegacyAttendeeFormValidationTest(TestCase):
                 cache.clear()
                 response = self._post(endpoint, iin=INVALID_IIN)
                 self.assertEqual(Attendee.objects.count(), 0)
-                self.assertContains(response, "контрольная цифра")
+                self.assertContains(response, CONTROL_TEXT[endpoint])
                 # AC-2: введённые данные сохранены — не нужно перепечатывать.
                 self.assertContains(response, "Тестовский")
 
@@ -184,7 +193,7 @@ class LegacyAttendeeFormValidationTest(TestCase):
                 cache.clear()
                 response = self._post(endpoint, dob="1985-05-12")
                 self.assertEqual(Attendee.objects.count(), 0)
-                self.assertContains(response, "не совпадает")
+                self.assertContains(response, MISMATCH_TEXT[endpoint])
 
     # ── BE-16a: нерезидент, отправивший непустой ИИН → ИИН отбрасывается ──
     def test_non_resident_with_posted_iin_discards_iin(self):
@@ -199,6 +208,26 @@ class LegacyAttendeeFormValidationTest(TestCase):
                 attendee = Attendee.objects.get(surname="Тестовский")
                 self.assertIsNone(attendee.iin)
                 self.assertFalse(attendee.is_resident)
+
+    def test_update_iin_error_in_page_language(self):
+        attendee = self._create_attendee(iin=VALID_IIN)
+        for prefix, expected in (("/kz", "бақылау цифры дұрыс емес"), ("/en", "Invalid IIN: wrong check digit.")):
+            with self.subTest(prefix=prefix):
+                cache.clear()
+                response = self.client.post(f"{prefix}/update_attendee/{attendee.id}/",
+                                            self._payload(iin=INVALID_IIN), REMOTE_ADDR="127.0.0.1")
+                self.assertContains(response, expected, count=1)
+                self.assertNotContains(response, "контрольная цифра")
+
+    def test_missing_iin_for_resident_in_page_language(self):
+        for endpoint, expected in zip(ADD_ENDPOINTS, ["ИИН обязателен для граждан Казахстана",
+                                                      "Қазақстан азаматтары үшін ЖСН міндетті",
+                                                      "IIN is required for citizens of Kazakhstan"]):
+            with self.subTest(endpoint=endpoint):
+                cache.clear()
+                response = self._post(endpoint, iin="")
+                self.assertEqual(Attendee.objects.count(), 0)
+                self.assertContains(response, expected)
 
     # ── update (RU): некорректный ИИН не перезаписывает запись ──
     def test_update_invalid_iin_blocks_save(self):

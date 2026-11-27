@@ -29,3 +29,9 @@ export function getAttendees(
 export function getAttendee(id: number): Promise<AttendeeDetail> {
   return apiFetch<AttendeeDetail>(`/api/v1/attendees/${id}/`)
 }
+
+/** POST /api/v1/attendees/{id}/submit/ — черновик на проверку (этап C).
+ *  400 — не хватает данных (текст в detail), 409 — переход недопустим. */
+export function submitAttendee(id: number): Promise<AttendeeDetail> {
+  return apiFetch<AttendeeDetail>(`/api/v1/attendees/${id}/submit/`, { method: 'POST' })
+}

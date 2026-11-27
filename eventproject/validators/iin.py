@@ -24,6 +24,10 @@ _ERR_DATE_INVALID = "ИИН некорректен: недопустимая д�
 class ValidationResult:
     valid: bool
     error: str = ""
+    # Код ошибки и подстановки — для перевода сообщения на язык страницы
+    # (`page_lang.residency_error`). `error` остаётся русским: его отдаёт API.
+    code: str = ""
+    params: tuple = ()
 
 
 def normalize_iin(value):
@@ -88,7 +92,7 @@ def validate_iin(iin, birth_date):
     # не нормализуя молча: int теряет ведущий ноль через str() (валидный ИИН с ведущим 0
     # ложно «не 12 цифр»), а 12-значный int без ведущего нуля раньше ложно принимался.
     if iin is not None and not isinstance(iin, str):
-        return ValidationResult(valid=False, error=_ERR_FORMAT)
+        return ValidationResult(valid=False, error=_ERR_FORMAT, code="iin_format")
 
     normalized = normalize_iin(iin)
     if normalized is None:
@@ -96,18 +100,18 @@ def validate_iin(iin, birth_date):
         return ValidationResult(valid=True)
 
     if len(normalized) != 12 or any(ch not in "0123456789" for ch in normalized):
-        return ValidationResult(valid=False, error=_ERR_FORMAT)
+        return ValidationResult(valid=False, error=_ERR_FORMAT, code="iin_format")
 
     digits = [int(ch) for ch in normalized]
 
     control = _control_digit(digits)
     if control is None or control != digits[11]:
-        return ValidationResult(valid=False, error=_ERR_CONTROL)
+        return ValidationResult(valid=False, error=_ERR_CONTROL, code="iin_control")
 
     # Дата рождения: позиции 1–6 (YYMMDD) + век из позиции 7.
     century = _CENTURY_BASE.get(digits[6])
     if century is None:
-        return ValidationResult(valid=False, error=_ERR_DATE_INVALID)
+        return ValidationResult(valid=False, error=_ERR_DATE_INVALID, code="iin_date_invalid")
     year = century + digits[0] * 10 + digits[1]
     month = digits[2] * 10 + digits[3]
     day = digits[4] * 10 + digits[5]
@@ -115,7 +119,7 @@ def validate_iin(iin, birth_date):
         iin_date = date(year, month, day)
     except ValueError:
         # Недопустимая календарная дата в ИИН (напр. 30 февраля, 13-й месяц).
-        return ValidationResult(valid=False, error=_ERR_DATE_INVALID)
+        return ValidationResult(valid=False, error=_ERR_DATE_INVALID, code="iin_date_invalid")
 
     # birth_date может отсутствовать (защитно): тогда сравнение пропускаем.
     # Сравниваем по (год, месяц, день) — устойчиво и к date, и к datetime
@@ -130,6 +134,8 @@ def validate_iin(iin, birth_date):
                 f"Дата рождения в ИИН ({_format_date(iin_date)}) не совпадает "
                 f"с введённой ({_format_date(birth_date)}). Проверьте дату."
             ),
+            code="iin_birth_mismatch",
+            params=(("iin_date", _format_date(iin_date)), ("birth_date", _format_date(birth_date))),
         )
 
     return ValidationResult(valid=True)

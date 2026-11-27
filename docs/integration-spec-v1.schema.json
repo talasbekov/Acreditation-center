@@ -1,5 +1,5 @@
 {
-  "spec_version": "1.0",
+  "spec_version": "1.1",
   "status": "CONFIRMED — формат утверждён Project Lead (Erda) 2026-06-23 (Story 4.1). Единый источник правды для export serializer (Story 4.3) и contract-теста.",
   "description": "Машиночитаемый контракт одного объекта attendee в attendees.json.",
   "object": "attendee",

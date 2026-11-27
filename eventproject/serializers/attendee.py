@@ -2,8 +2,10 @@
 
 Валидация ИИН/резидентства делегируется единым источникам:
 `validators/residency.resolve_residency` (→ `validators/iin.validate_iin`).
-Дедуп ИИН в рамках мероприятия — `validators/iin.event_has_iin_duplicate`.
+Дубли в рамках мероприятия — `services/intake.find_duplicate` (этап C).
 """
+
+from datetime import date
 
 from django.http import QueryDict
 from rest_framework import serializers
@@ -11,7 +13,8 @@ from rest_framework.exceptions import PermissionDenied
 
 from eventproject.models import Attendee, Request
 from eventproject.serializers.rbac import get_operator_events
-from eventproject.validators.iin import event_has_iin_duplicate, mask_iin
+from eventproject.services import intake
+from eventproject.validators.iin import mask_iin
 from eventproject.validators.photo import (
     check_upload_size,
     convert_pdf_to_jpeg,
@@ -22,6 +25,54 @@ from eventproject.validators.photo import (
 # Файловые поля: пустая строка в multipart → трактуем как «без файла».
 _FILE_FIELDS = ("photo", "docScan")
 from eventproject.validators.residency import is_known_country, resolve_residency
+
+
+def raise_if_duplicate(event_id, attrs, instance=None):
+    """400 с полем ``iin`` или ``docNumber``, если участник уже есть в мероприятии."""
+
+    def current(field):
+        if field in attrs:
+            return attrs[field]
+        return getattr(instance, field, None)
+
+    code = intake.find_duplicate(
+        event_id,
+        country_id=current("countryId"),
+        iin=current("iin"),
+        doc_type=current("docTypeId"),
+        doc_series=current("docSeries"),
+        doc_number=current("docNumber"),
+        exclude_pk=instance.pk if instance is not None else None,
+    )
+    if code:
+        field = "iin" if code == "iin" else "docNumber"
+        raise serializers.ValidationError({field: intake.duplicate_text(code, "ru")})
+
+
+_RU_ERRORS = {
+    "required": "Обязательное поле.",
+    "blank": "Обязательное поле.",
+    "null": "Обязательное поле.",
+    "invalid": "Неверное значение.",
+    "max_length": "Слишком длинное значение (не больше {max_length} символов).",
+    "does_not_exist": "Значение не найдено.",
+    "incorrect_type": "Неверное значение.",
+    "datetime": "Нужна дата, а не дата и время.",
+}
+
+
+def _check_dates(attrs):
+    """Документ уже выдан и ещё действует, дата рождения не в будущем (как в HTML-форме)."""
+    today = date.today()
+    errors = {}
+    if attrs.get("docBegin") and attrs["docBegin"] > today:
+        errors["docBegin"] = "Дата выдачи документа еще не наступила"
+    if attrs.get("docEnd") and attrs["docEnd"] < today:
+        errors["docEnd"] = "Истек срок документа"
+    if attrs.get("birthDate") and attrs["birthDate"] > today:
+        errors["birthDate"] = "Проверьте дату рождения"
+    if errors:
+        raise serializers.ValidationError(errors)
 
 
 def _strip_blank_file_fields(data, blank_fields):
@@ -78,15 +129,32 @@ class AttendeeSerializer(serializers.ModelSerializer):
             "sexId",
             "visitObjects",
             "transcription",
+            "stickId",
             "request",
             "category",
             "dateEnd",
             "is_resident",
             "status",
             "dateAdd",
+            "review_comment",
         ]
-        # Выставляются сервером/логикой, не клиентом.
-        read_only_fields = ["id", "is_resident", "status", "dateAdd"]
+        # Выставляются сервером/логикой, не клиентом. review_comment — причина
+        # возврата от проверяющего (меняется только через return/).
+        read_only_fields = ["id", "is_resident", "status", "dateAdd", "review_comment"]
+        # Этап D: как в HTML-форме — серия документа и «Кем выдан» необязательны,
+        # категория участника (stickId) необязательна (у резидента РК не хранится).
+        extra_kwargs = {
+            "docSeries": {"required": False, "allow_blank": True, "default": ""},
+            "docIssue": {"required": False, "allow_blank": True, "default": ""},
+            "stickId": {"required": False, "allow_blank": True},
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Этап D: сообщения о пустых и неверных значениях — по-русски (SPA показывает их
+        # под полями; LANGUAGE_CODE проекта en-us, поэтому стандартные тексты DRF английские).
+        for field in self.fields.values():
+            field.error_messages.update(_RU_ERRORS)
 
     def to_internal_value(self, data):
         # Пустая строка для файлового поля (multipart `photo=''`) → «без файла».
@@ -161,14 +229,18 @@ class AttendeeSerializer(serializers.ModelSerializer):
         attrs["is_resident"] = result.is_resident
         attrs["iin"] = result.iin  # None для нерезидента
 
-        # Дедуп ИИН резидента РК в рамках мероприятия (паритет legacy).
-        if result.is_resident and result.iin and req is not None:
-            existing = Attendee.objects.filter(request__event=req.event)
-            exclude_pk = instance.pk if instance is not None else None
-            if event_has_iin_duplicate(existing, result.iin, exclude_pk=exclude_pk):
-                raise serializers.ValidationError(
-                    {"iin": "Участник с этим ИИН уже добавлен в это мероприятие."}
-                )
+        # P1-4 / этап D: у резидента РК категория скрыта формой и не хранится.
+        if result.is_resident and "stickId" in attrs:
+            attrs["stickId"] = ""
+
+        # Этап D: при добавлении — те же проверки дат, что у HTML-формы (views/attendee.py).
+        if instance is None:
+            _check_dates(attrs)
+
+        # Этап C: единое правило дублей (ИИН резидента / документ нерезидента).
+        # Под блокировкой мероприятия проверка повторяется в AttendeeViewSet.
+        if req is not None:
+            raise_if_duplicate(req.event_id, attrs, instance)
         return attrs
 
 
@@ -181,6 +253,12 @@ class AttendeeListSerializer(serializers.ModelSerializer):
     """
 
     iin_masked = serializers.SerializerMethodField()
+    # Этап C: черновик, возвращённый проверяющим. Саму причину список не отдаёт.
+    returned = serializers.SerializerMethodField()
+    # Этап D: контекст строки реестра — номер заявки и мероприятие (без доп. запросов:
+    # queryset подтягивает request__event через select_related).
+    request_name = serializers.CharField(source="request.name", read_only=True)
+    event_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Attendee
@@ -193,7 +271,17 @@ class AttendeeListSerializer(serializers.ModelSerializer):
             "category",
             "dateAdd",
             "iin_masked",
+            "returned",
+            "request_name",
+            "event_name",
         ]
+
+    def get_event_name(self, obj):
+        event = obj.request.event
+        return event.name_rus or event.title or ""
 
     def get_iin_masked(self, obj):
         return mask_iin(obj.iin)
+
+    def get_returned(self, obj):
+        return obj.status == "draft" and bool(obj.review_comment)

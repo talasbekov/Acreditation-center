@@ -27,13 +27,15 @@ DefaultRouter, базовый префикс `/api/v1/`. Ошибки — фор
 | `/api/v1/events/<id>/categories/` | GET/POST | action `categories` | IsSuperoperator | Категории события |
 | `/api/v1/rbac-check/` | GET | `rbac_check` | IsAuthenticated | `{"role": "<роль>"}` |
 
+**Участники (`/api/v1/attendees/`, этап C).** Карточка (`GET /<id>/`) отдаёт `review_comment` — причину возврата от проверяющего, только чтение. Строка списка отдаёт `returned` (черновик с причиной возврата), саму причину — нет. С этапа D строка списка отдаёт также `request_name` (номер заявки) и `event_name` (название мероприятия, `name_rus`), только чтение. Этап D, форма участника: `GET /api/v1/directories/` (оператор) — `{sexes, document_types, categories, countries}`, строки `{code, name}`. Сериализатор участника принимает `stickId` (у резидента РК сохраняется пустым), `docSeries` и `docIssue` необязательны; при создании проверяются даты (`docBegin` не в будущем, `docEnd` не в прошлом, `birthDate` не в будущем). Ответ 400 по полям дополнительно содержит `errors: {поле: текст}` (тексты по-русски); `field` и `detail` прежние. `POST /<id>/submit/` — черновик на проверку; если не хватает данных — 400, в `detail` недостающее перечислено словами («Участник не готов к отправке: нет фото, нет скана документа»); недопустимый переход — 409. Решения проверяющего — `start-review/`, `approve/`, `return/` (с `reason`).
+
 **Сериализаторы**: `EventSerializer` (id, title, start_date, end_date, description, categories nested, created_at), `CategorySerializer` (id, name, attendee_count — вычисляемое `obj.attendees.count()`).
 
 **Permission-классы**: `IsSuperuser` (только superuser), `IsSuperoperator` (superoperator+superuser), `IsOperator` (operator+superoperator+superuser).
 
 ## HTML-интерфейс (сессионный)
 
-Три языковых зеркала: русский (корень), казахский (`/kz/...`), английский (`/en/...`) — view-функции в `kz_event/views.py` и `en_event/views.py` идентичны русским, отличаются только шаблонами, языком сообщений и сортировкой справочников (`name_kaz`/`name_eng`).
+Три языковые версии: русский (корень), казахский (`/kz/...`), английский (`/en/...`). Обработчик у всех трёх один (`eventproject/views/`), язык передаётся из URL (`{"lang": "kz"}`); шаблоны общие: строки интерфейса — `{% t %}` со словарём `eventproject/ui_text.py`, тексты сообщений — `eventproject/page_lang.py`, справочники сортируются по `name_kaz`/`name_eng`. Форма правки участника — `/update_attendee/<id>/`, `/kz/update_attendee/<id>/`, `/en/update_attendee/<id>/`.
 
 ### Аутентификация и сессия
 
@@ -68,9 +70,9 @@ DefaultRouter, базовый префикс `/api/v1/`. Ошибки — фор
 | `/create/<event_id>/` | GET/POST | Новая заявка (status=`Active`) |
 | `/show/<request_id>/` | GET | Заявка со списком участников |
 | `/show_request_to_admin/<request_id>/` | GET | Просмотр заявки админом (superuser) |
-| `/preview/<request_id>/` | GET | → status `Checking` |
-| `/back_to_change/<request_id>/` | GET | → status `Active` |
-| `/send/<request_id>/` | GET | → status `Sent`, ставится `registration_time` |
+| `/preview/<request_id>/` | GET (POST — для страниц, открытых до обновления) | Предпросмотр перед отправкой, **только чтение**: статус не меняется; кнопки «Вернуться к редактированию» и «Отправить», без добавления, правки и удаления. Отправленная заявка → редирект на `/show/` |
+| `/back_to_change/<request_id>/` | POST + CSRF | Снимает прежний статус `Checking` (→ `Active`) и ведёт на `/show/`; отправленную заявку не открывает |
+| `/send/<request_id>/` | POST + CSRF | Все черновики → `submitted`, заявка → `Sent`, ставится `registration_time` (всё или ничего, этап C) |
 | `/delete_request/<request_id>/` | GET | Удаление заявки с участниками |
 
 ### Участники (операторы; + kz/en зеркала)
@@ -105,20 +107,25 @@ DefaultRouter, базовый префикс `/api/v1/`. Ошибки — фор
 
 > **Важно**: интеграционные view (`kazenergy_receive`, `kazexpo_receive`) **не замаплены в urls.py**. Они вызываются изнутри по расписанию — `eventproject.cron.kazexpo_import_job` каждые 2 минуты (django-crontab, `CRONJOBS`) создаёт синтетический запрос через `RequestFactory` и `async_to_sync()`.
 
+### Общий приём анкет партнёров (этап C, `services/partner_import.py`)
+
+Оба партнёра обрабатываются одним циклом (не более `PARTNER_IMPORT_MAX_RECORDS`, по умолчанию 500 анкет за запуск):
+1. GET очереди (`x-api-key`) — одна анкета за итерацию (`payload["attendees"][0]`); выход при пустом списке.
+2. Анкета без `id` останавливает запуск: подтвердить её нельзя.
+3. Анкета с уже известным `id` (таблица `PartnerReceipt`, уникальность источник + мероприятие + id) не обрабатывается заново — партнёру повторно уходит сохранённое подтверждение.
+4. Новая анкета под блокировкой мероприятия: обязательные поля и даты → правило дублей (ИИН резидента / документ нерезидента) → проверка фото и скана по правилам API (JPEG/PNG/WEBP, ≤ 5 МБ до декодирования, 3×4, ≥ 600×800; скан может быть PDF) → запись черновика и квитанции. Неподходящий файл не сохраняется, анкета принимается без него с пометкой в подтверждении. Имя файла случайное.
+5. Участник попадает в открытую (`Active`) заявку того же оператора за последний час, иначе создаётся новая; отправленные заявки не пополняются. Пустая очередь заявку не создаёт.
+6. Подтверждение уходит только после записи. Если партнёр его не принял (не 2xx или сбой сети), запуск останавливается — при следующем запуске та же анкета получит то же подтверждение. Анкета, повторно выданная после успешного подтверждения, тоже останавливает запуск.
+
+Итоговый ответ: `{"processed", "accepted", "duplicates", "errors", "request_id"}`; HTTP 200 при `errors == 0`, иначе 400; 502, если очередь недоступна и ничего не обработано.
+
 ### KazEnergy (`views/integration/integrate_kazenergy.py`)
 
-Async pull-цикл (`httpx.AsyncClient`, пауза 0.3 с между запросами):
-1. GET `https://kazenergy.regist.kz/api/api.php` (заголовок `x-api-key`) — одна анкета за итерацию (`payload["attendees"][0]`); выход при пустом списке.
-2. Валидация 21 обязательного поля; пустое поле → ACK `code=9` (ошибка).
-3. Дубликаты: по ИИН (граждане РК) или по transcription → ACK `code=2`.
-4. Сохранение Attendee (парсинг дат, base64-изображений photo/docScan) в Request (переиспользуется, если последнему < 1 часа).
-5. ACK: POST `https://kazenergy.regist.kz/api/ack.php`, `code=2` (успех).
+Очередь `https://kazenergy.regist.kz/api/api.php`, подтверждение `POST …/ack.php`. Обязательные поля: surname, firstname, post, countryId, docTypeId, docNumber, sexId, visitObjects, transcription, dateAdd, birthDate, docBegin, docEnd. Коды: принято — `{"id", "code": 2}` (с `message`, если файл не принят); дубль — `code=2` (прежний контракт: очередь не возвращает анкету); отказ — `code=9` с `message`. Вызывается из `eventproject.cron.kazexpo_import_job` (Event 797, Operator 1405 заданы в коде).
 
-Итоговый ответ: `{"processed": N, "errors": M, "request_id": K}`; HTTP 200 при errors==0, иначе 400. Задача в Celery-варианте (`tasks.kazexpo_import_job`) захардкожена на Event ID=777, Operator ID=1405.
+### Avalon/KazExpo (`views/integration/integrate.py`)
 
-### Avalon/KazExpo (`views/integration/integrate.py`, `services.py`)
-
-Аналогичный async-цикл с `https://avalon.kazintec.kz/api/v1/events/.../export` (ключ `AVALON_API_KEY`); валидирует 10 полей, дополнительно пишет CSV в `media/exports/`. `services.process_avalon_payload()` создаёт Request со статусом `processing` → `completed`.
+POST супероператора/суперпользователя, назначенного на мероприятие; очередь и подтверждение — `https://avalon.kazintec.kz/api/v1/events/.../export`, 404/500 очереди завершают запуск, пауза 0.3 с. Обязательные поля: surname, firstname, post, countryId, docTypeId, sexId, visitObjects, transcription, birthDate, stickId. Коды: принято — `code=2` и `RECORD NUMBER` = `№<id участника>`; дубль — `code=1, comment="Дубликат"`; нет полей — `code=1` с перечнем; ошибка записи — `code=1, message="Ошибка при сохранении участника"`. CSV в `media/exports/` не пишется.
 
 ## Обработка ошибок и лимиты
 

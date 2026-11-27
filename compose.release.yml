@@ -1,0 +1,63 @@
+name: eventproject-release
+services:
+  db:
+    build: ./release/postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:?Set DB_NAME}
+      POSTGRES_USER: ${DB_USER:?Set DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD}
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY}
+      FERNET_KEYS: ${FERNET_KEYS:?Set FERNET_KEYS}
+      KAZENERGY_API_KEY: ${KAZENERGY_API_KEY:-}
+      AVALON_API_KEY: ${AVALON_API_KEY:-}
+      ALLOWED_HOSTS: ${EVENTPROJECT_HOST:?Set EVENTPROJECT_HOST},localhost,127.0.0.1
+      CSRF_TRUSTED_ORIGINS: ${OPERATOR_PUBLIC_ORIGIN:?Set public HTTPS origin}
+      OPERATOR_PUBLIC_ORIGIN: ${OPERATOR_PUBLIC_ORIGIN:?Set public HTTPS origin}
+      TRUST_TLS_PROXY: "true"
+      DB_HOST: db
+      DB_NAME: ${DB_NAME:?Set DB_NAME}
+      DB_USER: ${DB_USER:?Set DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD}
+      EMAIL_HOST: ${EMAIL_HOST:?Set SMTP host}
+      EMAIL_PORT: ${EMAIL_PORT:-587}
+      EMAIL_USE_TLS: "true"
+      EMAIL_HOST_USER: ${EMAIL_HOST_USER:-}
+      EMAIL_HOST_PASSWORD: ${EMAIL_HOST_PASSWORD:-}
+      DEFAULT_FROM_EMAIL: ${DEFAULT_FROM_EMAIL:?Set mail sender}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - media:/app/media
+      - logs:/app/logs
+    # A read-only schema check precedes Gunicorn. Schema provisioning is an explicit release step.
+    command: ["sh", "-ec", "python manage.py check_release_schema && exec gunicorn eventproject.wsgi:application --bind 0.0.0.0:8000 --workers 2 --timeout 120"]
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.release
+    ports:
+      - "127.0.0.1:${EVENTPROJECT_TLS_PORT:-8443}:8443"
+    volumes:
+      - ${EVENTPROJECT_TLS_CERT:?Set certificate path}:/run/tls/fullchain.pem:ro
+      - ${EVENTPROJECT_TLS_KEY:?Set private key path}:/run/tls/key.pem:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+volumes:
+  database:
+  media:
+  logs:

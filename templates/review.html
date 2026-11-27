@@ -1,0 +1,81 @@
+{% extends "ds_staff_base.html" %}
+{% block title %}Очередь проверки{% endblock %}
+{% block content %}
+    <div class="ds-header">
+        <h1 class="ds-h1">Очередь проверки</h1>
+        <p class="ds-context">{{ event.name_rus|default:event.title|default:event.event_code }}</p>
+    </div>
+
+    {# Результат решения — сразу под заголовком, чтобы на телефоне он был виден без прокрутки. #}
+    {% for message in messages %}
+        <p class="ds-notice ds-notice-{{ message.tags|default:'info' }}" role="status">{{ message }}</p>
+    {% endfor %}
+
+    <ul class="ds-stats" aria-label="Сводка по статусам">
+        <li class="ds-stat"><span class="ds-stat-num">{{ summary.submitted }}</span><span class="ds-stat-label"><span class="ds-badge ds-badge-warning">Ждут проверки</span></span></li>
+        <li class="ds-stat"><span class="ds-stat-num">{{ summary.in_review }}</span><span class="ds-stat-label"><span class="ds-badge ds-badge-info">На проверке</span></span></li>
+        <li class="ds-stat"><span class="ds-stat-num">{{ summary.returned }}</span><span class="ds-stat-label"><span class="ds-badge ds-badge-danger">Возвращены оператору</span></span></li>
+        <li class="ds-stat"><span class="ds-stat-num">{{ summary.ready }}</span><span class="ds-stat-label"><span class="ds-badge ds-badge-success">Допущены</span></span></li>
+        <li class="ds-stat"><span class="ds-stat-num">{{ summary.exported }}</span><span class="ds-stat-label"><span class="ds-badge ds-badge-success">Выгружены</span></span></li>
+    </ul>
+
+    <h2 class="ds-h2">Участники{% if total %} ({{ total }}){% endif %}</h2>
+    {% for item in items %}
+        {% with a=item.a %}
+        <article class="ds-panel" aria-labelledby="person-{{ a.id }}">
+            <div class="ds-panel-head">
+                <h3 class="ds-panel-title" id="person-{{ a.id }}">{{ a.surname }} {{ a.firstname }} {{ a.patronymic|default:"" }}</h3>
+                {% if a.status == "in_review" %}
+                    <span class="ds-badge ds-badge-info">На проверке</span>
+                {% else %}
+                    <span class="ds-badge ds-badge-warning">Ждёт проверки</span>
+                {% endif %}
+            </div>
+            <p class="ds-hint">Заявка {{ a.request.name }} · оператор {{ item.operator }}</p>
+            <div class="ds-person">
+                {% if a.photo or a.docScan %}
+                <div class="ds-media">
+                    {% if a.photo %}<a href="{{ a.photo.url }}" target="_blank" rel="noopener"><img loading="lazy" decoding="async" src="{{ a.photo.url }}" alt="Фото участника {{ a.surname }} — открыть крупно"></a>{% endif %}
+                    {% if a.docScan %}<a href="{{ a.docScan.url }}" target="_blank" rel="noopener"><img loading="lazy" decoding="async" src="{{ a.docScan.url }}" alt="Скан документа {{ a.surname }} — открыть крупно"></a>{% endif %}
+                </div>
+                {% endif %}
+                <dl class="ds-facts">
+                    <dt>Латиницей</dt><dd>{{ a.transcription }}</dd>
+                    <dt>Дата рождения</dt><dd>{{ a.birthDate|date:"d.m.Y"|default:"—" }}</dd>
+                    <dt>Гражданство</dt><dd>{{ item.country }}</dd>
+                    <dt>Документ</dt><dd>{{ item.doc_type }} {{ a.docSeries }} {{ a.docNumber|default:"" }}, до {{ a.docEnd|date:"d.m.Y"|default:"—" }}</dd>
+                    <dt>Должность</dt><dd>{{ a.post }}</dd>
+                    <dt>Объекты</dt><dd>{{ a.visitObjects }}</dd>
+                </dl>
+            </div>
+            <div class="ds-actions">
+                {% if a.status == "submitted" %}
+                    <form method="post" action="{% url 'review_decision' a.id 'start' %}">{% csrf_token %}
+                        <button type="submit" class="ds-btn ds-btn-primary">Взять на проверку</button>
+                    </form>
+                {% else %}
+                    <form method="post" action="{% url 'review_decision' a.id 'approve' %}">{% csrf_token %}
+                        <button type="submit" class="ds-btn ds-btn-success">Допустить</button>
+                    </form>
+                    <details class="ds-disclosure">
+                        <summary class="ds-btn ds-btn-danger">Вернуть оператору…</summary>
+                        <form method="post" action="{% url 'review_decision' a.id 'return' %}" class="ds-disclosure-body">{% csrf_token %}
+                            <label class="ds-label" for="reason-{{ a.id }}">Причина возврата</label>
+                            <textarea class="ds-textarea" id="reason-{{ a.id }}" name="reason" required maxlength="{{ max_reason }}" aria-describedby="reason-hint-{{ a.id }}"></textarea>
+                            <p class="ds-hint" id="reason-hint-{{ a.id }}">Её увидит оператор. До {{ max_reason }} символов.</p>
+                            <div class="ds-actions" style="margin-top:12px">
+                                <button type="submit" class="ds-btn ds-btn-danger">Вернуть</button>
+                            </div>
+                        </form>
+                    </details>
+                {% endif %}
+            </div>
+        </article>
+        {% endwith %}
+    {% empty %}
+        <p class="ds-notice ds-notice-success">Нет участников, ожидающих проверки.</p>
+    {% endfor %}
+    {% if overflow %}
+        <p class="ds-hint">Показаны первые {{ items|length }} из {{ total }}.</p>
+    {% endif %}
+{% endblock %}

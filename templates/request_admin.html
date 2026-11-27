@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 
 {% load static %}
+{% load directory_tags %}
 <html>
 <head>
     <title>Accreditation </title>
@@ -60,35 +61,29 @@
                     <div class="row">
                         <div class="col-lg-1">
                             {% if attendee.photo %}
-                                <img src="{{ attendee.photo.url }}" width="100%">
+                                <img loading="lazy" decoding="async" src="{{ attendee.photo.url }}" width="100%">
                             {% endif %}
                         </div>
                         <div class="col-lg-1">
                             {% if attendee.docScan %}
-                                <img src="{{ attendee.docScan.url }}" width="100%">
+                                <img loading="lazy" decoding="async" src="{{ attendee.docScan.url }}" width="100%">
                             {% endif %}
                         </div>
                         <div class="col-lg-3">
-                            <p>{{ attendee.surname }}&#160; {{ attendee.firstname }}&#160; {{ attendee.patronymic }}</p>
+                            <p>{{ attendee.surname }}&#160; {{ attendee.firstname }}&#160; {{ attendee.patronymic|default_if_none:'' }}</p>
                             <p>{{ attendee.transcription }}</p>
-                            <p>ИИН:&#160;{{ attendee.iin }}&#160;ДР:{{ attendee.birthDate|date:"d.m.Y" }}</p>
+                            <p>ИИН:&#160;{{ attendee.iin|default_if_none:'' }}&#160;ДР:{{ attendee.birthDate|date:"d.m.Y" }}</p>
                         </div>
                         <div class="col-lg-3">
                             <p>
-                                {% for country in countries %}
-                                {% if country.country_code == attendee.countryId %} {{ country.name_rus }}&#160; {% endif %}
-                                {% endfor %}
-                                {% for sex in sexs %}
-                                {% if sex.sex_code == attendee.sexId %} {{ sex.name_rus }} {% endif %}
-                                {% endfor %}</p>
+                                {% dir_name countries "country_code" attendee.countryId "name_rus" as countryId_label %}{% if countryId_label %} {{ countryId_label }}&#160; {% endif %}
+                                {% dir_name sexs "sex_code" attendee.sexId "name_rus" as sexId_label %}{% if sexId_label %} {{ sexId_label }} {% endif %}</p>
                             <p>{{ attendee.post }}</p>
                             <p>{{ attendee.visitObjects }}</p>
                         </div>
                         <div class="col-lg-3">
                             <p>
-                                {% for dc in document_types %}
-                                {% if dc.doc_code == attendee.docTypeId %} {{ dc.name_rus }}&#160; {% endif %}
-                                {% endfor %}{{ attendee.docSeries }}</p>
+                                {% dir_name document_types "doc_code" attendee.docTypeId "name_rus" as docTypeId_label %}{% if docTypeId_label %} {{ docTypeId_label }}&#160; {% endif %}{{ attendee.docSeries }}</p>
                             <p>{{ attendee.docNumber }} {{ attendee.docBegin|date:"d.m.Y" }}-{{ attendee.docEnd|date:"d.m.Y" }} </p>
                             <p> {{ attendee.docIssue }}</p>
                         </div>

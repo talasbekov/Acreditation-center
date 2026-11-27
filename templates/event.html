@@ -69,6 +69,8 @@
                             <div class="col-md-6">
                                 <label for="cc-name" class="form-label">Логин</label>
                                 <input type="text" class="form-control" name="login" placeholder="" required>
+                                <label for="operator-email" class="form-label">Email оператора</label>
+                                <input type="email" id="operator-email" class="form-control" name="email" required>
                             </div>
 
                             <div class="col-md-6">
@@ -132,13 +134,11 @@
                         {% endif %}
                         {% endfor %}
                     </p>
-                    <p>
-                        <form method="post" action="/download_all_guests_json/{{ event.id }}/" style="display:inline">{% csrf_token %}<button type="submit" class="btn btn-link p-0 align-baseline">Скачать весь список участников одним json файлом</button></form>
-                    </p>
+                    <h5>Внутренняя сверка идентификаторов</h5>
+                    <p>JSON содержит только внутренние номера. Заявки сохраняют свой статус и очередь на официальную выгрузку.</p>
+                    <div><form method="post" action="/download_all_guests_json/{{ event.id }}/" style="display:inline">{% csrf_token %}<button type="submit" class="btn btn-link p-0 align-baseline">Сверить номера всех участников (JSON)</button></form></div>
                     {% if unexported > 0  %}
-                    <p>
-                        <form method="post" action="/download_guests_json/{{ event.id }}/" style="display:inline">{% csrf_token %}<button type="submit" class="btn btn-link p-0 align-baseline">Скачать невыгруженных участников от {{ unexported }} новых заявок&#160;<span class="badge bg-danger ms-2 smaller">!</span></button></form>
-                    </p>{% endif %}
+                    <div><form method="post" action="/download_guests_json/{{ event.id }}/" style="display:inline">{% csrf_token %}<button type="submit" class="btn btn-link p-0 align-baseline">Сверить номера участников из {{ unexported }} новых заявок&#160;<span class="badge bg-danger ms-2 smaller">!</span></button></form></div>{% endif %}
                     <p><a href="/download_photos/{{ event.id }}/">Скачать фотографии и сканы документов</a></p>
                     <p><b>Количество отправленных заявок:&#160;</b>{{ reqs|length }}</p>
                     <ul>
@@ -150,7 +150,7 @@
             {% elif req.status == 'Sent' %} btn-warning
             {% else %} btn-primary {% endif %}" role="button">{{ req.name }}</a> от
                             {{ req.created_by.user.first_name }} {{ req.created_by.user.last_name }}
-                            <form method="post" action="/download_request_json/{{ req.id }}/" style="display:inline">{% csrf_token %}<button type="submit" class="btn btn-link p-0 align-baseline">скачать json</button></form> </li>
+                            <form method="post" action="/download_request_json/{{ req.id }}/" style="display:inline">{% csrf_token %}<button type="submit" class="btn btn-link p-0 align-baseline">Сверить номера участников заявки (JSON)</button></form> </li>
                         <br>
                         {% endfor %}
                         {% endif %}

@@ -3,6 +3,7 @@ from unittest.mock import MagicMock, patch
 
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
+from eventproject.tests.media_fixtures import valid_jpeg
 from django.test import Client, SimpleTestCase, TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -104,6 +105,7 @@ class AuditLogViewIntegrationTest(TestCase):
             date_end=date.today(),
             city_code="AK",
         )
+        self.operator.events.add(self.event)
         self.req = Request.objects.create(
             name="Test Request",
             event=self.event,
@@ -114,7 +116,7 @@ class AuditLogViewIntegrationTest(TestCase):
         self.client.force_login(self.user)
 
     def _upload(self, name):
-        return SimpleUploadedFile(name, b"x" * 2048, content_type="image/jpeg")
+        return valid_jpeg(name)
 
     def _create_attendee(self, surname="Old"):
         return Attendee.objects.create(

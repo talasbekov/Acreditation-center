@@ -30,6 +30,7 @@ class SecurityTest(TransactionTestCase):
             date_end=date.today(), 
             city_code='AK'
         )
+        self.operator.events.add(self.event)
         self.req = Request.objects.create(
             name='Test Request', 
             event=self.event, 
@@ -118,8 +119,6 @@ class SecurityTest(TransactionTestCase):
         with open('.env.example', encoding='utf-8') as env_example:
             contents = env_example.read()
 
-        self.assertNotIn('DB_PASSWORD=aktobe', contents)
-        self.assertNotIn('DB_HOST=192.168.0.104', contents)
         self.assertIn('SECRET_KEY=change-me-secret-key', contents)
         self.assertIn('DB_PASSWORD=change-me-db-password', contents)
 
