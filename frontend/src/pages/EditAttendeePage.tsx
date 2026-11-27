@@ -1,5 +1,7 @@
 import { useEffect, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { getAttendee, submitAttendee } from '@/api/attendees'
@@ -14,29 +16,34 @@ import { Button } from '@/components/ui/button'
 import type { AttendeeDetail } from '@/types/attendee'
 
 // P2-2: различаем ошибки detail-загрузки вместо одного общего сообщения.
-function detailErrorMessage(error: unknown): string {
+function detailErrorMessage(error: unknown, t: TFunction): string {
   if (error instanceof ApiError) {
-    if (error.status === 404) return 'Участник не найден.'
-    if (error.status === 403) return 'Нет доступа к этому участнику.'
-    if (error.status === 401) return 'Сессия истекла. Перенаправление на вход…'
+    if (error.status === 404) return t('common:attendee.not_found')
+    if (error.status === 403) return t('common:attendee.no_access')
+    if (error.status === 401) return t('common:attendee.session_expired')
   }
-  return 'Не удалось загрузить участника.'
+  return t('common:attendee.load_error')
 }
 
-function submitErrorMessage(error: unknown): string {
+function submitErrorMessage(error: unknown, t: TFunction): string {
   if (error instanceof ApiError) {
-    // 400 — сервер перечисляет, чего не хватает; 409 — участник уже не черновик.
+    // 400 — сервер перечисляет, чего не хватает (список карточки — текстом сервера);
+    // 409 — участник уже не черновик: код ошибки переводится каталогом `errors`.
     const text = error.problem?.detail ?? error.message
+    if (error.status === 409 && error.problem?.type) {
+      return t(`errors:${error.problem.type}`, { defaultValue: text.replace(/^status:\s*/, '') })
+    }
     if (error.status === 400 || error.status === 409) {
       return text.replace(/^status:\s*/, '')
     }
     return text
   }
-  return 'Сеть недоступна. Повторите.'
+  return t('common:network_error')
 }
 
 /** Статус участника, причина возврата и отправка черновика на проверку (этап C). */
 function StatusPanel({ attendee }: { attendee: AttendeeDetail }) {
+  const { t } = useTranslation()
   const queryClient = useQueryClient()
   const returned = attendee.status === 'draft' && Boolean(attendee.review_comment)
   const submit = useMutation({
@@ -44,32 +51,30 @@ function StatusPanel({ attendee }: { attendee: AttendeeDetail }) {
     onSuccess: (updated) => {
       queryClient.setQueryData(['attendee', attendee.id], updated)
       void queryClient.invalidateQueries({ queryKey: ['attendees'] })
-      toast.success('Участник отправлен на проверку')
+      toast.success(t('operatorForm:toast.submitted'))
     },
   })
 
   return (
-    <section aria-label="Статус участника" className="mb-4 space-y-3 rounded-lg border border-line bg-surface p-4 md:p-6">
+    <section aria-label={t('operatorForm:card.aria')} className="mb-4 space-y-3 rounded-lg border border-line bg-surface p-4 md:p-6">
       <p className="flex flex-wrap items-center gap-2 text-ink">
-        <span className="text-ink-2">Статус:</span>
+        <span className="text-ink-2">{t('operatorForm:card.status')}</span>
         <StatusBadge status={attendee.status} returned={returned} />
       </p>
       {returned && (
         <div role="note" className="rounded-lg bg-danger-bg p-3 text-danger">
-          <b>Причина возврата:</b> {attendee.review_comment}
+          <b>{t('operatorForm:card.reason')}</b> {attendee.review_comment}
         </div>
       )}
       {isOperatorEditable(attendee.status) && (
         <div className="space-y-2">
-          <p className="text-sm leading-5 text-ink-2">
-            Сначала сохраните изменения: на проверку уходят сохранённые данные. После отправки правка закрыта до решения проверяющего.
-          </p>
+          <p className="text-sm leading-5 text-ink-2">{t('operatorForm:card.submit_note')}</p>
           <Button variant="primary" type="button" disabled={submit.isPending} onClick={() => submit.mutate()}>
-            {submit.isPending ? 'Отправка…' : 'Отправить на проверку'}
+            {submit.isPending ? t('operatorForm:card.submitting') : t('operatorForm:card.submit')}
           </Button>
           {submit.isError && (
             <p role="alert" className="rounded-lg bg-danger-bg p-3 text-sm leading-5 font-semibold text-danger">
-              {submitErrorMessage(submit.error)}
+              {submitErrorMessage(submit.error, t)}
             </p>
           )}
         </div>
@@ -81,6 +86,7 @@ function StatusPanel({ attendee }: { attendee: AttendeeDetail }) {
 /** Страница участника (Story 5.5, этап C). Предзаполняет AttendeeForm;
  *  оператор правит только черновик, остальные статусы — только просмотр. */
 export function EditAttendeePage() {
+  const { t } = useTranslation()
   const { id } = useParams<{ id: string }>()
   const attendeeId = Number(id)
   // Валидируем СЫРУЮ строку как чистые цифры: `Number('1e3')`=1000 и `Number('1.5')`
@@ -102,17 +108,20 @@ export function EditAttendeePage() {
   const name = data ? [data.surname, data.firstname, data.patronymic].filter(Boolean).join(' ') : ''
 
   return (
-    <main data-ds className="min-h-svh bg-section text-ink">
+    <div data-ds className="bg-section text-ink">
       <div className="mx-auto max-w-3xl px-4 py-6 md:px-8 md:py-8">
         <BackToRegistry />
-        <PageHeader title={name || 'Участник'} context={name ? 'Карточка участника' : undefined} />
-        {!valid && <Notice>Некорректный идентификатор участника.</Notice>}
+        <PageHeader
+          title={name || t('operatorForm:page.edit_title')}
+          context={name ? t('operatorForm:page.edit_context') : undefined}
+        />
+        {!valid && <Notice>{t('common:attendee.invalid_id')}</Notice>}
         {valid && isPending && (
           <p role="status" className="text-ink-2">
-            Загрузка…
+            {t('common:loading')}
           </p>
         )}
-        {valid && isError && <Notice>{detailErrorMessage(error)}</Notice>}
+        {valid && isError && <Notice>{detailErrorMessage(error, t)}</Notice>}
         {data && <StatusPanel attendee={data} />}
         {data && (
           <AttendeeForm
@@ -146,7 +155,7 @@ export function EditAttendeePage() {
           />
         )}
       </div>
-    </main>
+    </div>
   )
 }
 

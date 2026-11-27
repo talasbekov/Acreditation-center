@@ -21,15 +21,11 @@ export interface NavItem {
   roles: Role[]
 }
 
+// Только существующие страницы SPA. Мероприятия, операторы, выгрузка, журнал и очередь
+// проверки — Django-страницы (этапы C–D); пункт меню без страницы вёл бы на главную.
 export const NAV_ITEMS: NavItem[] = [
-  { key: 'nav:events', path: '/events', roles: ['superuser', 'superoperator'] },
   { key: 'nav:attendees', path: '/', roles: ['operator', 'superoperator', 'superuser'] },
   { key: 'nav:add_attendee', path: '/add', roles: ['operator'] },
-  { key: 'nav:operators', path: '/operators', roles: ['superoperator', 'superuser'] },
-  { key: 'nav:export', path: '/export', roles: ['superuser'] },
-  { key: 'nav:import_triage', path: '/import-triage', roles: ['superuser', 'superoperator'] },
-  { key: 'nav:audit', path: '/audit', roles: ['superuser'] },
-  { key: 'nav:dashboard', path: '/dashboard', roles: ['superoperator'] },
 ]
 
 /** Пункты, разрешённые роли. Неизвестная/без-привилегий роль → пустой список. */

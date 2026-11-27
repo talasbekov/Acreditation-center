@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { Toaster } from 'sonner'
 import { ensureCsrfCookie } from '@/api/client'
 import { RequireAuth } from '@/components/RequireAuth'
+import { AppShell } from '@/components/shell/AppShell'
 import { AttendeesPage } from '@/pages/AttendeesPage'
 import { AddAttendeePage } from '@/pages/AddAttendeePage'
 import { EditAttendeePage } from '@/pages/EditAttendeePage'
@@ -34,32 +35,21 @@ export default function App() {
       <ScrollManager />
       <Toaster richColors position="top-right" />
       <Routes>
+        {/* fe-2.2: RequireAuth + AppShell (шапка, переключатель языка, меню по роли) — один
+            раз на всё приложение; страницы рендерятся в его <main> через <Outlet/>. */}
         <Route
-          path="/"
           element={
             <RequireAuth>
-              <AttendeesPage />
+              <AppShell />
             </RequireAuth>
           }
-        />
-        <Route
-          path="/add"
-          element={
-            <RequireAuth>
-              <AddAttendeePage />
-            </RequireAuth>
-          }
-        />
-        <Route
-          path="/attendees/:id"
-          element={
-            <RequireAuth>
-              <EditAttendeePage />
-            </RequireAuth>
-          }
-        />
-        {/* catch-all: неизвестные пути → на корень (bootstrap; 404-страница — позже) */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        >
+          <Route index element={<AttendeesPage />} />
+          <Route path="add" element={<AddAttendeePage />} />
+          <Route path="attendees/:id" element={<EditAttendeePage />} />
+          {/* catch-all: неизвестные пути → на корень (404-страница — позже) */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
       </Routes>
     </BrowserRouter>
   )

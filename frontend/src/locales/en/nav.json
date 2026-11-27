@@ -3,14 +3,6 @@
   "app_title": "Operator workspace",
   "primary": "Main navigation",
   "skip_to_content": "Skip to content",
-  "queue": "Review queue",
-  "events": "Events",
   "attendees": "Attendees",
-  "add_attendee": "Add attendee",
-  "operators": "Operators",
-  "export": "Export",
-  "import_triage": "Import triage",
-  "audit": "Audit log",
-  "notifications": "Returns",
-  "dashboard": "Status dashboard"
+  "add_attendee": "Add attendee"
 }

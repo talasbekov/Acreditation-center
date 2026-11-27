@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 
 // Этап D: общие элементы форм на токенах эталона (index.css, отчёт 05).
@@ -88,10 +89,11 @@ export interface SummaryItem {
 
 /** Сводка ошибок над формой: объявляется диктору, ссылки ведут к полям. */
 export function ErrorSummary({ items }: { items: SummaryItem[] }) {
+  const { t } = useTranslation()
   return (
     <div role="alert" aria-labelledby="error-summary-title" className="rounded-lg border-2 border-danger bg-danger-bg p-4 text-danger">
       <h2 id="error-summary-title" className="font-semibold">
-        Не сохранено: исправьте {items.length === 1 ? 'поле' : 'поля'}
+        {t(items.length === 1 ? 'operatorForm:summary_title_one' : 'operatorForm:summary_title_many')}
       </h2>
       <ul className="mt-2 list-disc space-y-1 pl-5">
         {items.map((item) => (

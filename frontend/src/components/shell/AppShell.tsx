@@ -34,12 +34,14 @@ export function AppShell() {
         <LanguageSwitcher />
       </header>
 
-      <div className="flex flex-1">
+      {/* Телефон: меню строкой под шапкой (реестр этапа D рассчитан на 390 px);
+          от 768 px — колонка слева. */}
+      <div className="flex flex-1 flex-col md:flex-row">
         <nav
           aria-label={t('nav:primary')}
-          className="w-56 shrink-0 border-r border-border bg-surface p-2"
+          className="shrink-0 border-b border-border bg-surface p-2 md:w-56 md:border-r md:border-b-0"
         >
-          <ul className="flex flex-col gap-1">
+          <ul className="flex flex-row flex-wrap gap-1 md:flex-col">
             {items.map((item) => (
               <li key={item.path}>
                 <NavLink
@@ -60,7 +62,7 @@ export function AppShell() {
         </nav>
 
         {/* tabIndex={-1}: skip-link реально переводит фокус в контент (фокус не остаётся на ссылке). */}
-        <main id="main-content" tabIndex={-1} className="flex-1 focus:outline-none">
+        <main id="main-content" tabIndex={-1} className="min-w-0 flex-1 bg-section focus:outline-none">
           <Outlet />
         </main>
       </div>

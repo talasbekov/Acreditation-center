@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 export interface UploadZoneProps {
   /** id input'а (совпадает с именем поля FormData: photo / docScan). */
@@ -34,6 +35,7 @@ export function UploadZone({
   error,
   existingUrl,
 }: UploadZoneProps) {
+  const { t } = useTranslation()
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -79,13 +81,13 @@ export function UploadZone({
       {file && (
         <div className="mt-3">
           <p className="mb-2 text-sm leading-5 font-semibold text-success [overflow-wrap:anywhere]">
-            Выбран файл: {file.name}. Он загрузится при сохранении.
+            {t('operatorForm:upload.selected', { name: file.name })}
           </p>
           {previewUrl ? (
-            <img src={previewUrl} alt={`Превью: ${label}`} className="rounded border border-line" style={previewStyle} />
+            <img src={previewUrl} alt={t('operatorForm:upload.preview_alt', { label })} className="rounded border border-line" style={previewStyle} />
           ) : (
             <span className="inline-block rounded-md bg-info-bg px-2 py-1 text-sm text-info [overflow-wrap:anywhere]">
-              PDF: {file.name}
+              {t('operatorForm:upload.pdf_badge', { name: file.name })}
             </span>
           )}
         </div>
@@ -94,8 +96,8 @@ export function UploadZone({
           хранит docScan как JPEG (PDF конвертируется при сохранении) → всегда <img>. */}
       {!file && existingUrl && (
         <div className="mt-3">
-          <p className="mb-1 text-sm leading-5 text-ink-2">Текущий файл. Чтобы заменить, выберите новый.</p>
-          <img src={existingUrl} alt={`Текущее: ${label}`} className="rounded border border-line" style={previewStyle} />
+          <p className="mb-1 text-sm leading-5 text-ink-2">{t('operatorForm:upload.current_note')}</p>
+          <img src={existingUrl} alt={t('operatorForm:upload.current_alt', { label })} className="rounded border border-line" style={previewStyle} />
         </div>
       )}
       {error && (

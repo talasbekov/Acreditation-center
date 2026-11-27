@@ -26,7 +26,7 @@ describe('AppShell a11y (fe-2.5 AC-1)', () => {
         </MemoryRouter>
       </QueryClientProvider>,
     )
-    await screen.findByText('Журнал') // дождаться populated nav (роль разрешилась)
+    await screen.findByText('Участники') // дождаться populated nav (роль разрешилась)
     // скан по document.body (а не RTL-container) → корректный page-scope для каркаса-страницы
     const violations = criticalOrSerious(await runAxe(document.body))
     expect(violations.map((v) => v.id)).toEqual([])

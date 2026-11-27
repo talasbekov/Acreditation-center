@@ -35,3 +35,11 @@ A native Kazakh speaker **with legal/compliance authority** (госязык requ
    `catalog_hash` to the freshly computed value.
 4. Once `date !== null`, the `lint:kz-review` gate becomes **blocking**: any later drift in
    `kz/*.json` (hash mismatch) fails CI until re-reviewed.
+
+## Added 27.11.2026 (stage D screens moved to keys)
+
+`operatorForm.json` was rewritten for the stage D attendee form; `common.json` (`attendees.*`),
+`status.json` and `validation.json` (`required_*`, `birthdate_future`, `doc_*`) got new keys.
+Field labels and status names are copied from the Django pages (`eventproject/ui_text.py`,
+`templatetags/lifecycle_tags.py`) so both interfaces use the same words — review them together.
+Hints, section descriptions, toasts and error texts are new translations.

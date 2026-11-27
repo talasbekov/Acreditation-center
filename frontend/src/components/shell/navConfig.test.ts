@@ -19,22 +19,21 @@ describe('navConfig (fe-2.2 AC-2/3)', () => {
     }
   })
 
-  it('роли реально фильтруют: operator видит подмножество, не весь список', () => {
-    const op = visibleNavItems('operator')
-    expect(op.length).toBeGreaterThan(0)
-    expect(op.length).toBeLessThan(NAV_ITEMS.length)
-    // admin-only пункты недоступны оператору
-    expect(op.find((i) => i.path === '/audit')).toBeUndefined()
-    expect(op.find((i) => i.path === '/export')).toBeUndefined()
-    // свои — доступны
-    expect(op.find((i) => i.path === '/')).toBeDefined()
-    expect(op.find((i) => i.path === '/add')).toBeDefined()
+  it('роли реально фильтруют: оператор добавляет участников, проверяющие — нет', () => {
+    const op = visibleNavItems('operator').map((i) => i.path)
+    expect(op).toEqual(['/', '/add'])
+    for (const role of ['superoperator', 'superuser']) {
+      const paths = visibleNavItems(role).map((i) => i.path)
+      expect(paths).toContain('/')
+      expect(paths).not.toContain('/add')
+      expect(paths.length).toBeLessThan(NAV_ITEMS.length)
+    }
   })
 
-  it('superuser видит admin-only пункты (audit/export)', () => {
-    const su = visibleNavItems('superuser')
-    expect(su.find((i) => i.path === '/audit')).toBeDefined()
-    expect(su.find((i) => i.path === '/export')).toBeDefined()
+  it('в меню только существующие страницы SPA (маршруты App.tsx)', () => {
+    for (const item of NAV_ITEMS) {
+      expect(['/', '/add']).toContain(item.path)
+    }
   })
 
   // Сведение с этапами C–D: очередь проверки — Django-страница /review/<event>/

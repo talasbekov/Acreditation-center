@@ -2,9 +2,11 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useForm, type UseFormRegisterReturn } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { makeAttendeeSchema, type AttendeeFormValues } from '@/lib/attendeeSchema'
 import { KZ_COUNTRY_ID } from '@/lib/constants'
+import { translateFieldError } from '@/lib/validationError'
 import { apiFetch, ApiError } from '@/api/client'
 import { getDirectories, type DirectoryRow } from '@/api/directories'
 import { getRequests } from '@/api/requests'
@@ -38,34 +40,48 @@ const DEFAULT_VALUES: AttendeeFormValues = {
   docScan: undefined,
 }
 
-/** Подписи полей — и для меток, и для сводки ошибок. Порядок — порядок на экране. */
-const LABELS: Record<FieldName, string> = {
-  surname: 'Фамилия',
-  firstname: 'Имя',
-  patronymic: 'Отчество',
-  transcription: 'Имя латиницей',
-  birthDate: 'Дата рождения',
-  sexId: 'Пол',
-  post: 'Должность',
-  countryId: 'Гражданство',
-  iin: 'ИИН',
-  stickId: 'Категория',
-  docTypeId: 'Тип документа',
-  docSeries: 'Серия',
-  docNumber: 'Номер документа',
-  docBegin: 'Дата выдачи',
-  docEnd: 'Действителен до',
-  docIssue: 'Кем выдан',
-  request: 'Заявка',
-  visitObjects: 'Объекты посещения',
-  photo: 'Фото участника',
-  docScan: 'Скан документа',
-}
-const FIELD_ORDER = Object.keys(LABELS) as FieldName[]
+/** Порядок полей на экране — он же порядок сводки ошибок. Подписи — `operatorForm:label.*`. */
+const FIELD_ORDER: FieldName[] = [
+  'surname',
+  'firstname',
+  'patronymic',
+  'transcription',
+  'birthDate',
+  'sexId',
+  'post',
+  'countryId',
+  'iin',
+  'stickId',
+  'docTypeId',
+  'docSeries',
+  'docNumber',
+  'docIssue',
+  'docBegin',
+  'docEnd',
+  'request',
+  'visitObjects',
+  'photo',
+  'docScan',
+]
 const SERVER_FIELDS: ReadonlySet<string> = new Set(FIELD_ORDER)
 
 /** Поля-справочники: после загрузки списков значение возвращается в `<select>`. */
 const SELECT_FIELDS: FieldName[] = ['request', 'countryId', 'sexId', 'docTypeId', 'stickId']
+
+/**
+ * fe-2.7: проверка ИИН идёт на каждый ввод, а диктору объявляется итог после паузы —
+ * иначе при наборе 12 цифр он прочитал бы 12 сообщений.
+ */
+const IIN_ANNOUNCE_DELAY_MS = 500
+
+function useSettled<T>(value: T, delay: number): T {
+  const [settled, setSettled] = useState(value)
+  useEffect(() => {
+    const timer = setTimeout(() => setSettled(value), delay)
+    return () => clearTimeout(timer)
+  }, [value, delay])
+  return settled
+}
 
 export interface AttendeeFormProps {
   /** Story 5.5: задан → режим РЕДАКТИРОВАНИЯ (PATCH /{id}/), иначе — добавление (POST). */
@@ -90,6 +106,7 @@ export function AttendeeForm({
   initialDocScanUrl,
   cancel,
 }: AttendeeFormProps = {}) {
+  const { t } = useTranslation()
   const isEdit = attendeeId !== undefined
   const queryClient = useQueryClient()
   // Даты документа проверяются при добавлении; правка, как в HTML, их не перепроверяет.
@@ -103,12 +120,16 @@ export function AttendeeForm({
     setValue,
     getValues,
     trigger,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, submitCount },
   } = useForm<AttendeeFormValues>({
     resolver: zodResolver(schema),
     mode: 'onChange',
     defaultValues: { ...DEFAULT_VALUES, ...initialValues },
   })
+
+  /** Текст ошибки поля на языке интерфейса (ключ схемы или готовый текст сервера). */
+  const errorText = (name: FieldName) => translateFieldError(t, errors[name]?.message)
+  const label = (name: FieldName) => t(`operatorForm:label.${name}`)
 
   const countryId = watch('countryId')
   const iin = watch('iin')
@@ -120,7 +141,15 @@ export function AttendeeForm({
   // Сводка ошибок появляется после попытки сохранить и объявляется диктору
   // (role=alert); фокус react-hook-form сам ставит на первое поле с ошибкой.
   const [summaryRequested, setSummaryRequested] = useState(0)
-  const iinLooksValid = isResident && iin.trim() !== '' && !errors.iin
+  const iinFilled = isResident && iin.trim() !== ''
+  const iinError = errorText('iin')
+  const iinLooksValid = iinFilled && !errors.iin
+  // До первой попытки сохранить ошибку ИИН сообщает живой регион (после паузы);
+  // после — сама подпись поля, как у остальных полей.
+  const iinLive = useSettled(
+    !iinFilled || submitCount > 0 ? '' : iinError ?? t('operatorForm:iin_valid'),
+    IIN_ANNOUNCE_DELAY_MS,
+  )
 
   // FE-1: RBAC-scoped список заявок. В правке поле заблокировано (P2-6), но список
   // нужен и там — показать название заявки и мероприятия, а не «#id».
@@ -174,55 +203,63 @@ export function AttendeeForm({
       if (isEdit) {
         // Edit: инвалидируем и detail-кэш (EditAttendeePage: ['attendee', id]).
         void queryClient.invalidateQueries({ queryKey: ['attendee', attendeeId] })
-        toast.success('Изменения сохранены')
+        toast.success(t('operatorForm:toast.updated'))
       } else {
-        toast.success('Участник добавлен')
+        toast.success(t('operatorForm:toast.added'))
         reset()
         setSummaryRequested(0)
       }
     } catch (e) {
       if (e instanceof ApiError) {
-        // Этап D: сервер отдаёт ошибки по каждому полю (`errors`); прежний формат —
-        // одно поле `field` с текстом в `detail`.
+        // Ошибки по полям: код ошибки (`type`) переводится каталогом `errors`, когда
+        // ошибка одна и её поле известно; иначе — текст сервера из `errors` (этап D).
         const problem = e.problem
+        // `unknown` — код без перевода (сервер не пометил ошибку): тогда показываем его текст.
+        const coded =
+          problem?.type && problem.type !== 'unknown' && problem.field
+            ? t(`errors:${problem.type}`, { ...problem.params, defaultValue: '' })
+            : ''
         const byField = problem?.errors ?? (problem?.field ? { [problem.field]: problem.detail ?? '' } : {})
         let shown = 0
         for (const [field, message] of Object.entries(byField)) {
           // ИИН скрыт у нерезидента, категория — у резидента: ошибка там была бы невидима.
           const hidden = (field === 'iin' && !isResident) || (field === 'stickId' && isResident)
           if (SERVER_FIELDS.has(field) && !hidden) {
-            setError(field as FieldName, { message: message || 'Неверное значение' })
+            const text = field === problem?.field && coded ? coded : message
+            setError(field as FieldName, { message: text || t('operatorForm:invalid_value') })
             shown += 1
           }
         }
         if (shown > 0) setSummaryRequested((n) => n + 1)
-        else toast.error(problem?.detail ?? problem?.title ?? 'Ошибка сохранения')
+        else toast.error(coded || problem?.detail || t('operatorForm:toast.save_error'))
       } else {
-        toast.error('Сеть недоступна. Повторите.')
+        toast.error(t('common:network_error'))
       }
     }
   }
 
   const summaryItems: SummaryItem[] = FIELD_ORDER.filter((name) => errors[name]?.message).map((name) => ({
     id: name,
-    label: LABELS[name],
-    message: String(errors[name]?.message),
+    label: label(name),
+    message: String(errorText(name)),
   }))
 
   /** Атрибуты доступности поля: обязательность, ошибка, подсказка. */
-  function a11y(name: FieldName, opts: { required?: boolean; hint?: boolean } = {}) {
+  function a11y(name: FieldName, opts: { required?: boolean; hint?: boolean; error?: string; extra?: string } = {}) {
+    const error = opts.error ?? errorText(name)
+    const ids = [describedBy(name, opts.hint ? 'hint' : undefined, error), opts.extra].filter(Boolean)
     return {
       id: name,
       'aria-required': opts.required ? ('true' as const) : undefined,
       'aria-invalid': errors[name] ? true : undefined,
-      'aria-describedby': describedBy(name, opts.hint ? 'hint' : undefined, errors[name]?.message),
+      'aria-describedby': ids.length ? ids.join(' ') : undefined,
       className: fieldClass(Boolean(errors[name])),
     }
   }
 
   function text(name: FieldName, opts: { required?: boolean; hint?: string; wide?: boolean; inputMode?: 'numeric' } = {}) {
     return (
-      <Field id={name} label={LABELS[name]} required={opts.required} hint={opts.hint} wide={opts.wide} error={errors[name]?.message}>
+      <Field id={name} label={label(name)} required={opts.required} hint={opts.hint} wide={opts.wide} error={errorText(name)}>
         <input inputMode={opts.inputMode} {...a11y(name, { required: opts.required, hint: Boolean(opts.hint) })} {...register(name)} />
       </Field>
     )
@@ -230,7 +267,7 @@ export function AttendeeForm({
 
   function dateField(name: FieldName, required = true) {
     return (
-      <Field id={name} label={LABELS[name]} required={required} error={errors[name]?.message}>
+      <Field id={name} label={label(name)} required={required} error={errorText(name)}>
         <input type="date" {...a11y(name, { required })} {...register(name)} />
       </Field>
     )
@@ -238,7 +275,7 @@ export function AttendeeForm({
 
   function select(name: FieldName, rows: DirectoryRow[] | undefined, opts: { required?: boolean; hint?: string; placeholder: string }) {
     return (
-      <Field id={name} label={LABELS[name]} required={opts.required} hint={opts.hint} error={errors[name]?.message}>
+      <Field id={name} label={label(name)} required={opts.required} hint={opts.hint} error={errorText(name)}>
         <DirectorySelect
           rows={rows}
           placeholder={opts.placeholder}
@@ -249,6 +286,8 @@ export function AttendeeForm({
       </Field>
     )
   }
+
+  const iinFieldError = submitCount > 0 ? iinError : undefined
 
   return (
     <form
@@ -261,72 +300,82 @@ export function AttendeeForm({
 
       {!readOnly && (
         <p className="text-sm leading-5 text-ink-2">
-          До сохранения данные доступны только в открытой форме. При уходе со страницы изменения потеряются.
-          Поля со звёздочкой <span className="font-semibold text-danger">*</span> обязательны.
+          {t('operatorForm:intro')}{' '}
+          {t('operatorForm:required_note', { mark: '*' })}
         </p>
       )}
       {readOnly && (
         <div role="alert" className="rounded-lg bg-info-bg p-4 text-info">
-          <p className="font-semibold">Редактирование заблокировано</p>
-          <p className="mt-1 text-sm leading-5">Участник отправлен на проверку или допущен. Данные открыты только для чтения.</p>
+          <p className="font-semibold">{t('operatorForm:readonly_title')}</p>
+          <p className="mt-1 text-sm leading-5">{t('operatorForm:readonly_text')}</p>
         </div>
       )}
       {dirsError && (
         <p role="alert" className="rounded-lg bg-warning-bg p-4 text-sm leading-5 font-semibold text-warning">
-          Не удалось загрузить справочники (пол, документы, страны). Обновите страницу.
+          {t('operatorForm:dirs_error')}
         </p>
       )}
 
       <fieldset disabled={readOnly} className="m-0 space-y-4 border-0 p-0">
-        <FormSection title="Основные сведения">
+        <FormSection title={t('operatorForm:section.main')}>
           {text('surname', { required: true })}
           {text('firstname', { required: true })}
-          {text('patronymic', { hint: 'Если есть' })}
-          {text('transcription', { required: true, hint: 'Фамилия и имя латиницей, как в документе' })}
+          {text('patronymic', { hint: t('operatorForm:hint.if_any') })}
+          {text('transcription', { required: true, hint: t('operatorForm:hint.transcription') })}
           {dateField('birthDate')}
-          {select('sexId', dirs?.sexes, { required: true, placeholder: '— выберите —' })}
+          {select('sexId', dirs?.sexes, { required: true, placeholder: t('operatorForm:placeholder.choose') })}
           {text('post', { required: true, wide: true })}
         </FormSection>
 
-        <FormSection title="Гражданство" description="ИИН нужен гражданам Казахстана, категория — гражданам других стран.">
-          {select('countryId', dirs?.countries, { required: true, placeholder: '— выберите страну —' })}
+        <FormSection title={t('operatorForm:section.citizenship')} description={t('operatorForm:section.citizenship_desc')}>
+          {select('countryId', dirs?.countries, { required: true, placeholder: t('operatorForm:placeholder.country') })}
           {isResident ? (
             <Field
               id="iin"
-              label="ИИН"
+              label={label('iin')}
               required
-              hint={iinLooksValid ? undefined : '12 цифр; дата рождения в ИИН должна совпадать с указанной'}
-              error={errors.iin?.message}
+              hint={iinLooksValid ? undefined : t('operatorForm:hint.iin')}
+              error={iinFieldError}
             >
-              <input inputMode="numeric" maxLength={12} {...a11y('iin', { required: true, hint: !iinLooksValid })} {...register('iin')} />
-              {iinLooksValid && (
-                <p role="status" className="mt-1 text-sm leading-5 font-semibold text-success">
-                  ✓ Формат ИИН верный
-                </p>
-              )}
+              <input
+                inputMode="numeric"
+                maxLength={12}
+                {...a11y('iin', { required: true, hint: !iinLooksValid, error: iinFieldError, extra: 'iin-live' })}
+                {...register('iin')}
+              />
+              {/* fe-2.7: итог проверки ИИН — один анонс после паузы в наборе. */}
+              <p
+                id="iin-live"
+                data-testid="iin-live"
+                role="status"
+                aria-live="polite"
+                className={`mt-1 text-sm leading-5 font-semibold ${iinLooksValid ? 'text-success' : 'text-danger'}`}
+              >
+                {iinLive}
+              </p>
             </Field>
           ) : (
-            select('stickId', dirs?.categories, { required: true, placeholder: '— выберите категорию —' })
+            select('stickId', dirs?.categories, { required: true, placeholder: t('operatorForm:placeholder.category') })
           )}
         </FormSection>
 
-        <FormSection title="Документ">
-          {select('docTypeId', dirs?.document_types, { required: true, placeholder: '— выберите тип —' })}
-          {text('docSeries', { hint: 'Если есть' })}
+        <FormSection title={t('operatorForm:section.document')}>
+          {select('docTypeId', dirs?.document_types, { required: true, placeholder: t('operatorForm:placeholder.doc_type') })}
+          {text('docSeries', { hint: t('operatorForm:hint.if_any') })}
           {text('docNumber', { required: true })}
-          {text('docIssue', { hint: 'Если указано в документе' })}
+          {text('docIssue', { hint: t('operatorForm:hint.docIssue') })}
           {dateField('docBegin')}
           {dateField('docEnd')}
         </FormSection>
 
-        <FormSection title="Заявка и посещение">
+        <FormSection title={t('operatorForm:section.request')}>
           <Field
             id="request"
-            label="Заявка"
+            label={label('request')}
             required={!isEdit}
             wide
-            hint={isEdit ? 'Участника нельзя перенести в другую заявку.' : 'Заявка определяет мероприятие участника.'}
-            error={errors.request?.message}
+            hint={isEdit ? t('operatorForm:hint.request_edit') : t('operatorForm:hint.request_add')}
+            error={errorText('request')}
           >
             {/* FE-1: выбор из RBAC-scoped списка. P2-6: в правке поле заблокировано. */}
             <select
@@ -335,38 +384,40 @@ export function AttendeeForm({
               {...a11y('request', { required: !isEdit, hint: true })}
               {...register('request')}
             >
-              <option value="">— выберите заявку —</option>
+              <option value="">{t('operatorForm:placeholder.request')}</option>
               {requestOptions.map((r) => (
                 <option key={r.id} value={String(r.id)}>
                   {r.name} — {r.event_name}
                 </option>
               ))}
-              {currentRequest && !currentRequestInList && <option value={String(currentRequest)}>Заявка #{currentRequest}</option>}
+              {currentRequest && !currentRequestInList && (
+                <option value={String(currentRequest)}>{t('operatorForm:option.request_fallback', { id: currentRequest })}</option>
+              )}
             </select>
           </Field>
-          {text('visitObjects', { required: true, wide: true, hint: 'Залы и объекты, куда нужен доступ' })}
+          {text('visitObjects', { required: true, wide: true, hint: t('operatorForm:hint.visitObjects') })}
         </FormSection>
 
-        <FormSection title="Файлы" description="Фото и скан нужны для отправки на проверку. Сохранить черновик можно и без них.">
+        <FormSection title={t('operatorForm:section.files')} description={t('operatorForm:section.files_desc')}>
           {/* Story 5.3 — физически разделённые зоны фото/документа с превью. */}
           <PhotoUpload
             file={photo ?? null}
             existingUrl={initialPhotoUrl}
             onFileChange={(f) => setValue('photo', f ?? undefined, { shouldValidate: true })}
-            error={errors.photo?.message}
+            error={errorText('photo')}
           />
           <DocumentUpload
             file={docScan ?? null}
             existingUrl={initialDocScanUrl}
             onFileChange={(f) => setValue('docScan', f ?? undefined, { shouldValidate: true })}
-            error={errors.docScan?.message}
+            error={errorText('docScan')}
           />
         </FormSection>
 
         {!readOnly && (
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button variant="primary" type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Сохранение…' : isEdit ? 'Сохранить изменения' : 'Сохранить'}
+              {isSubmitting ? t('operatorForm:saving') : isEdit ? t('operatorForm:submit_edit') : t('operatorForm:submit')}
             </Button>
             {cancel}
           </div>
@@ -394,16 +445,17 @@ function DirectorySelect({
   attrs: Record<string, unknown>
   registration: UseFormRegisterReturn
 }) {
+  const { t } = useTranslation()
   const known = rows?.some((r) => r.code === current)
   return (
     <select {...attrs} {...registration}>
-      <option value="">{rows ? placeholder : 'Загрузка…'}</option>
+      <option value="">{rows ? placeholder : t('operatorForm:option.loading')}</option>
       {rows?.map((r) => (
         <option key={r.code} value={r.code}>
           {r.name}
         </option>
       ))}
-      {current && !known && <option value={current}>Код {current}</option>}
+      {current && !known && <option value={current}>{t('operatorForm:option.unknown_code', { code: current })}</option>}
     </select>
   )
 }

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { TONE_CLASSES } from '@/components/StatusBadge'
+import { TONE_CLASSES } from '@/components/ui/StatusBadge'
 
 // AC-2 (fe-2.4): контраст текста на tint проверяется ПРОГРАММНО (≥4.5:1, WCAG AA), не на глаз.
 // Живёт в scripts/ (как lint-tokens.test.ts) — использует node:fs, вне app-typecheck,
@@ -11,8 +11,11 @@ import { TONE_CLASSES } from '@/components/StatusBadge'
 const css = readFileSync(resolve(process.cwd(), 'src/index.css'), 'utf8')
 
 function tokenHex(name: string): string {
-  // Первое совпадение = :root (light) — идёт в файле до .dark.
-  const m = css.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})`))
+  // Токены этапа D объявлены в @theme как `--color-<name>`, токены fe-2.1 — в :root как
+  // `--<name>`. Первое совпадение = светлая тема (идёт в файле до .dark).
+  const m =
+    css.match(new RegExp(`--color-${name}:\\s*(#[0-9a-fA-F]{6})`)) ??
+    css.match(new RegExp(`--${name}:\\s*(#[0-9a-fA-F]{6})`))
   if (!m) throw new Error(`token --${name} не найден в index.css`)
   return m[1]
 }
@@ -45,20 +48,15 @@ function utilToken(cls: string, prefix: 'text' | 'bg'): string {
   return m[1]
 }
 
-const tonePairs = Object.entries(TONE_CLASSES).map(([tone, { badge, dot }]) => ({
+const tonePairs = Object.entries(TONE_CLASSES).map(([tone, cls]) => ({
   tone,
-  fg: utilToken(badge, 'text'),
-  bg: utilToken(badge, 'bg'),
-  dotToken: utilToken(dot, 'bg'),
+  fg: utilToken(cls, 'text'),
+  bg: utilToken(cls, 'bg'),
 }))
 
+// Сведение линий: значок статуса этапа D (components/ui/StatusBadge) — текст на подложке.
 describe('StatusBadge contrast (fe-2.4 AC-2)', () => {
-  it.each(tonePairs)('тон $tone: текст на tint ≥ 4.5:1 (WCAG AA)', ({ fg, bg }) => {
+  it.each(tonePairs)('тон $tone: текст на подложке ≥ 4.5:1 (WCAG AA)', ({ fg, bg }) => {
     expect(contrastRatio(tokenHex(fg), tokenHex(bg))).toBeGreaterThanOrEqual(4.5)
-  })
-
-  // Точка-dot — графический объект (colorblind-избыточность): WCAG 1.4.11 ≥3:1 на tint-фоне.
-  it.each(tonePairs)('тон $tone: точка-dot на tint ≥ 3:1 (WCAG 1.4.11)', ({ dotToken, bg }) => {
-    expect(contrastRatio(tokenHex(dotToken), tokenHex(bg))).toBeGreaterThanOrEqual(3)
   })
 })

@@ -3,7 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
-// Мок-паттерн из AttendeeForm.test.tsx (apiFetch/sonner/getRequests).
+// Мок-паттерн из AttendeeForm.test.tsx (apiFetch/sonner/getRequests/getDirectories).
 vi.mock('@/api/client', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/api/client')>()
   return { ...actual, apiFetch: vi.fn() }
@@ -11,6 +11,15 @@ vi.mock('@/api/client', async (importOriginal) => {
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 const getRequestsMock = vi.fn()
 vi.mock('@/api/requests', () => ({ getRequests: () => getRequestsMock() }))
+vi.mock('@/api/directories', () => ({
+  getDirectories: () =>
+    Promise.resolve({
+      sexes: [{ code: '1', name: 'Мужской' }],
+      countries: [{ code: '1000000105', name: 'Казахстан' }],
+      document_types: [{ code: '1', name: 'Паспорт' }],
+      categories: [{ code: '1', name: 'Пресса' }],
+    }),
+}))
 
 import { AttendeeForm } from './AttendeeForm'
 import { PhotoUpload } from '@/components/PhotoUpload/PhotoUpload'
@@ -30,6 +39,26 @@ function renderForm(ui = <AttendeeForm />) {
 
 const el = (sel: string) => document.querySelector(sel) as HTMLInputElement
 
+// Форма этапа D (все поля HTML-формы). По умолчанию гражданство — Казахстан, поэтому
+// вместо категории показан ИИН.
+const REQUIRED = [
+  'surname',
+  'firstname',
+  'transcription',
+  'birthDate',
+  'sexId',
+  'post',
+  'countryId',
+  'iin',
+  'docTypeId',
+  'docNumber',
+  'docBegin',
+  'docEnd',
+  'request',
+  'visitObjects',
+]
+const OPTIONAL = ['patronymic', 'docSeries', 'docIssue', 'photo', 'docScan']
+
 describe('AttendeeForm a11y (fe-2.5 AC-1, выборочно)', () => {
   it('ноль critical/serious нарушений axe', async () => {
     const { container } = renderForm()
@@ -40,23 +69,21 @@ describe('AttendeeForm a11y (fe-2.5 AC-1, выборочно)', () => {
   })
 })
 
-// Сведение линий (27.11.2026): форма участника взята из этапа D (все поля HTML-формы,
-// проверена сквозным сценарием этапа E). Возможности формы fe-2.7 — пометка «(обязательно)»,
-// живой регион ИИН, подписи зон загрузки, порядок полей — в неё ещё не перенесены. Это часть
-// работы «перевести форму на ключи i18n» (docs/modernization-audit/24-…). Снять skip после переноса.
-describe.skip('AttendeeForm a11y (fe-2.7 AC-1: обязательность + связка ошибки)', () => {
-  it('обязательное поле — aria-required + видимое «(обязательно)»; patronymic — нет', async () => {
+describe('AttendeeForm a11y (fe-2.7 AC-1: обязательность + связка ошибки)', () => {
+  it('обязательное поле — aria-required и видимая звёздочка у метки; необязательное — без них', async () => {
     renderForm()
     await screen.findByText(/Категория А/)
-    // 6 обязательных полей (surname/firstname/birthDate/country/iin-резидент/request) → 6 маркеров.
-    expect(screen.getAllByText('(обязательно)')).toHaveLength(6)
-    for (const id of ['#surname', '#firstname', '#birthDate', '#countryId', '#iin', '#request']) {
-      expect(el(id)).toHaveAttribute('aria-required', 'true')
+    for (const id of REQUIRED) {
+      expect(el(`#${id}`), id).toHaveAttribute('aria-required', 'true')
+      const label = document.querySelector(`label[for="${id}"]`)!
+      // Звёздочка — рядом с меткой (не внутри: имя поля для диктора остаётся точным).
+      expect(label.parentElement?.textContent, id).toContain('*')
     }
-    // patronymic + upload-зоны (опциональны) — без aria-required.
-    for (const id of ['#patronymic', '#photo', '#docScan']) {
-      expect(el(id)).not.toHaveAttribute('aria-required')
+    for (const id of OPTIONAL) {
+      expect(el(`#${id}`), id).not.toHaveAttribute('aria-required')
     }
+    // Значение звёздочки объяснено текстом над формой.
+    expect(screen.getByText(/Поля со звёздочкой \* обязательны/)).toBeInTheDocument()
   })
 
   it('ошибка поля → aria-invalid + aria-describedby на узел с локализованным текстом', async () => {
@@ -65,24 +92,19 @@ describe.skip('AttendeeForm a11y (fe-2.7 AC-1: обязательность + с
     await screen.findByText(/Категория А/)
     await user.click(screen.getByRole('button', { name: 'Сохранить' }))
     const surname = el('#surname')
-    await screen.findByText('Укажите фамилию')
+    await waitFor(() => expect(document.getElementById('surname-error')).toHaveTextContent('Укажите фамилию'))
     expect(surname).toHaveAttribute('aria-invalid', 'true')
     expect(surname).toHaveAttribute('aria-describedby', 'surname-error')
     const errNode = document.getElementById('surname-error')!
-    expect(errNode).toHaveTextContent('Укажите фамилию') // локализовано, не ключ validation:*
-    expect(errNode.textContent).not.toMatch(/validation:/)
+    expect(errNode.textContent).not.toMatch(/validation:/) // локализовано, не ключ
   })
 })
 
-// Сведение линий (27.11.2026): форма участника взята из этапа D (все поля HTML-формы,
-// проверена сквозным сценарием этапа E). Возможности формы fe-2.7 — пометка «(обязательно)»,
-// живой регион ИИН, подписи зон загрузки, порядок полей — в неё ещё не перенесены. Это часть
-// работы «перевести форму на ключи i18n» (docs/modernization-audit/24-…). Снять skip после переноса.
-describe.skip('AttendeeForm a11y (fe-2.7 AC-2: real-time ИИН — анонс ровно 1 раз)', () => {
-  // Реальные таймеры + waitFor (debounce 500мс реальный): fake-timers зависают на
-  // user.type под RHF/react-query. Быстрый ввод 12 цифр заканчивается до debounce →
-  // промежуточные target'ы не коммитятся, live-регион мутирует один раз на settle.
-  it('быстрый ввод 12 цифр → live-регион мутирует РОВНО 1 раз (не 12), текст локализован', async () => {
+describe('AttendeeForm a11y (fe-2.7 AC-2: ИИН — один анонс после паузы)', () => {
+  // Реальные таймеры + waitFor (пауза 500 мс): fake-timers зависают на user.type под
+  // RHF/react-query. Быстрый ввод 12 цифр заканчивается до паузы → живой регион
+  // меняется один раз.
+  it('быстрый ввод 12 цифр → живой регион меняется РОВНО 1 раз (не 12), текст локализован', async () => {
     const user = userEvent.setup()
     renderForm()
     const iin = el('#iin')
@@ -92,26 +114,26 @@ describe.skip('AttendeeForm a11y (fe-2.7 AC-2: real-time ИИН — анонс �
       calls += 1
     })
     obs.observe(live, { childList: true, characterData: true, subtree: true })
-    // Неверная контрольная цифра → детерминированный невалидный исход (без зависимости от dob).
+    // Неверная контрольная цифра → детерминированный невалидный исход (без зависимости от даты).
     await user.type(iin, '900515312340')
     await waitFor(() => expect(live.textContent).toMatch(/контрольная цифра/))
     await new Promise((r) => setTimeout(r, 0)) // дать observer-колбэку (microtask) выполниться
     obs.disconnect()
-    expect(calls).toBe(1) // ровно один settle-анонс (не 12 на каждую цифру)
-    expect(live.textContent).not.toMatch(/validation:/) // локализовано, не ключ
-    expect(live.textContent).not.toBe('')
+    expect(calls).toBe(1)
+    expect(live.textContent).not.toMatch(/validation:/)
+    expect(iin.getAttribute('aria-describedby')).toContain('iin-live')
   })
 
-  it('валидный ИИН → live-регион содержит «корректен»', async () => {
+  it('верный ИИН → живой регион сообщает, что формат верный', async () => {
     const user = userEvent.setup()
     renderForm()
     fireEvent.change(el('#birthDate'), { target: { value: '1990-05-15' } })
     const live = screen.getByTestId('iin-live')
-    await user.type(el('#iin'), '900515312349') // валиден на 15.05.1990
-    await waitFor(() => expect(live.textContent).toMatch(/корректен/))
+    await user.type(el('#iin'), '900515312349') // верен для 15.05.1990
+    await waitFor(() => expect(live.textContent).toMatch(/Формат ИИН верный/))
   })
 
-  it('очистка ИИН → live-регион очищается (нет висящей ошибки)', async () => {
+  it('очистка ИИН → живой регион очищается (нет висящей ошибки)', async () => {
     const user = userEvent.setup()
     renderForm()
     const iin = el('#iin')
@@ -123,67 +145,67 @@ describe.skip('AttendeeForm a11y (fe-2.7 AC-2: real-time ИИН — анонс �
   })
 })
 
-// Сведение линий (27.11.2026): форма участника взята из этапа D (все поля HTML-формы,
-// проверена сквозным сценарием этапа E). Возможности формы fe-2.7 — пометка «(обязательно)»,
-// живой регион ИИН, подписи зон загрузки, порядок полей — в неё ещё не перенесены. Это часть
-// работы «перевести форму на ключи i18n» (docs/modernization-audit/24-…). Снять skip после переноса.
-describe.skip('AttendeeForm a11y (fe-2.7 AC-3: upload-зоны)', () => {
-  it('input зоны достижим с клавиатуры + имеет accessible name', async () => {
+describe('AttendeeForm a11y (fe-2.7 AC-3: зоны загрузки)', () => {
+  it('поле зоны достижимо с клавиатуры и имеет доступное имя', async () => {
     renderForm()
     await screen.findByText(/Категория А/)
     const photo = el('#photo')
     expect(photo.type).toBe('file')
-    // accessible name через <label htmlFor> (Tab достижим, Enter/Space открывает диалог — 2.1.1).
-    expect(screen.getByLabelText(/ФОТО УЧАСТНИКА/)).toBe(photo)
-    expect(photo).not.toHaveAttribute('aria-invalid') // ошибки нет → без describedby
+    // Имя через <label htmlFor> (Tab достижим, Enter/Space открывает диалог — 2.1.1).
+    expect(screen.getByLabelText(/Фото участника/)).toBe(photo)
+    expect(photo).not.toHaveAttribute('aria-invalid') // ошибки нет
   })
 
   it('причина отказа связана с зоной: aria-describedby + aria-invalid + role=alert', () => {
-    render(
-      <PhotoUpload file={null} onFileChange={() => {}} error="Файл слишком большой" />,
-    )
+    render(<PhotoUpload file={null} onFileChange={() => {}} error="Файл слишком большой" />)
     const input = el('#photo')
     expect(input).toHaveAttribute('aria-invalid', 'true')
-    expect(input).toHaveAttribute('aria-describedby', 'photo-error')
+    expect(input.getAttribute('aria-describedby')?.split(' ')).toContain('photo-error')
     const err = document.getElementById('photo-error')!
     expect(err).toHaveAttribute('role', 'alert')
     expect(err).toHaveTextContent('Файл слишком большой')
   })
 })
 
-// Сведение линий (27.11.2026): форма участника взята из этапа D (все поля HTML-формы,
-// проверена сквозным сценарием этапа E). Возможности формы fe-2.7 — пометка «(обязательно)»,
-// живой регион ИИН, подписи зон загрузки, порядок полей — в неё ещё не перенесены. Это часть
-// работы «перевести форму на ключи i18n» (docs/modernization-audit/24-…). Снять skip после переноса.
-describe.skip('AttendeeForm a11y (fe-2.7 AC-4: axe error-state + keyboard-pass)', () => {
-  it('0 critical/serious axe в error-состоянии (закрывает defer fe-2.5)', async () => {
+describe('AttendeeForm a11y (fe-2.7 AC-4: axe с ошибками + проход клавиатурой)', () => {
+  it('0 critical/serious axe в состоянии с ошибками', async () => {
     const user = userEvent.setup()
     const { container } = renderForm()
     await screen.findByText(/Категория А/)
     await user.click(screen.getByRole('button', { name: 'Сохранить' }))
-    await screen.findByText('Укажите фамилию') // ошибки отрисованы
+    await waitFor(() => expect(document.getElementById('surname-error')).toBeInTheDocument())
     const violations = criticalOrSerious(await runAxe(container))
     expect(violations.map((v) => v.id)).toEqual([])
   })
 
-  it('keyboard-pass — Tab-порядок = порядок чтения', async () => {
+  it('порядок Tab = порядок чтения', async () => {
     const user = userEvent.setup()
     renderForm()
     await screen.findByText(/Категория А/)
     const order = [
-      '#surname',
-      '#firstname',
-      '#patronymic',
-      '#birthDate',
-      '#countryId',
-      '#iin',
-      '#request',
-      '#photo',
-      '#docScan',
+      'surname',
+      'firstname',
+      'patronymic',
+      'transcription',
+      'birthDate',
+      'sexId',
+      'post',
+      'countryId',
+      'iin',
+      'docTypeId',
+      'docSeries',
+      'docNumber',
+      'docIssue',
+      'docBegin',
+      'docEnd',
+      'request',
+      'visitObjects',
+      'photo',
+      'docScan',
     ]
-    for (const sel of order) {
+    for (const id of order) {
       await user.tab()
-      expect(document.activeElement).toBe(el(sel))
+      expect(document.activeElement?.id).toBe(id)
     }
     await user.tab()
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Сохранить' }))

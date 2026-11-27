@@ -61,18 +61,16 @@ describe('AppShell (fe-2.2)', () => {
     expect(main).toHaveTextContent('главная-stub')
   })
 
-  it('AC-2: operator видит свои пункты, но НЕ admin-only (Журнал/Экспорт отсутствуют в DOM)', async () => {
+  it('AC-2: operator видит реестр и добавление участника', async () => {
     renderShell('operator')
     await screen.findByText('Участники')
     expect(screen.getByText('Добавить участника')).toBeInTheDocument()
-    expect(screen.queryByText('Журнал')).not.toBeInTheDocument()
-    expect(screen.queryByText('Экспорт')).not.toBeInTheDocument()
   })
 
-  it('AC-2: superuser видит admin-only пункты (Журнал/Экспорт)', async () => {
+  it('AC-2: superuser видит реестр, но не добавление (участников добавляет оператор)', async () => {
     renderShell('superuser')
-    await screen.findByText('Журнал')
-    expect(screen.getByText('Экспорт')).toBeInTheDocument()
+    await screen.findByText('Участники')
+    expect(screen.queryByText('Добавить участника')).not.toBeInTheDocument()
   })
 
   it('AC-3: активный пункт несёт aria-current="page", неактивный — нет', async () => {
@@ -110,16 +108,13 @@ describe('AppShell (fe-2.2)', () => {
       </QueryClientProvider>,
     )
     // оба consumer’а (RoleProbe + useRole внутри AppShell) видят роль…
-    await screen.findByText('События')
+    await screen.findByText('Участники')
     expect(screen.getByTestId('probe-role')).toHaveTextContent('superoperator')
     // …но staleTime:Infinity + общий ключ → ровно один сетевой вызов на двоих (без refetchOnMount)
     expect(checkSessionMock).toHaveBeenCalledTimes(1)
   })
 
-  // Каркас пока не подключён к маршрутам (App.tsx): страницы этапа D — отдельные
-  // экраны со своим <main>. При подключении каркаса их <main> нужно заменить на <div>
-  // и снять skip с этой проверки.
-  it.skip('AC-1/AC-5 (регрессия): реальная страница под AppShell → ровно один <main> landmark', async () => {
+  it('AC-1/AC-5 (регрессия): реальная страница под AppShell → ровно один <main> landmark', async () => {
     checkSessionMock.mockResolvedValue({ role: 'operator' })
     getAttendeesMock.mockResolvedValue({ count: 0, results: [] })
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })

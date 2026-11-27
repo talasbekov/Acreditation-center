@@ -1,8 +1,9 @@
 {
   "all": "All statuses",
   "draft": "Draft",
-  "submitted": "Submitted",
-  "in_review": "In review",
-  "ready": "Ready",
-  "exported": "Exported"
+  "returned": "Returned for changes",
+  "submitted": "Sent for review",
+  "in_review": "Under review",
+  "ready": "Approved",
+  "exported": "Approved, transferred"
 }
