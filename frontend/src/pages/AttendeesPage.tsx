@@ -18,8 +18,8 @@ const SEARCH_MIN_CHARS = 3
 const fieldCls =
   'h-11 w-full rounded-md border border-field bg-surface px-3 text-base text-ink placeholder:text-ink-2'
 
-/** Локаль дат по языку интерфейса (ключ kz → ISO kk). */
-const DATE_LOCALES: Record<string, string> = { ru: 'ru-RU', kz: 'kk-KZ', en: 'en-GB' }
+/** Формат дат по языку интерфейса: ДД.ММ.ГГГГ для ru и kz (как на Django-страницах), en — en-GB. */
+const DATE_LOCALES: Record<string, string> = { ru: 'ru-RU', kz: 'ru-RU', en: 'en-GB' }
 
 function formatDate(iso: string, lang: string): string {
   const d = new Date(iso)

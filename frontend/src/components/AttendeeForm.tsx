@@ -106,7 +106,7 @@ export function AttendeeForm({
   initialDocScanUrl,
   cancel,
 }: AttendeeFormProps = {}) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const isEdit = attendeeId !== undefined
   const queryClient = useQueryClient()
   // Даты документа проверяются при добавлении; правка, как в HTML, их не перепроверяет.
@@ -160,8 +160,8 @@ export function AttendeeForm({
   })
   // Этап D: справочники пола, типов документов, категорий и стран (как у HTML-формы).
   const { data: dirs, isError: dirsError } = useQuery({
-    queryKey: ['directories'],
-    queryFn: getDirectories,
+    queryKey: ['directories', i18n.language],
+    queryFn: () => getDirectories(i18n.language),
     staleTime: 30 * 60_000,
   })
   // Списки приходят после предзаполнения: опции <select> меняются, и браузер теряет

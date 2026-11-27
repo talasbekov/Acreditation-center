@@ -66,7 +66,7 @@ export async function mockApi(page: Page, detail = ATTENDEE_DETAIL) {
     }),
   )
   // Этап D: справочники формы участника.
-  await page.route('**/api/v1/directories/', (route) =>
+  await page.route('**/api/v1/directories/**', (route) =>
     route.fulfill({
       status: 200,
       json: {

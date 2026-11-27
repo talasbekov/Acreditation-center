@@ -85,6 +85,8 @@
     "instruction": "JPG, PNG, WEBP или PDF, вертикальный, не меньше 600×800, до 5 МБ."
   },
   "upload": {
+    "choose": "Выбрать файл",
+    "none": "Файл не выбран",
     "selected": "Выбран файл: {{name}}. Он загрузится при сохранении.",
     "preview_alt": "Превью: {{label}}",
     "pdf_badge": "PDF: {{name}}",

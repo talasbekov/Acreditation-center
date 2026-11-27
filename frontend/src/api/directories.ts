@@ -13,7 +13,7 @@ export interface Directories {
   countries: DirectoryRow[]
 }
 
-/** GET /api/v1/directories/ — только чтение, для оператора. */
-export function getDirectories(): Promise<Directories> {
-  return apiFetch<Directories>('/api/v1/directories/')
+/** GET /api/v1/directories/?lang= — только чтение, для оператора; названия на языке интерфейса. */
+export function getDirectories(lang = 'ru'): Promise<Directories> {
+  return apiFetch<Directories>(`/api/v1/directories/?lang=${encodeURIComponent(lang)}`)
 }

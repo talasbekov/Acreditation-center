@@ -68,6 +68,9 @@ export function UploadZone({
           {instruction}
         </p>
       )}
+      {/* Кнопку системного поля браузер подписывает на языке системы, а не интерфейса.
+          Само поле остаётся в порядке Tab и у диктора (sr-only), видимая кнопка — подпись
+          на языке интерфейса; рамка фокуса переходит на неё (peer-focus-visible). */}
       <input
         id={id}
         ref={inputRef}
@@ -75,9 +78,20 @@ export function UploadZone({
         accept={accept}
         aria-describedby={[hintId, errorId].filter(Boolean).join(' ') || undefined}
         aria-invalid={error ? true : undefined}
-        className="mt-3 block w-full max-w-full text-base text-ink file:mr-3 file:h-11 file:cursor-pointer file:rounded-md file:border file:border-field file:bg-surface file:px-4 file:font-semibold file:text-ink hover:file:bg-section"
+        className="peer sr-only"
         onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
       />
+      <div className="mt-3 flex min-w-0 flex-wrap items-center gap-3 peer-focus-visible:[&>label]:outline-2 peer-focus-visible:[&>label]:outline-offset-2 peer-focus-visible:[&>label]:outline-focus">
+        <label
+          htmlFor={id}
+          className="inline-flex h-11 cursor-pointer items-center rounded-md border border-field bg-surface px-4 font-semibold text-ink hover:bg-section"
+        >
+          {t('operatorForm:upload.choose')}
+        </label>
+        <span aria-hidden="true" className="min-w-0 text-base text-ink-2 [overflow-wrap:anywhere]">
+          {file ? file.name : t('operatorForm:upload.none')}
+        </span>
+      </div>
       {file && (
         <div className="mt-3">
           <p className="mb-2 text-sm leading-5 font-semibold text-success [overflow-wrap:anywhere]">

@@ -85,6 +85,8 @@
     "instruction": "JPG, PNG, WEBP or PDF, portrait, at least 600×800, up to 5 MB."
   },
   "upload": {
+    "choose": "Choose file",
+    "none": "No file chosen",
     "selected": "Selected file: {{name}}. It will be uploaded when you save.",
     "preview_alt": "Preview: {{label}}",
     "pdf_badge": "PDF: {{name}}",

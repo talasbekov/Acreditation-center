@@ -734,6 +734,12 @@ class StageDFormContractTests(AttendeeApiBase):
         self.assertEqual(resp.data["categories"], [{"code": "8", "name": "Гость"}])
         self.assertIn({"code": OTHER, "name": "Иномания"}, resp.data["countries"])
         self.assertEqual(APIClient().get("/api/v1/directories/").status_code, 403)
+        # Названия на языке интерфейса; пустой перевод — русское название.
+        kz = self.client.get("/api/v1/directories/?lang=kz").data
+        self.assertEqual(kz["sexes"], [{"code": "1", "name": "Ер"}])
+        self.assertEqual(self.client.get("/api/v1/directories/?lang=en").data["categories"], [{"code": "8", "name": "G"}])
+        Sex.objects.filter(sex_code="1").update(name_eng="")
+        self.assertEqual(self.client.get("/api/v1/directories/?lang=en").data["sexes"], [{"code": "1", "name": "Мужской"}])
 
     def test_series_and_issuer_optional_like_html_form(self):
         payload = self._payload(docNumber="N1", docBegin="2020-01-01", docEnd="2034-01-01")
