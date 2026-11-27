@@ -374,8 +374,8 @@ class ExportDeltaAuditTests(AuditChecklistMixin, TestCase):
             resp = self.client.post(
                 f"/export_delta/{self.event.id}/{self.category.id}/"
             )
-        self.assertEqual(resp.status_code, 200)
-        b"".join(resp.streaming_content)  # дренируем поток (unlink tmp-файла)
+        # Пакет сформирован и записан в журнал; файл выдаётся отдельным GET.
+        self.assertEqual(resp.status_code, 303)
         self.assertIn("export.download", self._actions_of(cm))
 
 

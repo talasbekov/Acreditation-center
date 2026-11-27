@@ -91,9 +91,17 @@ DefaultRouter, базовый префикс `/api/v1/`. Ошибки — фор
 | `/download_guests_json/<event_id>/` | GET | Аналогично |
 | `/download_all_guests_json/<event_id>/` | GET | JSON (`Sent` + `Exported`) |
 | `/download_request_json/<request_id>/` | GET | JSON одной заявки, → `Exported` |
-| `/download_photos/<event_id>/` | GET | ZIP фото из `media/event_<id>/` (временный файл в `/tmp/`) |
+| `/download_photos/<event_id>/` | GET | ZIP фото из `media/event_<id>/`, потоком без временного файла, с `Content-Length` |
 | `/download_file/<event_id>/` | GET | Готовый `event_<id>.zip` (StreamingHttpResponse) |
 | `/check_archive_status/<event_id>/` | GET | Статус из cache: `{'status': 'not_found'|'processing'|'completed', ...}` |
+
+### Пакеты выгрузки (супероператор, `views/export.py`)
+
+| URL | Метод | Назначение |
+|-----|-------|-----------|
+| `/export_delta/<event_id>/<request_id>/` | POST | Сформировать пакет из `ready`-участников категории → `303` на файл пакета; нет новых → `200` с текстом; гонка/изменение данных → `409` |
+| `/export_package/<package_id>/download/` | GET, POST | Файл пакета потоком: `Content-Length`, `Accept-Ranges`, `ETag`; `Range` → `206`, вне архива → `416`; данные изменились → `409`; состав не записан → `410` |
+| `/export_package/<package_id>/acknowledge/` | POST | Отметить подтверждение приёма получателем → редирект на дашборд |
 
 ### Прочее
 

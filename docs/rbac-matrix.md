@@ -102,6 +102,7 @@ own-A ready/exported update→**403** (edit-lock, НЕ 404).
 | `/api/v1/rbac-check/` | `api/urls.py` | `IsAuthenticated` | отдаёт только `role` |
 | `/media/<path>` (`protected_media`) | `views/views.py` | `@login_required` + event-regex (по **resolved**-пути) | **да** (bypass-путь; within-root traversal `event_{own}/../event_{чужой}/` → 404) |
 | `/export_delta/<ev>/<req>/` | `views/export.py` | `_is_superoperator` (`@require_POST`) | operator → 403, anon → 302 |
+| `/export_package/<uuid>/download/` | `views/export.py` | `_is_superoperator` (GET, POST) | operator → 403, anon → 302 |
 | `/dashboard/<ev>/` | `views/dashboard.py` | `_is_superoperator` | operator → 403, anon → 302 |
 | `/download_json/<ev>/` | `views/file_download.py` | `@user_passes_test(is_superuser)` | **нет per-event scope** (gap) → 302 |
 | `/qr/`, `/qr/success/<pk>/` | `qr_event/views.py` | `@login_required` | слабо (session/superuser, без event-scope) |
