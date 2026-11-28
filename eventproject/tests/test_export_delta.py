@@ -78,6 +78,7 @@ class BuildExportObjectTests(ExportDeltaBase):
         obj = export_service.build_export_object(a)
         errors = validate_against_spec(obj, load_spec_schema())
         self.assertEqual(errors, [], f"export object не соответствует Spec v1.0: {errors}")
+        self.assertEqual(obj["schema_version"], export_service.SCHEMA_VERSION)  # hd-1.1 AC-3
         self.assertEqual(obj["country_name"], "Казахстан")
         self.assertEqual(obj["sex_name"], "Мужской")
         self.assertEqual(obj["doc_type_name"], "Паспорт")
@@ -144,7 +145,7 @@ class ExportViewTests(ExportDeltaBase):
     def test_export_creates_log_transitions_and_audits(self):
         a1 = self._mk("ready"); a2 = self._mk("ready")
         self.client.force_login(self.super_user)
-        resp = self.client.post(self._url())
+        resp = self.client.post(self._url(), follow=True)
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp["Content-Type"], "application/zip")
         b"".join(resp.streaming_content)  # дренируем поток
@@ -163,20 +164,24 @@ class ExportViewTests(ExportDeltaBase):
         self._mk("ready", dateAdd=first_boundary - timedelta(seconds=1))
         self.client.force_login(self.super_user)
         with patch("eventproject.views.export.timezone.now", return_value=first_boundary):
-            b"".join(self.client.post(self._url()).streaming_content)
+            b"".join(self.client.post(self._url(), follow=True).streaming_content)
         a_new = self._mk("ready", dateAdd=first_boundary + timedelta(seconds=1))
-        resp = self.client.post(self._url())
+        resp = self.client.post(self._url(), follow=True)
         self.assertEqual(resp.status_code, 200)
         content = b"".join(resp.streaming_content)
         data = json.loads(zipfile.ZipFile(io.BytesIO(content)).read("attendees.json"))
         ids = [o["attendee_id"] for o in data]
         self.assertEqual(ids, [a_new.id])  # только новый, не a_old
         self.assertEqual(ExportLog.objects.count(), 2)
+        # hd-1.2 (AC-3, последний живой 1-6-item): attendee_count пиннится к фактически
+        # выгруженному составу архива (attendees.json), не к числу ready-фикстур.
+        second_log = ExportLog.objects.order_by("id").last()
+        self.assertEqual(second_log.attendee_count, len(ids))
 
     def test_no_new_records_first_time(self):
         self._mk("draft")  # нет ready
         self.client.force_login(self.super_user)
-        resp = self.client.post(self._url())
+        resp = self.client.post(self._url(), follow=True)
         self.assertEqual(resp.status_code, 200)
         self.assertIn("Нет записей", resp.content.decode())
         self.assertEqual(ExportLog.objects.count(), 0)
@@ -188,7 +193,7 @@ class ExportViewTests(ExportDeltaBase):
         )
         self._mk("exported", dateAdd=timezone.now() - timedelta(hours=1))  # уже выгружен
         self.client.force_login(self.super_user)
-        resp = self.client.post(self._url())
+        resp = self.client.post(self._url(), follow=True)
         self.assertIn("Нет новых записей с момента последнего экспорта", resp.content.decode())
         self.assertEqual(ExportLog.objects.count(), 1)  # новый не создан
 
@@ -198,7 +203,7 @@ class ExportViewTests(ExportDeltaBase):
         doc = SimpleUploadedFile("d.jpg", b"\xff\xd8\xff" + b"0" * 1500, content_type="image/jpeg")
         a = self._mk("ready", photo=photo, doc=doc)
         self.client.force_login(self.super_user)
-        resp = self.client.post(self._url())
+        resp = self.client.post(self._url(), follow=True)
         self.assertEqual(resp.status_code, 200)
         content = b"".join(resp.streaming_content)
         zf = zipfile.ZipFile(io.BytesIO(content))
@@ -215,7 +220,7 @@ class ExportViewTests(ExportDeltaBase):
         self.event.save()
         self._mk("ready")
         self.client.force_login(self.super_user)
-        resp = self.client.post(self._url())
+        resp = self.client.post(self._url(), follow=True)
         self.assertEqual(resp.status_code, 400)
         self.assertEqual(ExportLog.objects.count(), 0)
 
@@ -225,7 +230,7 @@ class ExportViewTests(ExportDeltaBase):
         # ссылка); архивный attendees.json остаётся валидным по схеме (media nullable).
         a = self._mk("ready", photo="ghost.jpg", doc="ghost.jpg")  # имена есть, файлов нет
         self.client.force_login(self.super_user)
-        resp = self.client.post(self._url())
+        resp = self.client.post(self._url(), follow=True)
         content = b"".join(resp.streaming_content)
         zf = zipfile.ZipFile(io.BytesIO(content))
         self.assertNotIn(f"photos/{a.id}.jpg", zf.namelist())
@@ -242,7 +247,7 @@ class ExportViewTests(ExportDeltaBase):
 
     def test_operator_forbidden(self):
         self.client.force_login(self.op_user)
-        resp = self.client.post(self._url())
+        resp = self.client.post(self._url(), follow=True)
         self.assertEqual(resp.status_code, 403)
 
 
@@ -279,7 +284,7 @@ class ConcurrentDeltaExportTests(ExportDeltaFixtures, TransactionTestCase):
 
         def download(client):
             try:
-                response = client.post(self._url())
+                response = client.post(self._url(), follow=True)
                 try:
                     ids = []
                     if response.streaming:

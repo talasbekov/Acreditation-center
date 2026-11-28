@@ -55,8 +55,8 @@ class ResidencyResult:
     is_resident: bool
     iin: object = None  # нормализованный ИИН (str для резидента) либо None
     error: str = ""
-    code: str = ""  # см. ValidationResult.code
-    params: tuple = ()
+    code: str = ""          # машинный код (fe-1.1) — errors/registry.py
+    params: dict = None     # динамические params (проброс из validate_iin)
 
 
 def resolve_residency(country_id, iin, birth_date) -> ResidencyResult:
@@ -72,11 +72,15 @@ def resolve_residency(country_id, iin, birth_date) -> ResidencyResult:
 
     normalized = normalize_iin(iin)
     if normalized is None:
-        return ResidencyResult(is_resident=True, iin=None, error=_ERR_IIN_REQUIRED, code="iin_required")
+        return ResidencyResult(
+            is_resident=True, iin=None, error=_ERR_IIN_REQUIRED, code="iin_required"
+        )
 
     result = validate_iin(normalized, birth_date)
     if not result.valid:
-        return ResidencyResult(is_resident=True, iin=normalized, error=result.error,
-                               code=result.code, params=result.params)
+        return ResidencyResult(
+            is_resident=True, iin=normalized,
+            error=result.error, code=result.code, params=result.params,
+        )
 
     return ResidencyResult(is_resident=True, iin=normalized)

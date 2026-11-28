@@ -57,7 +57,7 @@ services:
       - ALLOWED_HOSTS=localhost,127.0.0.1,accreditation-center,0.0.0.0
       - CSRF_TRUSTED_ORIGINS=http://localhost:5173,http://localhost:8000
     command: >
-      bash -c "
+      sh -c "
       echo 'Waiting for database...' &&
       until pg_isready -h db -U event; do
         sleep 1

@@ -1,5 +1,7 @@
 # syntax=docker/dockerfile:1
-FROM python:3.12-slim-trixie@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
+# Alpine вместо Debian slim: в Debian-образе оставалась 71 High без исправлений в системных
+# пакетах, которые приложению не нужны (util-linux, gnupg, perl, ncurses…).
+FROM python:3.12-alpine@sha256:c5ba3deef00c7758561a0f03c26f44f10589263d40e732b8748e0d1f38f6dd89
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -9,27 +11,29 @@ WORKDIR /app
 
 # The development Compose waits for PostgreSQL with pg_isready and probes with curl.
 ARG INSTALL_DEV_CLIENTS=0
-# Этап F: уже выпущенные исправления безопасности дистрибутива ставятся при сборке
-# (сканер нашёл исправление для libzstd1, остальные High ждут исправлений Debian).
-RUN apt-get update && apt-get upgrade -y --no-install-recommends \
-    && apt-get install -y --no-install-recommends zlib1g poppler-utils \
-    && if [ "$INSTALL_DEV_CLIENTS" = "1" ]; then apt-get install -y --no-install-recommends curl postgresql-client; fi \
-    && rm -rf /var/lib/apt/lists/*
+# Этап F: уже выпущенные исправления безопасности дистрибутива ставятся при сборке.
+# poppler-utils — pdftoppm/pdfinfo для конвертации скана PDF (pdf2image).
+# font-dejavu — TTF с казахскими буквами для ФИО на бейджах (services/badges.py).
+RUN apk upgrade --no-cache \
+    && apk add --no-cache poppler-utils font-dejavu \
+    && if [ "$INSTALL_DEV_CLIENTS" = "1" ]; then apk add --no-cache curl postgresql-client; fi
 
 # Копируем requirements.txt в рабочую директорию
 COPY requirements.txt /app/
 
 # Устанавливаем Python зависимости
-RUN pip install --no-cache-dir --require-hashes -r requirements.txt
+# pip в рантайме не нужен: удаляем его после установки (сканер находил в нём Medium).
+RUN pip install --no-cache-dir --require-hashes -r requirements.txt \
+    && python -m pip uninstall -y pip
 
 # Копируются только файлы из разрешённого контекста .dockerignore
 COPY . /app/
 
 # Создаем директории
-RUN mkdir -p /app/logs /app/media /app/staticfiles
+RUN mkdir -p /app/logs /app/media /app/staticfiles /app/private_files
 
 # Создаем пользователя для безопасности
-RUN useradd --create-home --shell /bin/bash app \
+RUN adduser -D -s /bin/sh app \
     && chown -R app:app /app
 
 # Запускаемся под непривилегированным пользователем (не root).
@@ -62,4 +66,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
     CMD ["python", "-c", "from http.client import HTTPConnection; c = HTTPConnection('127.0.0.1', 8000, timeout=3); c.request('GET', '/api/health/'); raise SystemExit(c.getresponse().status != 200)"]
 
 # Команда по умолчанию
-CMD ["gunicorn", "eventproject.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--timeout", "120"]
+CMD ["gunicorn", "eventproject.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "2", "--worker-class", "gthread", "--threads", "4", "--timeout", "120"]

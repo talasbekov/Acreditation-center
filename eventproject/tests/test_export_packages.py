@@ -48,7 +48,8 @@ class PackageTestBase(ExportDeltaBase):
         self.client.force_login(self.super_user)
 
     def _export(self):
-        return self.client.post(self._url())
+        # The POST forms the package and answers 303; the file comes from a GET.
+        return self.client.post(self._url(), follow=True)
 
     def _download_url(self, log):
         return f"/export_package/{log.package_id}/download/"
@@ -104,8 +105,18 @@ class PackageRecordTests(PackageTestBase):
             names = archive.namelist()
             self.assertEqual(names, [f"photos/{a.id}.jpg", f"documents/{a.id}.jpg", "attendees.json"])
             self.assertEqual(
-                log.manifest, {n: hashlib.sha256(archive.read(n)).hexdigest() for n in names},
+                log.manifest,
+                {
+                    n: {
+                        "sha256": hashlib.sha256(archive.read(n)).hexdigest(),
+                        "size": archive.getinfo(n).file_size,
+                        "crc32": archive.getinfo(n).CRC,
+                    }
+                    for n in names
+                },
             )
+            # Stored, not deflated: the size is known up front and ranges map to bytes.
+            self.assertEqual({i.compress_type for i in archive.infolist()}, {zipfile.ZIP_STORED})
             rows = json.loads(archive.read("attendees.json"))
         self.assertEqual({row["status"] for row in rows}, {"ready"})
 
@@ -120,15 +131,23 @@ class PackageRecordTests(PackageTestBase):
         self.assertEqual(len(names), 2)
         self.assertNotEqual(names[0], names[1])
 
+    def test_post_answers_303_to_the_package_file(self):
+        self._mk("ready", is_resident=False, iin=None, photo="", doc="")
+        response = self.client.post(self._url())
+        log = ExportLog.objects.get()
+        self.assertEqual(response.status_code, 303)
+        self.assertEqual(response["Location"], self._download_url(log))
+        self.assertEqual(response["X-Export-Package-Id"], str(log.package_id))
+        self.assertEqual(response["X-Export-Archive-SHA256"], log.archive_sha256)
+
     def test_archive_is_deterministic_for_the_same_package_time(self):
         a = self._mk("ready", photo=_jpeg("p.jpg"), doc=_jpeg("d.jpg"))
         moment = timezone.now()
         outputs = []
         for _ in range(2):
-            buffer = io.BytesIO()
             pairs = export_service.prepare_package_objects([Attendee.objects.get(pk=a.pk)])
-            export_service.write_package(buffer, pairs, moment)
-            outputs.append(buffer.getvalue())
+            manifest, _ = export_service.describe_package(pairs)
+            outputs.append(b"".join(export_service.package_stream(pairs, manifest, moment).iter_bytes()))
         self.assertEqual(outputs[0], outputs[1])
         utc = moment.astimezone(dt_timezone.utc)
         with zipfile.ZipFile(io.BytesIO(outputs[0])) as archive:
@@ -202,10 +221,77 @@ class RedownloadTests(PackageTestBase):
         response = self.client.post(f"/export_package/{uuid.uuid4()}/download/")
         self.assertEqual(response.status_code, 404)
 
-    def test_redownload_requires_post_and_superoperator(self):
+    def test_get_serves_the_same_archive_for_resumable_browser_downloads(self):
         log = self._exported()
-        self.assertEqual(self.client.get(self._download_url(log)).status_code, 405)
+        response = self.client.get(self._download_url(log))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Accept-Ranges"], "bytes")
+        self.assertEqual(response["ETag"], f'"{log.archive_sha256}"')
+        self.assertEqual(_payload(response), self.original)
+
+    def test_range_request_returns_the_matching_slice(self):
+        log = self._exported()
+        size = len(self.original)
+        for header, (start, end) in (
+            ("bytes=0-99", (0, 100)),
+            (f"bytes=100-{size - 50}", (100, size - 49)),
+            ("bytes=-30", (size - 30, size)),
+            ("bytes=1000-", (1000, size)),
+        ):
+            with self.subTest(header=header):
+                response = self.client.get(self._download_url(log), HTTP_RANGE=header)
+                self.assertEqual(response.status_code, 206)
+                self.assertEqual(response["Content-Range"], f"bytes {start}-{end - 1}/{size}")
+                self.assertEqual(int(response["Content-Length"]), end - start)
+                self.assertEqual(_payload(response), self.original[start:end])
+
+    def test_resume_after_cut_reassembles_the_original(self):
+        log = self._exported()
+        cut = len(self.original) // 3
+        head = _payload(self.client.get(self._download_url(log), HTTP_RANGE=f"bytes=0-{cut - 1}"))
+        tail = self.client.get(
+            self._download_url(log), HTTP_RANGE=f"bytes={cut}-", HTTP_IF_RANGE=f'"{log.archive_sha256}"',
+        )
+        self.assertEqual(tail.status_code, 206)
+        self.assertEqual(head + _payload(tail), self.original)
+
+    def test_stale_if_range_returns_the_full_archive(self):
+        log = self._exported()
+        response = self.client.get(self._download_url(log), HTTP_RANGE="bytes=10-", HTTP_IF_RANGE='"other"')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(_payload(response), self.original)
+
+    def test_range_outside_archive_is_416(self):
+        log = self._exported()
+        response = self.client.get(self._download_url(log), HTTP_RANGE=f"bytes={len(self.original)}-")
+        self.assertEqual(response.status_code, 416)
+        self.assertEqual(response["Content-Range"], f"bytes */{len(self.original)}")
+
+    def test_same_size_replacement_aborts_the_stream_and_audits(self):
+        log = self._exported()
+        with open(self.member.photo.path, "r+b") as handle:
+            handle.seek(10)
+            handle.write(b"XX")
+        response = self.client.get(self._download_url(log))
+        self.assertEqual(response.status_code, 200)
+        with patch("eventproject.views.export.audit_log") as audit:
+            with self.assertRaises(export_service.ExportSourceChanged):
+                _payload(response)
+        call = audit.call_args
+        self.assertEqual(call.kwargs["action"], "export.redownload_refused")
+        self.assertEqual(call.kwargs["extra"]["changed"], [f"photos/{self.member.id}.jpg"])
+
+    def test_package_from_the_earlier_manifest_format_is_gone(self):
+        log = self._exported()
+        legacy = {name: value["sha256"] for name, value in log.manifest.items()}
+        ExportLog.objects.filter(pk=log.pk).update(manifest=legacy)
+        response = self.client.post(self._download_url(log))
+        self.assertEqual(response.status_code, 410)
+
+    def test_redownload_requires_superoperator(self):
+        log = self._exported()
         self.client.force_login(self.op_user)
+        self.assertEqual(self.client.get(self._download_url(log)).status_code, 403)
         self.assertEqual(self.client.post(self._download_url(log)).status_code, 403)
         self.client.logout()
         self.assertEqual(self.client.post(self._download_url(log)).status_code, 302)
@@ -262,14 +348,14 @@ class DashboardPackagesTests(PackageTestBase):
 class ConsistencyUnderLockTests(PackageTestBase):
     def test_data_change_between_archive_and_lock_returns_conflict(self):
         member = self._mk("ready", is_resident=False, iin=None, photo="", doc="")
-        write = export_service.write_package
+        describe = export_service.describe_package
 
-        def write_then_edit(file, pairs, packaged_at):
-            manifest = write(file, pairs, packaged_at)
+        def describe_then_edit(pairs):
+            result = describe(pairs)
             Attendee.objects.filter(pk=member.pk).update(post="Новая должность")
-            return manifest
+            return result
 
-        with patch.object(export_service, "write_package", side_effect=write_then_edit):
+        with patch.object(export_service, "describe_package", side_effect=describe_then_edit):
             response = self._export()
         self.assertEqual(response.status_code, 409)
         self.assertFalse(ExportLog.objects.exists())
@@ -278,8 +364,8 @@ class ConsistencyUnderLockTests(PackageTestBase):
 
 
 class PackageMigrationTests(TransactionTestCase):
-    before = [("eventproject", "0026_backfill_legacy_event_fields")]
-    after = [("eventproject", "0027_exportlog_package")]
+    before = [("eventproject", "0031_backfill_legacy_event_fields")]
+    after = [("eventproject", "0032_exportlog_package")]
 
     def tearDown(self):
         # Restore the newest schema (later migrations exist beyond `after`).

@@ -27,7 +27,7 @@ DefaultRouter, базовый префикс `/api/v1/`. Ошибки — фор
 | `/api/v1/events/<id>/categories/` | GET/POST | action `categories` | IsSuperoperator | Категории события |
 | `/api/v1/rbac-check/` | GET | `rbac_check` | IsAuthenticated | `{"role": "<роль>"}` |
 
-**Участники (`/api/v1/attendees/`, этап C).** Карточка (`GET /<id>/`) отдаёт `review_comment` — причину возврата от проверяющего, только чтение. Строка списка отдаёт `returned` (черновик с причиной возврата), саму причину — нет. С этапа D строка списка отдаёт также `request_name` (номер заявки) и `event_name` (название мероприятия, `name_rus`), только чтение. Этап D, форма участника: `GET /api/v1/directories/` (оператор) — `{sexes, document_types, categories, countries}`, строки `{code, name}`. Сериализатор участника принимает `stickId` (у резидента РК сохраняется пустым), `docSeries` и `docIssue` необязательны; при создании проверяются даты (`docBegin` не в будущем, `docEnd` не в прошлом, `birthDate` не в будущем). Ответ 400 по полям дополнительно содержит `errors: {поле: текст}` (тексты по-русски); `field` и `detail` прежние. `POST /<id>/submit/` — черновик на проверку; если не хватает данных — 400, в `detail` недостающее перечислено словами («Участник не готов к отправке: нет фото, нет скана документа»); недопустимый переход — 409. Решения проверяющего — `start-review/`, `approve/`, `return/` (с `reason`).
+**Участники (`/api/v1/attendees/`, этап C).** Карточка (`GET /<id>/`) отдаёт `review_comment` — причину возврата от проверяющего, только чтение; вписанный в причину ИИН маскируется. Поле `last_return_reason` удалено (миграция 0036), счётчик возвратов — `return_count`. Строка списка отдаёт `returned` (черновик с причиной возврата), саму причину — нет. С этапа D строка списка отдаёт также `request_name` (номер заявки) и `event_name` (название мероприятия, `name_rus`), только чтение. Этап D, форма участника: `GET /api/v1/directories/` (оператор) — `{sexes, document_types, categories, countries}`, строки `{code, name}`. Сериализатор участника принимает `stickId` (у резидента РК сохраняется пустым), `docSeries` и `docIssue` необязательны; при создании проверяются даты (`docBegin` не в будущем, `docEnd` не в прошлом, `birthDate` не в будущем). Ответ 400 по полям дополнительно содержит `errors: {поле: текст}` (тексты по-русски); `field` и `detail` прежние. `POST /<id>/submit/` — черновик на проверку; если не хватает данных — 400, в `detail` недостающее перечислено словами («Участник не готов к отправке: нет фото, нет скана документа»); недопустимый переход — 409. Решения проверяющего — `start-review/`, `approve/`, `return/` (с `reason`).
 
 **Сериализаторы**: `EventSerializer` (id, title, start_date, end_date, description, categories nested, created_at), `CategorySerializer` (id, name, attendee_count — вычисляемое `obj.attendees.count()`).
 
@@ -91,9 +91,17 @@ DefaultRouter, базовый префикс `/api/v1/`. Ошибки — фор
 | `/download_guests_json/<event_id>/` | GET | Аналогично |
 | `/download_all_guests_json/<event_id>/` | GET | JSON (`Sent` + `Exported`) |
 | `/download_request_json/<request_id>/` | GET | JSON одной заявки, → `Exported` |
-| `/download_photos/<event_id>/` | GET | ZIP фото из `media/event_<id>/` (временный файл в `/tmp/`) |
+| `/download_photos/<event_id>/` | GET | ZIP фото из `media/event_<id>/`, потоком без временного файла, с `Content-Length` |
 | `/download_file/<event_id>/` | GET | Готовый `event_<id>.zip` (StreamingHttpResponse) |
 | `/check_archive_status/<event_id>/` | GET | Статус из cache: `{'status': 'not_found'|'processing'|'completed', ...}` |
+
+### Пакеты выгрузки (супероператор, `views/export.py`)
+
+| URL | Метод | Назначение |
+|-----|-------|-----------|
+| `/export_delta/<event_id>/<request_id>/` | POST | Сформировать пакет из `ready`-участников категории → `303` на файл пакета; нет новых → `200` с текстом; гонка/изменение данных → `409` |
+| `/export_package/<package_id>/download/` | GET, POST | Файл пакета потоком: `Content-Length`, `Accept-Ranges`, `ETag`; `Range` → `206`, вне архива → `416`; данные изменились → `409`; состав не записан → `410` |
+| `/export_package/<package_id>/acknowledge/` | POST | Отметить подтверждение приёма получателем → редирект на дашборд |
 
 ### Прочее
 

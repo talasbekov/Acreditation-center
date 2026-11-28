@@ -11,7 +11,10 @@
   используется: карточка, созданная раньше прошлой выгрузки и одобренная позже,
   попадает в следующую. Повтор исключён терминальным переходом ready → exported.
 - Архив детерминирован: фиксированные метка времени (момент пакета), порядок и
-  атрибуты элементов. Манифест хранит SHA-256 каждого элемента для повторной выдачи.
+  атрибуты элементов. Манифест хранит SHA-256, размер и CRC-32 каждого элемента.
+- Архив не собирается на диске и не хранится: `services/zipstream.py` складывает
+  его прямо в ответ (без сжатия — JPEG не сжимается), поэтому размер известен
+  заранее, память не зависит от объёма, а повторная выдача умеет докачку (Range).
 - iin — EncryptedCharField: расшифровывается при доступе; в экспорт идёт только для резидента.
 - Справочники: countryId=Country.country_code, sexId=Sex.sex_code, docTypeId=DocumentType.doc_code.
 """
@@ -19,7 +22,7 @@
 import hashlib
 import json
 import os
-import zipfile
+import zlib
 from datetime import datetime
 from datetime import timezone as dt_timezone
 
@@ -27,6 +30,7 @@ from django.utils import timezone
 
 from directories.models import Country, DocumentType, Sex
 from eventproject.models import Attendee, ExportLog
+from eventproject.services import zipstream
 from eventproject.state_machine import AttendeeStatus
 
 _DATE_FMT = "%d.%m.%Y"
@@ -70,12 +74,21 @@ def _media_arcname(folder, attendee, filefield):
     return f"{folder}/{attendee.id}{ext}"
 
 
+SCHEMA_VERSION = "1.1"
+
+
 def build_export_object(attendee, dir_names=None):
-    """Объект attendee по Integration Spec v1.0 (единый источник формата)."""
+    """Объект attendee по Integration Spec v1.1 (единый источник формата).
+
+    hd-1.1: bump 1.0→1.1 — аддитивное поле `schema_version` (см.
+    docs/integration-spec-v1.md «Политика версионирования»); resident-ИИН НЕ
+    трогается (подтверждено Erda 2026-06-23, story hd-1.1 Dev Notes).
+    """
     if dir_names is None:
         dir_names = load_directory_names()
     return {
         "attendee_id": attendee.id,
+        "schema_version": SCHEMA_VERSION,
         "event_id": attendee.request.event_id,
         "event_code": attendee.request.event.event_code,
         # Attendee.category → eventproject.models.Category (поле `name`; name_rus НЕТ —
@@ -118,8 +131,11 @@ def get_last_export(request_obj):
     )
 
 
-class ExportSourceChanged(Exception):
-    """Файл участника исчез между подготовкой пакета и записью архива."""
+ExportSourceChanged = zipstream.SourceChanged
+
+
+class PackageMismatch(Exception):
+    """Состав или данные пакета разошлись с манифестом. `args[0]` — имена элементов."""
 
 
 def select_ready_attendees(request_obj):
@@ -172,51 +188,102 @@ def sha256_hex(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def write_package(fileobj, pairs, packaged_at):
-    """Записать детерминированный ZIP пакета и вернуть манифест {имя: SHA-256}.
+def _media_entries(attendee, obj):
+    """(имя в архиве, путь к файлу) медиа участника в порядке архива."""
+    for key, filefield in (("photo_file", attendee.photo), ("doc_scan_file", attendee.docScan)):
+        arcname = obj[key]
+        if arcname is not None:
+            yield arcname, _media_path(filefield)
 
-    Состав: photos/<id>.<ext> и documents/<id>.<ext> в порядке участников, затем
-    attendees.json. Метка времени всех элементов — `packaged_at` в UTC, атрибуты
-    не зависят от ОС и mtime файлов, поэтому та же исходная информация даёт тот же
-    архив. Если упомянутый в JSON файл пропал — ExportSourceChanged.
+
+def describe_package(pairs):
+    """Манифест нового пакета: {имя: {sha256, size, crc32}} и отпечатки файлов.
+
+    Файлы читаются один раз блоками. Отпечаток (размер, mtime_ns) позволяет под
+    блокировкой дёшево убедиться, что файл не заменили после подсчёта. Пропавший
+    файл → ExportSourceChanged.
     """
-    date_time = packaged_at.astimezone(dt_timezone.utc).timetuple()[:6]
     manifest = {}
-
-    with zipfile.ZipFile(fileobj, "w", zipfile.ZIP_DEFLATED, compresslevel=1) as zipf:
-        def put(name, data):
-            info = zipfile.ZipInfo(name, date_time=date_time)
-            info.compress_type = zipfile.ZIP_DEFLATED
-            info.create_system = 3
-            info.external_attr = 0o644 << 16
-            zipf.writestr(info, data, compresslevel=1)
-            manifest[name] = sha256_hex(data)
-
-        for attendee, obj in pairs:
-            for key, filefield in (("photo_file", attendee.photo), ("doc_scan_file", attendee.docScan)):
-                arcname = obj[key]
-                if arcname is None:
-                    continue
-                path = _media_path(filefield)
-                if path is None:
-                    raise ExportSourceChanged(arcname)
-                with open(path, "rb") as source:
-                    put(arcname, source.read())
-        put("attendees.json", attendees_json_bytes([obj for _, obj in pairs]))
-    return manifest
+    stamps = {}
+    for attendee, obj in pairs:
+        for arcname, path in _media_entries(attendee, obj):
+            if path is None:
+                raise ExportSourceChanged(arcname)
+            try:
+                before = os.stat(path)
+                size, crc, sha = zipstream.describe_file(path)
+            except OSError as exc:
+                raise ExportSourceChanged(arcname) from exc
+            manifest[arcname] = {"sha256": sha, "size": size, "crc32": crc}
+            stamps[arcname] = (path, before.st_size, before.st_mtime_ns)
+    data = attendees_json_bytes([obj for _, obj in pairs])
+    manifest["attendees.json"] = {"sha256": sha256_hex(data), "size": len(data), "crc32": zlib.crc32(data)}
+    return manifest, stamps
 
 
-def file_sha256(fileobj):
-    """SHA-256 содержимого файла; позиция возвращается в начало."""
-    fileobj.seek(0)
+def files_unchanged(stamps):
+    """True, если файлы пакета не менялись с момента `describe_package`."""
+    for path, size, mtime_ns in stamps.values():
+        try:
+            current = os.stat(path)
+        except OSError:
+            return False
+        if (current.st_size, current.st_mtime_ns) != (size, mtime_ns):
+            return False
+    return True
+
+
+def is_stream_manifest(manifest):
+    """Манифест потокового пакета ({имя: {sha256, size, crc32}})."""
+    return bool(manifest) and all(isinstance(value, dict) for value in manifest.values())
+
+
+def package_stream(pairs, manifest, packaged_at):
+    """ZipStream пакета: элементы в порядке участников, затем attendees.json.
+
+    Ожидаемые размер, CRC и SHA-256 каждого элемента берутся из манифеста; при
+    отдаче файл сверяется с ними (расхождение обрывает поток). Расхождение,
+    видимое заранее (другой состав, нет файла, другой размер, другой JSON), —
+    PackageMismatch со списком имён.
+    """
+    entries = []
+    differences = []
+    names = []
+    for attendee, obj in pairs:
+        for arcname, path in _media_entries(attendee, obj):
+            names.append(arcname)
+            expected = manifest.get(arcname)
+            if expected is None or path is None:
+                differences.append(arcname)
+                continue
+            try:
+                size = os.path.getsize(path)
+            except OSError:
+                differences.append(arcname)
+                continue
+            if size != expected["size"]:
+                differences.append(arcname)
+                continue
+            entries.append(zipstream.Entry(
+                arcname, expected["size"], expected["crc32"], expected["sha256"], path=path,
+            ))
+    data = attendees_json_bytes([obj for _, obj in pairs])
+    names.append("attendees.json")
+    expected = manifest.get("attendees.json") or {}
+    if sha256_hex(data) != expected.get("sha256"):
+        differences.append("attendees.json")
+    else:
+        entries.append(zipstream.Entry("attendees.json", len(data), zlib.crc32(data), expected["sha256"], data=data))
+    differences += sorted(set(manifest) - set(names))
+    if differences:
+        raise PackageMismatch(differences)
+    date_time = packaged_at.astimezone(dt_timezone.utc).timetuple()[:6]
+    return zipstream.ZipStream(entries, date_time)
+
+
+def stream_sha256(stream):
+    """SHA-256 всего архива: один проход по потоку, без записи на диск."""
     digest = hashlib.sha256()
-    for chunk in iter(lambda: fileobj.read(1024 * 1024), b""):
+    for chunk in stream.iter_bytes():
         digest.update(chunk)
-    fileobj.seek(0)
     return digest.hexdigest()
-
-
-def manifest_differences(expected, actual):
-    """Имена элементов, которые отсутствуют, добавились или изменились."""
-    names = set(expected or {}) | set(actual or {})
-    return sorted(n for n in names if (expected or {}).get(n) != (actual or {}).get(n))

@@ -41,3 +41,11 @@ RATELIMIT_ENABLE = True
 CSRF_COOKIE_SECURE = False
 SESSION_COOKIE_SECURE = False
 SECURE_SSL_REDIRECT = False
+
+# API участников: лимит 20/h проверяет отдельный тест (test_web_operator_api); в остальных
+# тестах он не нужен — счётчик в общем кэше копился бы между тестами.
+ATTENDEE_API_RATE = None
+
+# Второй этап: фоновые задачи сразу, без воркера; закрытые файлы — во временный каталог.
+JOBS_RUN_INLINE = True
+PRIVATE_FILES_ROOT = str(BASE_DIR / "test_media" / "private")

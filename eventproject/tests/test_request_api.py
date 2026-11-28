@@ -60,7 +60,7 @@ class RequestListRbacTests(TestCase):
         resp = APIClient().get("/api/v1/requests/")
         self.assertIn(resp.status_code, (401, 403))
 
-    def test_read_only_no_create(self):
-        # Селектор — только чтение; POST не разрешён.
+    def test_create_needs_event(self):
+        # Заявка создаётся на мероприятие (кнопка кабинета); без мероприятия — 400.
         resp = self.client.post("/api/v1/requests/", {"name": "X"}, format="json")
-        self.assertEqual(resp.status_code, 405)
+        self.assertEqual(resp.status_code, 400)

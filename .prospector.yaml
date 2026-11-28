@@ -1,0 +1,12 @@
+strictness: medium
+pydocstyle:
+  run: false
+pylint:
+  disable:
+    # Размер функций и условий — не дефект; сервис жизненного цикла намеренно
+    # принимает все поля решения явными аргументами.
+    - too-many-arguments
+    - too-many-positional-arguments
+    - too-many-boolean-expressions
+    # Импорт моделей внутри функции — обычный в Django обход циклических импортов.
+    - import-outside-toplevel

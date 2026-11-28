@@ -1,8 +1,6 @@
 import logging
 import os
 import mimetypes
-import tempfile
-import zipfile
 
 from django.conf import settings
 from django.http import HttpResponse, StreamingHttpResponse
@@ -19,13 +17,16 @@ from django.views.decorators.http import require_POST
 import json
 from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.mixins import UserPassesTestMixin
-from django.http import JsonResponse, FileResponse, Http404
+from django.http import JsonResponse
 from django.utils import timezone
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_http_methods
 from django.core.cache import cache
 from django.views import View
 from pathlib import Path
+from datetime import timezone as dt_timezone
+
+from eventproject.services import zipstream
 
 reconciliation_logger = logging.getLogger("eventproject.audit")
 
@@ -109,56 +110,36 @@ def check_archive_status(request, event_id):
 
 @user_passes_test(lambda u: u.is_superuser, login_url="/user_login/")
 def download_photos(request, event_id):
+    """Все фото и сканы мероприятия одним ZIP, потоком.
+
+    Архив не пишется ни во временный файл, ни в память: `services/zipstream.py`
+    складывает его прямо в ответ (без сжатия, CRC считается при отдаче), размер
+    известен заранее. Поэтому выгрузка в гигабайты не упирается в диск контейнера
+    и не держит воркер до конца сборки. Файл, изменившийся во время передачи,
+    обрывает поток — клиент не получит полный архив с неверным содержимым.
+    """
+    event_dir = Path(settings.MEDIA_ROOT) / f"event_{event_id}"
+    if not event_dir.exists():
+        return HttpResponse("Директория с фотографиями не найдена", status=404)
+
     try:
-        event_dir = Path(settings.MEDIA_ROOT) / f"event_{event_id}"
-        if not event_dir.exists():
-            return HttpResponse("Директория с фотографиями не найдена", status=404)
-
-        files = [f for f in event_dir.rglob('*.*') if f.is_file() and not f.name.startswith('.')]
-        if not files:
-            return HttpResponse("Фотографии не найдены", status=404)
-
-        # ✅ ВАЖНО: создаём временный файл на хосте, а не внутри контейнера
-        with tempfile.NamedTemporaryFile(dir="/tmp", suffix=".zip", delete=False) as tmp_file:
-            tmp_path = tmp_file.name
-
-        try:
-            # Создаем архив
-            with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED, compresslevel=1) as zipf:
-                for file_path in files:
-                    arcname = file_path.relative_to(event_dir.parent)
-                    zipf.write(file_path, arcname)
-
-            response = FileResponse(
-                open(tmp_path, "rb"),
-                as_attachment=True,
-                filename=f"event_{event_id}.zip",
-                content_type="application/zip"
-            )
-
-            # ✅ Удаление архива после отправки
-            response.headers["X-Archive-Temp-Path"] = tmp_path  # на случай дебага
-
-            def cleanup(path):
-                try:
-                    Path(path).unlink(missing_ok=True)
-                except:
-                    pass
-
-            # Django корректный хук на завершение ответа
-            response.close = lambda *args, **kwargs: cleanup(tmp_path)
-
-            return response
-
-        except Exception:
-            Path(tmp_path).unlink(missing_ok=True)
-            raise
-
-    except Exception as e:
-        logger.error("Archive creation failed")
-        # M5: не возвращаем str(e) клиенту — утечка путей/внутренних деталей сервера.
+        entries = [
+            zipstream.Entry(path.relative_to(event_dir.parent).as_posix(), path.stat().st_size, path=str(path))
+            for path in sorted(event_dir.rglob("*.*"))
+            if path.is_file() and not path.name.startswith(".")
+        ]
+    except OSError:
+        logger.error("Archive listing failed")
         return HttpResponse("Ошибка при создании архива", status=500)
+    if not entries:
+        return HttpResponse("Фотографии не найдены", status=404)
 
+    stream = zipstream.ZipStream(entries, timezone.now().astimezone(dt_timezone.utc).timetuple()[:6])
+    response = StreamingHttpResponse(stream.iter_bytes(), content_type="application/zip")
+    response["Content-Length"] = str(stream.size)
+    response["Content-Disposition"] = f'attachment; filename="event_{event_id}.zip"'
+    response["Cache-Control"] = "private, no-store"
+    return response
 
 
 # @user_passes_test(lambda u: u.is_superuser, login_url="/user_login/")

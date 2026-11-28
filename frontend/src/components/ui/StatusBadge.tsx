@@ -1,14 +1,18 @@
-import { statusLabel } from '@/lib/attendeeStatus'
+import { useTranslation } from 'react-i18next'
+import { statusKey } from '@/lib/attendeeStatus'
 import { cn } from '@/lib/utils'
 
 // Этап D: статус участника всегда текстом; цвет — дополнительный признак.
 // Тона из отчёта 05: внимание — ждёт проверяющего, успех — допущен, ошибка — возвращён.
-const TONE: Record<string, string> = {
+// Пары текст/фон проверяет scripts/status-badge-contrast.test.ts (≥ 4,5:1).
+export const TONE_CLASSES: Record<string, string> = {
   draft: 'bg-info-bg text-info',
+  returned: 'bg-danger-bg text-danger',
   submitted: 'bg-warning-bg text-warning',
   in_review: 'bg-warning-bg text-warning',
   ready: 'bg-success-bg text-success',
   exported: 'bg-success-bg text-success',
+  unknown: 'bg-section text-ink',
 }
 
 export function StatusBadge({
@@ -20,7 +24,10 @@ export function StatusBadge({
   returned?: boolean
   className?: string
 }) {
-  const tone = returned && status === 'draft' ? 'bg-danger-bg text-danger' : (TONE[status] ?? 'bg-section text-ink')
+  const { t } = useTranslation()
+  const tone = returned && status === 'draft' ? TONE_CLASSES.returned : (TONE_CLASSES[status] ?? TONE_CLASSES.unknown)
+  // Пустой статус — прочерк; неизвестный код — сам код (не теряем значение молча).
+  const label = status ? t(statusKey(status, returned), { defaultValue: status }) : '—'
   return (
     <span
       className={cn(
@@ -29,7 +36,7 @@ export function StatusBadge({
         className,
       )}
     >
-      {statusLabel(status, returned)}
+      {label}
     </span>
   )
 }

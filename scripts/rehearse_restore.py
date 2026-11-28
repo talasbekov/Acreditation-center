@@ -23,7 +23,7 @@ import time
 
 
 PREVIOUS = "0024_recompute_is_resident"
-TARGET = "0030_attendee_dateadd_idx"  # этап F: текущий кандидат (было 0026 в отчёте 10)
+TARGET = "0036_remove_attendee_last_return_reason"  # после удаления дубля причины возврата (сведение: 0035, этап F: 0030)
 SOURCE_DB = "restore_rehearsal_source"
 RESTORED_DB = "restore_rehearsal_copy"
 ADMIN = "restore_rehearsal_admin"
@@ -196,7 +196,7 @@ def django_step(action):
                 and UserSessionGeneration.objects.get().user.is_active is False, "0025 seed failed")
         event = Event.objects.get()
         require((event.title, event.start_date, event.end_date)
-                == (event.name_rus, event.date_start, event.date_end), "0026 backfill failed")
+                == (event.name_rus, event.date_start, event.date_end), "0031 backfill failed")
         # Source-only change gives the rollback a distinguishable point in time.
         Event.objects.create(title="Post-backup sentinel")
         (Path(os.environ["MEDIA_ROOT"]) / "post-backup.bin").write_bytes(b"post-backup")

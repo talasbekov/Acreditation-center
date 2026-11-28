@@ -87,3 +87,9 @@ logs/*.py
 # Dead legacy dev variants (не импортируются нигде)
 eventproject/settings_mac.py
 eventproject/urls_mac.py
+
+# Локальная разработка web/ (settings_dev)
+.dev/
+
+# Второй этап: PDF бейджей и другие результаты задач с ПДн (settings.PRIVATE_FILES_ROOT)
+private_files/

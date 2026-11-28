@@ -78,10 +78,7 @@
             {% endif %}
             <div class="ds-actions">
                 {% if pkg.can_redownload %}
-                    <form method="post" action="{% url 'export_package_download' pkg.package_id %}">
-                        {% csrf_token %}
-                        <button type="submit" class="ds-btn ds-btn-secondary">Скачать повторно</button>
-                    </form>
+                    <a href="{% url 'export_package_download' pkg.package_id %}" class="ds-btn ds-btn-secondary" download>Скачать повторно</a>
                 {% else %}
                     <p class="ds-hint">Повторная выдача недоступна: пакет сформирован до записи состава</p>
                 {% endif %}

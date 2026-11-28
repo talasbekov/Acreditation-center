@@ -245,6 +245,16 @@ MEDIA_DIR = BASE_DIR / "media"
 MEDIA_URL = "/media/"
 MEDIA_ROOT = config("MEDIA_ROOT", default=str(BASE_DIR / "media"))
 
+# Второй этап: результаты фоновых задач с ПДн (PDF бейджей). ВНЕ MEDIA_ROOT — отдаются
+# только через API с проверкой прав (views/badges_api.py), не через /media/.
+PRIVATE_FILES_ROOT = config("PRIVATE_FILES_ROOT", default=str(BASE_DIR / "private_files"))
+# Фоновые задачи (eventproject.models.Job) выполняет воркер `manage.py run_jobs`.
+# JOBS_RUN_INLINE=True — выполнять сразу после записи (разработка, тесты, стенд без воркера).
+JOBS_RUN_INLINE = _env_flag("JOBS_RUN_INLINE", default=False)
+# TTF-шрифт для ФИО на бейджах: должен содержать кириллицу и казахские буквы
+# (Ә Ғ Қ Ң Ө Ұ Ү Һ). Пусто — первый найденный из services/badges.FONT_CANDIDATES.
+BADGE_FONT_PATH = config("BADGE_FONT_PATH", default="")
+
 # Story 5.3 — two-phase upload staging. ВНЕ MEDIA_ROOT: не отдаётся через /media/
 # (protected_media обслуживает только MEDIA_ROOT). Django стейджит крупные загрузки
 # сюда при разборе запроса (фаза 1), serializer.save() переносит в MEDIA_ROOT (фаза 2).

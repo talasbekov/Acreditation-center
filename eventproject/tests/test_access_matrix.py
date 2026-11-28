@@ -46,12 +46,25 @@ ADMIN_ONLY = {
     "download_all_guests_json/<int:event_id>/", "show_request_to_admin/<int:request_id>/", "bind_operators/",
     "new_password/<str:username>/", "delete_operator/<str:username>/",
     "unbind_event/<int:event_id>/<str:username>/", "embankment/",
+    # API страниц администратора Next.js (views/admin_api.py).
+    "api/v1/admin/home/", "api/v1/admin/events/", "api/v1/admin/events/<int:event_id>/",
+    "api/v1/admin/events/<int:event_id>/operators/", "api/v1/admin/events/<int:event_id>/operators/<int:operator_id>/",
+    "api/v1/admin/operators/", "api/v1/admin/operators/<int:operator_id>/",
+    "api/v1/admin/operators/<int:operator_id>/new-password/", "api/v1/admin/audit-log/",
 }
 # Проверяющий (супероператор) и администратор.
 REVIEW_ONLY = {
     "dashboard/<int:event_id>/", "review/<int:event_id>/", "review/attendee/<int:attendee_id>/<str:decision>/",
     "export_delta/<int:event_id>/<int:request_id>/", "export_package/<uuid:package_id>/download/",
     "export_package/<uuid:package_id>/acknowledge/",
+    # API проверки, выгрузки и бейджей Next.js (views/staff_api.py, badges_api.py).
+    "api/v1/staff/events/", "api/v1/staff/events/<int:event_id>/dashboard/",
+    "api/v1/staff/events/<int:event_id>/review/", "api/v1/staff/attendees/<int:attendee_id>/<str:decision>/",
+    "api/v1/staff/packages/<uuid:package_id>/execute/", "api/v1/staff/packages/<uuid:package_id>/result-template/",
+    "api/v1/events/<int:event_id>/badge-template/", "api/v1/events/<int:event_id>/badge-template/background/",
+    "api/v1/events/<int:event_id>/badges/candidates/", "api/v1/events/<int:event_id>/badges/preview/",
+    "api/v1/events/<int:event_id>/badges/", "api/v1/events/<int:event_id>/attendees/<int:attendee_id>/badge.pdf",
+    "api/v1/jobs/<int:job_id>/", "api/v1/jobs/<int:job_id>/file/",
 }
 SKIP_PREFIXES = ("embankment/auth", "embankment/axes", "embankment/eventproject", "embankment/directories",
                  "embankment/qr_event", "embankment/r/", "embankment/^", "embankment/(", "embankment/password",
@@ -136,6 +149,7 @@ class AccessMatrixTests(TestCase):
             "request_id": self.req_a.pk, "event_id": self.event_a.pk, "attendee_id": self.att_a.pk,
             "operator_id": self.op_a.operator.pk, "username": "op_a", "decision": "start",
             "package_id": str(uuid.uuid4()), "uidb64": "MQ", "token": "bad-token", "file_path": self.photo_rel,
+            "field_id": 1, "link_id": 1, "token_id": 1, "job_id": 1,
         }
         b = base(pattern)
         pk = {"api/v1/^attendees": self.att_a.pk, "api/v1/^requests": self.req_a.pk, "api/v1/^events": self.event_a.pk,

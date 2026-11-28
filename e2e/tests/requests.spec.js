@@ -24,23 +24,21 @@ test.describe('Заявка: жизненный цикл', () => {
     await expect(page.locator('body')).toContainText('E2E Мероприятие');
   });
 
-  test('переходы статусов: preview → Checking, back_to_change → Active, send → Sent', async ({
-    page,
-  }) => {
+  test('предпросмотр только для чтения → возврат к правке → отправка → Sent', async ({ page }) => {
     const reqId = await newOperatorRequest(page);
 
     expect(await (await addAttendee(page, reqId)).text()).toContain('успешно добавлен');
+    // Этап C: предпросмотр — ссылка (GET) и статус заявки не меняет.
     await page.goto(`/show/${reqId}/`);
-    // preview: статус становится Checking
-    await submitForm(page, `/preview/${reqId}/`);
+    await page.getByRole('link', { name: 'Предпросмотр' }).click();
     await expect(page.locator('body')).toContainText('Заявка готова к отправлению');
 
-    // back_to_change: возвращаемся в Active (снова видна кнопка "Добавить участника")
-    await submitForm(page, `/back_to_change/${reqId}/`);
-    await expect(page.locator(`a[href="/add_attendee/${reqId}/"] button`)).toBeVisible();
+    // Возврат к редактированию — ссылка на карточку заявки, снова видно «Добавить участника».
+    await page.getByRole('link', { name: 'Вернуться к редактированию' }).click();
+    await expect(page.locator(`a[href="/add_attendee/${reqId}/"] button, a[href="/add_attendee/${reqId}/"]`).first()).toBeVisible();
 
-    // preview → send: статус Sent
-    await submitForm(page, `/preview/${reqId}/`);
+    // Отправка выполняется из предпросмотра: статус Sent.
+    await page.goto(`/preview/${reqId}/`);
     await submitForm(page, `/send/${reqId}/`);
     await expect(page.locator('body')).toContainText('Отправлено');
   });

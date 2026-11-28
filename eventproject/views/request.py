@@ -7,6 +7,7 @@ from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_protect
 
 from directories.models import Sex, Country, DocumentType, Category
+from eventproject.audit import audit_log
 from eventproject.view_helpers import assigned_event, owned_request, require_operator
 from eventproject.models import Event, Operator, Request, Attendee
 from eventproject.services.lifecycle import local_time
@@ -93,7 +94,16 @@ def delete_request(request, request_id, lang="ru"):
             req = get_object_or_404(Request, pk=request_id)
         else:
             req = owned_request(request.user, request_id)
+        # hd-4.2 (AC-4): obj_id — ДО .delete() (Django обнуляет pk после удаления).
+        req_pk = str(req.id)
         req.delete()
+        audit_log(
+            user=request.user,
+            action="request.delete",
+            obj_type="Request",
+            obj_id=req_pk,
+            ip=request.META.get("REMOTE_ADDR", ""),
+        )
     except Request.DoesNotExist:
         return HttpResponse("Could not find request", status=404)
     return HttpResponseRedirect(page_lang.url(lang, "/application/"))

@@ -1,0 +1,397 @@
+{
+  "account_disabled": {
+    "ru": "Аккаунт деактивирован",
+    "kz": "Аккаунт өшірілген",
+    "en": "The account is deactivated"
+  },
+  "badge_background_invalid": {
+    "ru": "Фон бейджа не подходит: {reason}.",
+    "kz": "Бейдж фоны сәйкес келмейді: {reason}.",
+    "en": "The badge background does not fit: {reason}."
+  },
+  "badge_layout_invalid": {
+    "ru": "Разметка бейджа неверна: {reason}",
+    "kz": "Бейдж белгілеуі қате: {reason}",
+    "en": "Invalid badge layout: {reason}"
+  },
+  "badge_limit": {
+    "ru": "В одном PDF не больше {limit} бейджей.",
+    "kz": "Бір PDF-те {limit}-ден аспайтын бейдж болады.",
+    "en": "At most {limit} badges per PDF."
+  },
+  "badge_not_allowed": {
+    "ru": "Бейдж печатается только при разрешённом доступе. Исключите: {names}.",
+    "kz": "Бейдж тек рұқсат берілгенде басылады. Алып тастаңыз: {names}.",
+    "en": "Badges are printed only for granted access. Remove: {names}."
+  },
+  "badge_nothing_to_print": {
+    "ru": "Некого печатать: нет участников с разрешённым доступом без бейджа.",
+    "kz": "Басатын ешкім жоқ: бейджсіз рұқсаты бар қатысушылар жоқ.",
+    "en": "Nothing to print: no attendees with granted access and no badge yet."
+  },
+  "blank": {
+    "en": "[ASSUMPTION] Поле не может быть пустым.",
+    "kz": "[ASSUMPTION] Поле не может быть пустым.",
+    "ru": "Поле не может быть пустым."
+  },
+  "category_name_blank": {
+    "en": "[ASSUMPTION] Название категории не может быть пустым.",
+    "kz": "[ASSUMPTION] Название категории не может быть пустым.",
+    "ru": "Название категории не может быть пустым."
+  },
+  "category_not_found": {
+    "en": "[ASSUMPTION] Категория не найдена.",
+    "kz": "[ASSUMPTION] Категория не найдена.",
+    "ru": "Категория не найдена."
+  },
+  "container_name_required": {
+    "en": "[ASSUMPTION] Контейнер-мероприятие обязано иметь название на ru/kz/en.",
+    "kz": "[ASSUMPTION] Контейнер-мероприятие обязано иметь название на ru/kz/en.",
+    "ru": "Контейнер-мероприятие обязано иметь название на ru/kz/en."
+  },
+  "country_unknown": {
+    "en": "[ASSUMPTION] Неизвестный код страны.",
+    "kz": "[ASSUMPTION] Неизвестный код страны.",
+    "ru": "Неизвестный код страны."
+  },
+  "custom_field_invalid": {
+    "ru": "Неверное значение поля «{name}».",
+    "kz": "«{name}» өрісінің мәні қате.",
+    "en": "Invalid value of the field “{name}”."
+  },
+  "custom_field_limit": {
+    "ru": "У мероприятия не больше 20 дополнительных полей.",
+    "kz": "Іс-шарада 20-дан аспайтын қосымша өріс болады.",
+    "en": "An event can have at most 20 custom fields."
+  },
+  "custom_field_name_taken": {
+    "ru": "Поле с таким названием уже есть.",
+    "kz": "Мұндай атаумен өріс бар.",
+    "en": "A field with this name already exists."
+  },
+  "custom_field_options_required": {
+    "ru": "Для списка укажите варианты, по одному в строке.",
+    "kz": "Тізім үшін нұсқаларды әр жолға біреуден көрсетіңіз.",
+    "en": "List the options, one per line."
+  },
+  "custom_field_required": {
+    "ru": "Заполните поле «{name}».",
+    "kz": "«{name}» өрісін толтырыңыз.",
+    "en": "Fill in the field “{name}”."
+  },
+  "date": {
+    "en": "[ASSUMPTION] Некорректная дата.",
+    "kz": "[ASSUMPTION] Некорректная дата.",
+    "ru": "Некорректная дата."
+  },
+  "datetime": {
+    "en": "[ASSUMPTION] Некорректные дата и время.",
+    "kz": "[ASSUMPTION] Некорректные дата и время.",
+    "ru": "Некорректные дата и время."
+  },
+  "doc_unreadable": {
+    "en": "[ASSUMPTION] Не удалось обработать PDF-документ",
+    "kz": "[ASSUMPTION] Не удалось обработать PDF-документ",
+    "ru": "Не удалось обработать PDF-документ"
+  },
+  "does_not_exist": {
+    "en": "[ASSUMPTION] Объект не найден.",
+    "kz": "[ASSUMPTION] Объект не найден.",
+    "ru": "Объект не найден."
+  },
+  "duplicate_attendee": {
+    "en": "An attendee with this IIN has already been added to this event.",
+    "kz": "Осы ЖСН-мен қатысушы бұл іс-шараға бұрын қосылған.",
+    "ru": "Участник с этим ИИН уже добавлен в это мероприятие."
+  },
+  "duplicate_document": {
+    "en": "An attendee with this document has already been added to this event.",
+    "kz": "Осы құжатпен қатысушы бұл іс-шараға бұрын қосылған.",
+    "ru": "Участник с этим документом уже добавлен в это мероприятие."
+  },
+  "email_exists": {
+    "en": "[ASSUMPTION] Пользователь с таким email уже существует.",
+    "kz": "[ASSUMPTION] Пользователь с таким email уже существует.",
+    "ru": "Пользователь с таким email уже существует."
+  },
+  "email_status_invalid": {
+    "en": "[ASSUMPTION] Недопустимое значение email_status.",
+    "kz": "[ASSUMPTION] Недопустимое значение email_status.",
+    "ru": "Недопустимое значение email_status."
+  },
+  "empty": {
+    "en": "[ASSUMPTION] Поле не может быть пустым.",
+    "kz": "[ASSUMPTION] Поле не может быть пустым.",
+    "ru": "Поле не может быть пустым."
+  },
+  "event_date_inverted": {
+    "en": "[ASSUMPTION] Дата окончания не может быть раньше даты начала.",
+    "kz": "[ASSUMPTION] Дата окончания не может быть раньше даты начала.",
+    "ru": "Дата окончания не может быть раньше даты начала."
+  },
+  "event_dates_outside_parent": {
+    "en": "[ASSUMPTION] Даты под-мероприятия должны быть в пределах дат родителя.",
+    "kz": "[ASSUMPTION] Даты под-мероприятия должны быть в пределах дат родителя.",
+    "ru": "Даты под-мероприятия должны быть в пределах дат родителя."
+  },
+  "event_hierarchy_depth": {
+    "en": "[ASSUMPTION] Иерархия мероприятий — ровно один уровень.",
+    "kz": "[ASSUMPTION] Иерархия мероприятий — ровно один уровень.",
+    "ru": "Иерархия мероприятий — ровно один уровень."
+  },
+  "event_parent_missing": {
+    "en": "[ASSUMPTION] Указанное родительское мероприятие не существует.",
+    "kz": "[ASSUMPTION] Указанное родительское мероприятие не существует.",
+    "ru": "Указанное родительское мероприятие не существует."
+  },
+  "event_parent_self": {
+    "en": "[ASSUMPTION] Мероприятие не может быть своим родителем.",
+    "kz": "[ASSUMPTION] Мероприятие не может быть своим родителем.",
+    "ru": "Мероприятие не может быть своим родителем."
+  },
+  "events_not_found": {
+    "en": "[ASSUMPTION] Мероприятия не найдены: {{missing}}",
+    "kz": "[ASSUMPTION] Мероприятия не найдены: {{missing}}",
+    "ru": "Мероприятия не найдены: {{missing}}"
+  },
+  "iin_checksum": {
+    "en": "[ASSUMPTION] ИИН некорректен: неверная контрольная цифра.",
+    "kz": "[ASSUMPTION] ИИН некорректен: неверная контрольная цифра.",
+    "ru": "ИИН некорректен: неверная контрольная цифра."
+  },
+  "iin_date_invalid": {
+    "en": "[ASSUMPTION] ИИН некорректен: недопустимая дата рождения.",
+    "kz": "[ASSUMPTION] ИИН некорректен: недопустимая дата рождения.",
+    "ru": "ИИН некорректен: недопустимая дата рождения."
+  },
+  "iin_dob_mismatch": {
+    "en": "[ASSUMPTION] Дата рождения в ИИН ({{iin_dob}}) не совпадает с введённой ({{entered_dob}}). Проверьте дату.",
+    "kz": "[ASSUMPTION] Дата рождения в ИИН ({{iin_dob}}) не совпадает с введённой ({{entered_dob}}). Проверьте дату.",
+    "ru": "Дата рождения в ИИН ({{iin_dob}}) не совпадает с введённой ({{entered_dob}}). Проверьте дату."
+  },
+  "iin_format": {
+    "en": "[ASSUMPTION] ИИН должен содержать ровно 12 цифр.",
+    "kz": "[ASSUMPTION] ИИН должен содержать ровно 12 цифр.",
+    "ru": "ИИН должен содержать ровно 12 цифр."
+  },
+  "iin_required": {
+    "en": "[ASSUMPTION] ИИН обязателен для граждан Казахстана",
+    "kz": "[ASSUMPTION] ИИН обязателен для граждан Казахстана",
+    "ru": "ИИН обязателен для граждан Казахстана"
+  },
+  "incorrect_type": {
+    "en": "[ASSUMPTION] Некорректный тип значения.",
+    "kz": "[ASSUMPTION] Некорректный тип значения.",
+    "ru": "Некорректный тип значения."
+  },
+  "invalid": {
+    "en": "[ASSUMPTION] Некорректное значение.",
+    "kz": "[ASSUMPTION] Некорректное значение.",
+    "ru": "Некорректное значение."
+  },
+  "invalid_choice": {
+    "en": "[ASSUMPTION] Недопустимый выбор.",
+    "kz": "[ASSUMPTION] Недопустимый выбор.",
+    "ru": "Недопустимый выбор."
+  },
+  "link_count_invalid": {
+    "ru": "Количество ссылок — от 1 до {max}.",
+    "kz": "Сілтемелер саны — 1-ден {max}-ге дейін.",
+    "en": "The number of links is 1 to {max}."
+  },
+  "link_unavailable": {
+    "ru": "Ссылка недействительна или уже использована.",
+    "kz": "Сілтеме жарамсыз немесе бұрын пайдаланылған.",
+    "en": "The link is invalid or has already been used."
+  },
+  "login_bad": {
+    "ru": "Неправильный логин или пароль",
+    "kz": "Логин, не құпиясыз сәйкес келмейді",
+    "en": "Wrong username or password"
+  },
+  "login_locked": {
+    "ru": "Аккаунт временно заблокирован из-за множества неудачных попыток входа. Повторите попытку позже.",
+    "kz": "Сәтсіз кіру әрекеттері көп болғандықтан, аккаунт уақытша бұғатталды. Кейінірек қайталап көріңіз.",
+    "en": "The account is temporarily locked after too many failed login attempts. Please try again later."
+  },
+  "max_length": {
+    "en": "[ASSUMPTION] Слишком длинное значение.",
+    "kz": "[ASSUMPTION] Слишком длинное значение.",
+    "ru": "Слишком длинное значение."
+  },
+  "max_string_length": {
+    "en": "[ASSUMPTION] Слишком длинная строка.",
+    "kz": "[ASSUMPTION] Слишком длинная строка.",
+    "ru": "Слишком длинная строка."
+  },
+  "max_value": {
+    "en": "[ASSUMPTION] Значение слишком большое.",
+    "kz": "[ASSUMPTION] Значение слишком большое.",
+    "ru": "Значение слишком большое."
+  },
+  "min_length": {
+    "en": "[ASSUMPTION] Слишком короткое значение.",
+    "kz": "[ASSUMPTION] Слишком короткое значение.",
+    "ru": "Слишком короткое значение."
+  },
+  "min_value": {
+    "en": "[ASSUMPTION] Значение слишком маленькое.",
+    "kz": "[ASSUMPTION] Значение слишком маленькое.",
+    "ru": "Значение слишком маленькое."
+  },
+  "not_authenticated": {
+    "en": "[ASSUMPTION] Требуется аутентификация.",
+    "kz": "[ASSUMPTION] Требуется аутентификация.",
+    "ru": "Требуется аутентификация."
+  },
+  "not_found": {
+    "en": "[ASSUMPTION] Не найдено.",
+    "kz": "[ASSUMPTION] Не найдено.",
+    "ru": "Не найдено."
+  },
+  "null": {
+    "en": "[ASSUMPTION] Поле не может быть пустым.",
+    "kz": "[ASSUMPTION] Поле не может быть пустым.",
+    "ru": "Поле не может быть пустым."
+  },
+  "operator_profile_required": {
+    "ru": "Действие доступно только учётной записи оператора.",
+    "kz": "Әрекет тек оператор тіркелгісіне қолжетімді.",
+    "en": "Only an operator account can do this."
+  },
+  "param_not_int": {
+    "en": "[ASSUMPTION] Должно быть целым числом.",
+    "kz": "[ASSUMPTION] Должно быть целым числом.",
+    "ru": "Должно быть целым числом."
+  },
+  "parse_error": {
+    "en": "[ASSUMPTION] Некорректный запрос.",
+    "kz": "[ASSUMPTION] Некорректный запрос.",
+    "ru": "Некорректный запрос."
+  },
+  "permission_denied": {
+    "en": "[ASSUMPTION] Недостаточно прав для этого действия.",
+    "kz": "[ASSUMPTION] Недостаточно прав для этого действия.",
+    "ru": "Недостаточно прав для этого действия."
+  },
+  "photo_low_res": {
+    "en": "[ASSUMPTION] Разрешение слишком низкое (минимум 600×800 пикселей)",
+    "kz": "[ASSUMPTION] Разрешение слишком низкое (минимум 600×800 пикселей)",
+    "ru": "Разрешение слишком низкое (минимум 600×800 пикселей)"
+  },
+  "photo_not_image": {
+    "en": "[ASSUMPTION] Файл не является изображением",
+    "kz": "[ASSUMPTION] Файл не является изображением",
+    "ru": "Файл не является изображением"
+  },
+  "photo_ratio": {
+    "en": "[ASSUMPTION] Фото должно быть вертикальным (формат 3×4)",
+    "kz": "[ASSUMPTION] Фото должно быть вертикальным (формат 3×4)",
+    "ru": "Фото должно быть вертикальным (формат 3×4)"
+  },
+  "photo_too_large": {
+    "en": "[ASSUMPTION] Файл слишком большой (максимум 5 МБ)",
+    "kz": "[ASSUMPTION] Файл слишком большой (максимум 5 МБ)",
+    "ru": "Файл слишком большой (максимум 5 МБ)"
+  },
+  "photo_too_many_pixels": {
+    "en": "[ASSUMPTION] Изображение слишком большое (превышен лимит пикселей)",
+    "kz": "[ASSUMPTION] Изображение слишком большое (превышен лимит пикселей)",
+    "ru": "Изображение слишком большое (превышен лимит пикселей)"
+  },
+  "problem_invalid": {
+    "en": "[ASSUMPTION] Недопустимое значение фильтра проблемы.",
+    "kz": "[ASSUMPTION] Недопустимое значение фильтра проблемы.",
+    "ru": "Недопустимое значение фильтра проблемы."
+  },
+  "pw_mismatch": {
+    "ru": "Введите новый пароль два раза",
+    "kz": "Жаңа құпиясөздер сәйкес келмейді",
+    "en": "New passwords do not match"
+  },
+  "pw_weak": {
+    "ru": "Пароль не отвечает требованиям безопасности.",
+    "kz": "Құпиясөз қауіпсіздік талаптарына сай емес.",
+    "en": "The password does not meet the security requirements."
+  },
+  "pw_wrong_old": {
+    "ru": "Не удалось подтвердить данные",
+    "kz": "Ескі құпиясөз дұрыс емес",
+    "en": "Wrong old password"
+  },
+  "rate_limited": {
+    "ru": "Слишком много запросов. Повторите попытку позже.",
+    "kz": "Сұраныстар тым көп. Кейінірек қайталаңыз.",
+    "en": "Too many requests. Please try again later."
+  },
+  "request_closed": {
+    "ru": "Заявка отправлена — добавить участника нельзя.",
+    "kz": "Өтінім жіберілген — қатысушы қосуға болмайды.",
+    "en": "The application has been sent; attendees cannot be added."
+  },
+  "request_empty": {
+    "ru": "Заявка не отправлена: в ней нет участников.",
+    "kz": "Өтінім жіберілмеді: онда қатысушылар жоқ.",
+    "en": "The application was not sent: it has no attendees."
+  },
+  "request_not_ready": {
+    "ru": "Заявка не отправлена: не все участники готовы.",
+    "kz": "Өтінім жіберілмеді: барлық қатысушы дайын емес.",
+    "en": "The application was not sent: not all attendees are ready."
+  },
+  "required": {
+    "en": "[ASSUMPTION] Обязательное поле.",
+    "kz": "[ASSUMPTION] Обязательное поле.",
+    "ru": "Обязательное поле."
+  },
+  "return_reason_invalid": {
+    "ru": "Укажите причину возврата (не длиннее 1000 символов).",
+    "kz": "Қайтару себебін көрсетіңіз (1000 таңбадан аспауы керек).",
+    "en": "Give a reason for the return (up to 1000 characters)."
+  },
+  "sgo_result_invalid": {
+    "ru": "Файл результата не читается: нужен JSON со списком denied_participant_ids.",
+    "kz": "Нәтиже файлы оқылмайды: denied_participant_ids тізімі бар JSON қажет.",
+    "en": "The result file is unreadable: JSON with denied_participant_ids is expected."
+  },
+  "sgo_result_no_package": {
+    "ru": "У пакета нет состава участников — исполнить его нельзя.",
+    "kz": "Пакетте қатысушылар құрамы жоқ — оны орындау мүмкін емес.",
+    "en": "The package has no attendee list and cannot be executed."
+  },
+  "sgo_result_unknown_ids": {
+    "ru": "В файле номера участников не из этого пакета: {ids}.",
+    "kz": "Файлда осы пакетке жатпайтын қатысушы нөмірлері бар: {ids}.",
+    "en": "The file lists attendees that are not in this package: {ids}."
+  },
+  "sgo_result_wrong_package": {
+    "ru": "Файл результата относится к другому пакету или мероприятию.",
+    "kz": "Нәтиже файлы басқа пакетке немесе іс-шараға тиесілі.",
+    "en": "The result file belongs to another package or event."
+  },
+  "status_invalid": {
+    "en": "[ASSUMPTION] Недопустимое значение статуса.",
+    "kz": "[ASSUMPTION] Недопустимое значение статуса.",
+    "ru": "Недопустимое значение статуса."
+  },
+  "status_transition_invalid": {
+    "en": "[ASSUMPTION] Недопустимый переход статуса.",
+    "kz": "[ASSUMPTION] Недопустимый переход статуса.",
+    "ru": "Недопустимый переход статуса."
+  },
+  "submission_incomplete": {
+    "ru": "Участник не готов к отправке.",
+    "kz": "Қатысушы жіберуге дайын емес.",
+    "en": "The attendee is not ready to be sent."
+  },
+  "unique": {
+    "en": "[ASSUMPTION] Значение должно быть уникальным.",
+    "kz": "[ASSUMPTION] Значение должно быть уникальным.",
+    "ru": "Значение должно быть уникальным."
+  },
+  "unknown": {
+    "en": "[ASSUMPTION] Произошла ошибка. Повторите позже.",
+    "kz": "[ASSUMPTION] Произошла ошибка. Повторите позже.",
+    "ru": "Произошла ошибка. Повторите позже."
+  }
+}

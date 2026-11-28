@@ -1,7 +1,7 @@
-"""Exercise the lifetime of the ZIP owned by the Django response."""
+"""The package archive is streamed: no temporary file or copy with personal data."""
 
 import io
-import os
+import tempfile
 import zipfile
 from unittest.mock import patch
 
@@ -18,63 +18,42 @@ class ExportArchiveLifetimeTests(ExportDeltaFixtures, TransactionTestCase):
         self.client.force_login(self.super_user)
         self.attendee = self._mk("ready", is_resident=False, iin=None)
 
-    def test_response_streams_a_private_archive_and_closes_it(self):
-        with patch.object(export_service, "write_package", wraps=export_service.write_package) as write:
-            response = self.client.post(self._url())
-        self.assertEqual(response.status_code, 200)
-        archive = write.call_args.args[0]
-        self.assertTrue(hasattr(archive, "read"), "The response must own the same file used to write the ZIP")
-        self.assertFalse(archive.closed)
-        if isinstance(archive.name, (str, bytes)):
-            # Windows delete-on-close also denies a separate ordinary reader.
-            with self.assertRaises((PermissionError, FileNotFoundError)):
-                with open(archive.name, "rb"):
-                    pass
+    def test_package_is_streamed_without_a_temporary_file(self):
+        def forbidden(*args, **kwargs):
+            raise AssertionError("the export must not write the archive to a temporary file")
 
-        payload = b"".join(response.streaming_content)
+        with patch.object(tempfile, "TemporaryFile", side_effect=forbidden), \
+                patch.object(tempfile, "NamedTemporaryFile", side_effect=forbidden):
+            response = self.client.post(self._url(), follow=True)
+            self.assertEqual(response.status_code, 200)
+            self.assertTrue(response.streaming)
+            payload = b"".join(response.streaming_content)
         self.assertEqual(int(response["Content-Length"]), len(payload))
         with zipfile.ZipFile(io.BytesIO(payload)) as exported:
             self.assertIn("attendees.json", exported.namelist())
-        self.assertTrue(archive.closed)
-        if isinstance(archive.name, (str, bytes)):
-            self.assertFalse(os.path.exists(archive.name))
 
-    def test_closing_an_unread_response_releases_the_private_archive(self):
-        with patch.object(export_service, "write_package", wraps=export_service.write_package) as write:
-            response = self.client.post(self._url())
-        archive = write.call_args.args[0]
-        try:
-            self.assertFalse(archive.closed)
-        finally:
-            response.close()
-        self.assertTrue(archive.closed)
-        if isinstance(archive.name, (str, bytes)):
-            self.assertFalse(os.path.exists(archive.name))
-
-    def test_failed_archive_write_releases_file_without_exporting_rows(self):
-        with patch.object(export_service, "write_package", side_effect=OSError("test write failure")) as write:
+    def test_failed_file_read_leaves_rows_ready(self):
+        with patch.object(export_service, "describe_package", side_effect=OSError("test read failure")):
             with self.assertRaises(OSError):
                 self.client.post(self._url())
-        self.assertTrue(write.call_args.args[0].closed)
         self.assertFalse(ExportLog.objects.exists())
         self.attendee.refresh_from_db()
         self.assertEqual(self.attendee.status, "ready")
 
     def test_partial_reselection_returns_conflict_and_leaves_ready_rows_pending(self):
         changed = self._mk("ready", is_resident=False, iin=None)
-        write_archive = export_service.write_package
+        describe = export_service.describe_package
 
-        def write_before_review(file, pairs, packaged_at):
-            manifest = write_archive(file, pairs, packaged_at)
+        def describe_before_review(pairs):
+            result = describe(pairs)
             # A review finishes before the exporter reacquires the rows.
             Attendee.objects.filter(pk=changed.pk).update(status="in_review")
-            return manifest
+            return result
 
-        with patch.object(export_service, "write_package", side_effect=write_before_review) as write:
+        with patch.object(export_service, "describe_package", side_effect=describe_before_review):
             response = self.client.post(self._url())
         self.assertEqual(response.status_code, 409)
         self.assertFalse(response.streaming)
         self.assertFalse(ExportLog.objects.exists())
         self.attendee.refresh_from_db()
         self.assertEqual(self.attendee.status, "ready")
-        self.assertTrue(write.call_args.args[0].closed)

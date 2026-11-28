@@ -1,0 +1,176 @@
+"""Story hd-1.2 — идемпотентность экспорта: race-тесты обоих экспорт-путей.
+
+Покрытие AC-2 (PROVE, Postgres-only — на SQLite `select_for_update` молча
+деградирует в обычный SELECT, гонка недоказуема → `@skipUnless(postgresql)`):
+
+  • Современный delta-путь (`/export_delta/<event>/<request>/`, D1-guard Story 4.3):
+    два одновременных POST → ровно один `ExportLog`, каждый attendee `exported`
+    ровно один раз, ровно одна audit-строка `export.download`, проигравший
+    получает 409 «повторите» или «нет новых записей».
+  • Легаси-путь `/download_guests_json/` с этапа C только отдаёт внутренние номера
+    для сверки и статусы не меняет — гонки там нет, отдельного теста не требуется.
+
+Харнесс — копия `test_decision_concurrency.py` (fe-3.6): `TransactionTestCase`
+(реальные коммиты) + `reset_sequences` + `threading.Barrier` (одновременный вход)
++ `connections.close_all()` в тредах + per-thread исключения пере-бросаются после
+`join()` (ревью-урок P4 fe-3.6: иначе 500 в треде маскируется под расхождение
+данных). Клиенты логинятся в главном треде — окно гонки уже.
+"""
+
+import io
+import json
+import threading
+import zipfile
+from unittest import skipUnless
+
+from django.contrib.auth.models import User
+from django.db import connection, connections
+from django.test import Client, TransactionTestCase
+from django.utils import timezone
+
+from directories.models import Country, DocumentType, Sex
+from eventproject.models import (
+    Attendee,
+    AuditLog,
+    Event,
+    ExportLog,
+    Operator,
+    Request,
+)
+
+KZ = "1000000105"
+SKIP_REASON = (
+    "select_for_update на SQLite деградирует в обычный SELECT — "
+    "гонка воспроизводится только на Postgres"
+)
+
+
+def _make_directories():
+    Country.objects.create(
+        country_code=KZ, name_rus="Казахстан", name_kaz="", name_eng="", country_iso="KZ"
+    )
+    Sex.objects.create(sex_code="M", name_rus="Мужской", name_kaz="", name_eng="")
+    DocumentType.objects.create(doc_code="passport", name_rus="Паспорт", name_kaz="", name_eng="")
+
+
+def _make_attendee(request_obj, *, surname, status="ready", iin="900101300007"):
+    return Attendee.objects.create(
+        surname=surname, firstname="Имя", patronymic="О",
+        birthDate="1990-01-01", post="Инженер", countryId=KZ,
+        docTypeId="passport", docSeries="AA", docNumber="123456",
+        docIssue="МВД", sexId="M", visitObjects="Зал",
+        transcription="T", request=request_obj,
+        iin=iin, is_resident=True, status=status,
+        dateAdd=timezone.now(),
+    )
+
+
+class _ParallelClientsMixin:
+    """Два залогиненных клиента бьют в один URL одновременно (Barrier)."""
+
+    def _run_parallel_posts(self, clients_paths):
+        barrier = threading.Barrier(len(clients_paths))
+        results = {}
+        errors = {}
+
+        def worker(idx, client, path):
+            barrier.wait()  # обе транзакции стартуют одновременно → реальная гонка
+            try:
+                resp = client.post(path, follow=True)
+                if getattr(resp, "streaming", False):
+                    body = b"".join(resp.streaming_content)
+                else:
+                    body = resp.content
+                results[idx] = {
+                    "status": resp.status_code,
+                    "ctype": resp["Content-Type"],
+                    "body": body,
+                }
+            except Exception as exc:  # P4 fe-3.6: сбой воркера не должен молча исчезать
+                errors[idx] = exc
+            finally:
+                connections.close_all()  # закрыть per-thread соединение
+
+        threads = [
+            threading.Thread(target=worker, args=(i, c, p))
+            for i, (c, p) in enumerate(clients_paths)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        if errors:  # воркер бросил исключение → падаем громко, не length-mismatch
+            raise AssertionError(f"worker thread(s) raised: {errors}")
+        return results
+
+    def _logged_in_client(self, user):
+        client = Client()
+        client.force_login(user)
+        return client
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# AC-2 — современный delta-путь: D1-guard (Story 4.3) ДОКАЗЫВАЕТСЯ, не меняется
+# ═══════════════════════════════════════════════════════════════════════════
+@skipUnless(connection.vendor == "postgresql", SKIP_REASON)
+class ModernExportDeltaRaceTests(_ParallelClientsMixin, TransactionTestCase):
+    reset_sequences = True
+
+    def setUp(self):
+        _make_directories()
+        self.event = Event.objects.create(name_rus="E1", title="Event 1", event_code="T1")
+        self.super_user = User.objects.create_user("super", password="Pass123!")
+        Operator.objects.create(
+            user=self.super_user, role="superoperator", patronymic="С",
+            phone_number="+70000000001", workplace="HQ",
+        )
+        self.op_user = User.objects.create_user("op", password="Pass123!")
+        self.operator = Operator.objects.create(
+            user=self.op_user, role="operator", patronymic="О",
+            phone_number="+70000000002", workplace="HQ",
+        )
+        self.category = Request.objects.create(
+            name="Охрана", event=self.event, status="Sent",
+            created_by=self.operator, registration_time=timezone.now(),
+        )
+        self.a1 = _make_attendee(self.category, surname="Первый")
+        self.a2 = _make_attendee(self.category, surname="Второй")
+
+    def test_parallel_export_delta_exactly_one_wins(self):
+        path = f"/export_delta/{self.event.id}/{self.category.id}/"
+        results = self._run_parallel_posts([
+            (self._logged_in_client(self.super_user), path),
+            (self._logged_in_client(self.super_user), path),
+        ])
+
+        # Победитель — ZIP. Пакеты этапа C собирают архив до блокировки и
+        # перепроверяют состав под select_for_update, поэтому проигравший получает
+        # либо 409 «Состав выгрузки изменился» (вошёл до коммита победителя),
+        # либо 200 «нет новых записей» (после коммита).
+        zips = [r for r in results.values() if r["ctype"] == "application/zip"]
+        texts = [r for r in results.values() if r["ctype"].startswith("text/plain")]
+        self.assertEqual(len(zips), 1, f"ровно один ZIP-победитель, got: {results}")
+        self.assertEqual(zips[0]["status"], 200)
+        self.assertEqual(len(texts), 1)
+        loser = texts[0]
+        loser_text = loser["body"].decode("utf-8")
+        if loser["status"] == 409:
+            self.assertIn("Состав выгрузки изменился", loser_text)
+        else:
+            self.assertEqual(loser["status"], 200)
+            self.assertIn("Нет", loser_text)
+
+        # Ровно один ExportLog; каждый attendee выгружен ровно один раз.
+        self.assertEqual(ExportLog.objects.count(), 1)
+        log = ExportLog.objects.get()
+        self.assertEqual(log.attendee_count, 2)
+        data = json.loads(zipfile.ZipFile(io.BytesIO(zips[0]["body"])).read("attendees.json"))
+        exported_ids = [o["attendee_id"] for o in data]
+        self.assertEqual(sorted(exported_ids), sorted([self.a1.id, self.a2.id]))
+        self.assertEqual(len(exported_ids), len(set(exported_ids)))  # без дублей
+        for att in (self.a1, self.a2):
+            att.refresh_from_db()
+            self.assertEqual(att.status, "exported")
+
+        # Ровно одна durable audit-строка export.download (не две).
+        self.assertEqual(AuditLog.objects.filter(action="export.download").count(), 1)

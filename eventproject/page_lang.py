@@ -187,7 +187,7 @@ _TEXT = {
         "kz": "ЖСН дәл 12 цифрдан тұруы керек.",  # KZ: проверить
         "en": "The IIN must contain exactly 12 digits.",
     },
-    "iin_control": {
+    "iin_checksum": {
         "ru": "ИИН некорректен: неверная контрольная цифра.",
         "kz": "ЖСН қате: бақылау цифры дұрыс емес.",  # KZ: проверить
         "en": "Invalid IIN: wrong check digit.",
@@ -197,10 +197,10 @@ _TEXT = {
         "kz": "ЖСН қате: туған күні жарамсыз.",  # KZ: проверить
         "en": "Invalid IIN: impossible date of birth.",
     },
-    "iin_birth_mismatch": {
-        "ru": "Дата рождения в ИИН ({iin_date}) не совпадает с введённой ({birth_date}). Проверьте дату.",
-        "kz": "ЖСН-дағы туған күн ({iin_date}) енгізілген күнмен ({birth_date}) сәйкес келмейді. Күнді тексеріңіз.",  # KZ: проверить
-        "en": "The date of birth in the IIN ({iin_date}) does not match the one entered ({birth_date}). Check the date.",
+    "iin_dob_mismatch": {
+        "ru": "Дата рождения в ИИН ({iin_dob}) не совпадает с введённой ({entered_dob}). Проверьте дату.",
+        "kz": "ЖСН-дағы туған күн ({iin_dob}) енгізілген күнмен ({entered_dob}) сәйкес келмейді. Күнді тексеріңіз.",  # KZ: проверить
+        "en": "The date of birth in the IIN ({iin_dob}) does not match the one entered ({entered_dob}). Check the date.",
     },
 }
 
@@ -218,4 +218,4 @@ def residency_error(result, lang=DEFAULT):
     """
     if norm(lang) == DEFAULT or result.code not in _TEXT:
         return result.error
-    return text(result.code, lang, **dict(result.params))
+    return text(result.code, lang, **(result.params or {}))

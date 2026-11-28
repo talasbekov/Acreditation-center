@@ -55,10 +55,10 @@ class CatalogTests(TestCase):
                 self.assertTrue(result.code, result)
                 codes.add(result.code)
                 self.assertEqual(page_lang.residency_error(result, "ru"), result.error)
-                self.assertEqual(page_lang.text(result.code, "ru", **dict(result.params)), result.error)
+                self.assertEqual(page_lang.text(result.code, "ru", **(result.params or {})), result.error)
                 for lang in ("kz", "en"):
                     self.assertNotEqual(page_lang.residency_error(result, lang), result.error)
-        self.assertEqual(codes, {"iin_required", "iin_format", "iin_control", "iin_birth_mismatch", "iin_date_invalid"})
+        self.assertEqual(codes, {"iin_required", "iin_format", "iin_checksum", "iin_dob_mismatch", "iin_date_invalid"})
 
     def test_tag_escapes_substitutions(self):
         out = Template('{% load ui_tags %}{% t "Добро пожаловать, {name}" name=n %}').render(

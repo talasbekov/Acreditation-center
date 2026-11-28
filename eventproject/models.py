@@ -4,6 +4,8 @@ from django.utils import timezone
 from django.conf import settings
 
 from django.db import models
+from django.db import IntegrityError
+from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
 
 from eventproject.fernet_fields import EncryptedCharField
@@ -44,6 +46,84 @@ class Event(models.Model):
         help_text="Кто создал (Story 2.2)"
     )
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+
+    # Story hd-5.1 (FR-22): иерархия мероприятий — РОВНО один уровень.
+    # parent=NULL → контейнер-кандидат/самостоятельное; parent задан → под-мероприятие (лист).
+    # PROTECT (НЕ CASCADE): каскад удалил бы детей с зашифрованными ИИН → нарушение retention.
+    parent = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="subevents",
+        help_text="Родительское мероприятие-контейнер; NULL = самостоятельное/контейнер. Один уровень (hd-5.1)",
+    )
+    # Денормализованный признак «есть под-мероприятия» (контейнер). Поддержание —
+    # hd-5.2 (leaf-only на путях записи); здесь — поле + валидация i18n-имени контейнера.
+    is_container = models.BooleanField(
+        default=False,
+        help_text="True = контейнер (есть под-мероприятия); участники крепятся только к листу (hd-5.2)",
+    )
+
+    class Meta:
+        constraints = [
+            # hd-5.1 AC-2: anti-self-parent (row-local — БД держит). Один уровень
+            # (parent.parent NULL) — НЕ row-local, держится clean()+data-quality assert.
+            models.CheckConstraint(
+                condition=models.Q(parent__isnull=True) | ~models.Q(parent=models.F("id")),
+                name="event_no_self_parent",
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.parent_id is not None and self.pk is not None and self.parent_id == self.pk:
+            errors["parent"] = "Мероприятие не может быть своим родителем."
+        elif self.parent_id is not None:
+            try:
+                parent = self.parent
+            except Event.DoesNotExist:
+                parent = None
+                errors["parent"] = "Указанное родительское мероприятие не существует."
+            if parent is not None:
+                # AC-2 (один уровень, ВНИЗ): узел с под-мероприятиями не может сам стать
+                # листом — иначе появится третий уровень (review-фикс: clean() раньше
+                # смотрел только вверх).
+                if self.pk is not None and self.subevents.exists():
+                    errors["parent"] = (
+                        "Мероприятие с под-мероприятиями не может стать под-мероприятием "
+                        "(нарушит один уровень)."
+                    )
+                # AC-2 (один уровень, ВВЕРХ): родитель обязан быть корнем.
+                elif parent.parent_id is not None:
+                    errors["parent"] = (
+                        "Иерархия мероприятий — ровно один уровень: нельзя прикрепить "
+                        "под-мероприятие к под-мероприятию."
+                    )
+                # AC-3: child ⊆ parent — проверяем ОБЕ пары дат (legacy date_start/date_end
+                # И Story 2.2 start_date/end_date — REST-API пишет вторую).
+                for c_start, c_end, p_start, p_end, field in (
+                    (self.date_start, self.date_end, parent.date_start, parent.date_end, "date_start"),
+                    (self.start_date, self.end_date, parent.start_date, parent.end_date, "start_date"),
+                ):
+                    if c_start and c_end and p_start and p_end and (
+                        c_start < p_start or c_end > p_end
+                    ):
+                        errors[field] = (
+                            "Даты под-мероприятия должны быть в пределах дат родителя."
+                        )
+        # AC-3: контейнер обязан иметь полное i18n-имя (госотчётность; .strip() против пробелов).
+        if self.is_container and not (
+            (self.name_rus or "").strip()
+            and (self.name_kaz or "").strip()
+            and (self.name_eng or "").strip()
+        ):
+            errors["is_container"] = (
+                "Контейнер-мероприятие обязано иметь название на ru/kz/en (госотчётность)."
+            )
+        if errors:
+            raise ValidationError(errors)
 
     def __str__(self):
         return self.title or self.name_rus or f"Event {self.id}"
@@ -185,6 +265,11 @@ class Request(models.Model):
         Operator, on_delete=models.CASCADE, related_name="created_operator"
     )
     registration_time = models.DateTimeField()
+    # Второй этап: откуда пришли участники заявки. manual — оператор вручную (как
+    # раньше); self_registration — по ссылке саморегистрации; api — внешняя система
+    # по API-токену. Такие заявки создаются автоматически на ссылку/токен.
+    SOURCE_CHOICES = [("manual", "manual"), ("self_registration", "self_registration"), ("api", "api")]
+    source = models.CharField(max_length=20, choices=SOURCE_CHOICES, default="manual")
     exported_by = models.ForeignKey(
         Operator,
         on_delete=models.CASCADE,
@@ -265,13 +350,33 @@ class Attendee(models.Model):
         on_delete=models.SET_NULL,
         related_name="+",
     )
+    # Story fe-3.1 (AC-2): проблемные флаги заявки — подмножество закрытого набора
+    # eventproject/problem_flags.py::PROBLEM_FLAGS. Хранимое (JSONField, не ArrayField:
+    # ArrayField только Postgres, тесты на SQLite), популируется при submit через
+    # compute_problem_flags → DTO очереди читает, `?problem=`-фильтр работает с
+    # серверной пагинацией. default=list (additive, обратимо).
+    problem_flags = models.JSONField(default=list, blank=True)
+    # Story fe-3.5 (AC-1): счётчик возвратов. Причина возврата — review_comment (этап C);
+    # отдельное поле last_return_reason удалено миграцией 0036 как дубль.
+    # «Возвращена» = draft + return_count>0 (отдельного статуса нет).
+    return_count = models.PositiveIntegerField(default=0)
+    # Второй этап — результат проверки СГО (исполнение пакета выгрузки): yes — доступ
+    # разрешён, no — запрещён, none — ещё не определён. Не статус FSM: решение СГО
+    # приходит после выгрузки и может перезаписываться повторным исполнением.
+    ACCESS_CHOICES = [("none", "none"), ("yes", "yes"), ("no", "no")]
+    access_status = models.CharField(max_length=4, choices=ACCESS_CHOICES, default="none")
+    access_decided_at = models.DateTimeField(null=True, blank=True)
+    # Отметка о печати бейджа, не статус: перепечатка перезаписывает дату.
+    badge_printed_at = models.DateTimeField(null=True, blank=True)
+    # Значения дополнительных полей мероприятия: {"<id поля>": "значение"}.
+    custom_field_values = models.JSONField(default=dict, blank=True)
 
     class Meta:
         # BE-9: статус ограничен FSM-набором и на уровне БД — прямой
         # `attendee.status="bogus"; save()` отклоняется (не только форма/сериализатор).
         constraints = [
             models.CheckConstraint(
-                check=models.Q(status__in=list(ATTENDEE_STATUSES)),
+                condition=models.Q(status__in=list(ATTENDEE_STATUSES)),
                 name="attendee_status_valid",
             ),
         ]
@@ -308,7 +413,8 @@ class ExportLog(models.Model):
     Пакет неизменяем: `package_id`, упорядоченный `attendee_ids` и `manifest`
     (SHA-256 каждого элемента ZIP) позволяют выдать тот же архив повторно и
     отказать, если исходные данные с тех пор изменились. Сам ZIP с ПД на сервере
-    не хранится. Подтверждение получателя фиксируется отдельно.
+    не хранится: он собирается потоком при каждой выдаче (services/zipstream.py).
+    Подтверждение получателя фиксируется отдельно.
     """
     event = models.ForeignKey(
         Event,
@@ -343,7 +449,7 @@ class ExportLog(models.Model):
     attendee_count = models.IntegerField(
         help_text="Количество участников, включённых в данный экспорт",
     )
-    # null у пакетов, сформированных до миграции 0027: их состав не записывался,
+    # null у пакетов, сформированных до миграции 0032: их состав не записывался,
     # повторная выдача для них недоступна.
     attendee_ids = models.JSONField(
         null=True,
@@ -371,10 +477,23 @@ class ExportLog(models.Model):
         help_text="Кто отметил подтверждение получателя",
     )
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    # Второй этап — исполнение результата проверки СГО по этому пакету. Повторное
+    # исполнение перезаписывает решения по последнему файлу результата.
+    executed_at = models.DateTimeField(null=True, blank=True)
+    executed_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="executed_export_logs",
+    )
+    denied_ids = models.JSONField(null=True, blank=True)
 
     @property
     def can_redownload(self):
-        return self.attendee_ids is not None and bool(self.manifest)
+        # Пакеты потокового формата: манифест {имя: {sha256, size, crc32}}.
+        manifest = self.manifest or {}
+        return (
+            self.attendee_ids is not None
+            and bool(manifest)
+            and all(isinstance(value, dict) for value in manifest.values())
+        )
 
     def __str__(self):
         cat = f" / {self.category.name}" if self.category else ""
@@ -421,3 +540,194 @@ class PartnerReceipt(models.Model):
 
     def __str__(self):
         return f"{self.source}:{self.external_id} → {self.outcome}"
+class AuditLogQuerySet(models.QuerySet):
+    """Append-only: блокирует bulk-мутации портируемо (SQLite + Postgres).
+
+    Review hd-4.1 (AC-3): model-level `save`/`delete` ловят только ORM-instance;
+    `QuerySet.update()/.delete()` их минуют. Этот guard закрывает bulk-путь на
+    всех БД (Postgres-триггер — последняя линия против сырого SQL мимо ORM).
+    """
+
+    def update(self, *args, **kwargs):
+        raise IntegrityError("AuditLog is append-only: bulk UPDATE is forbidden")
+
+    def delete(self, *args, **kwargs):
+        raise IntegrityError("AuditLog is append-only: bulk DELETE is forbidden")
+
+
+class AuditLog(models.Model):
+    """Story hd-4.1: append-only журнал значимых действий (FR-12).
+
+    Durable-зеркало stdout-аудита (`eventproject/audit.py`). Append-only на трёх
+    слоях: model-guard (`save`/`delete`) + manager-guard (bulk `update`/`delete`,
+    портируемо) + Postgres-триггер BEFORE UPDATE/DELETE (миграция 0025, raw SQL).
+    `actor_id` — снимок id (НЕ FK): удаление User не трогает журнал и не конфликтует
+    с append-only-триггером. ИИН в `extra` хранится МАСКИРОВАННЫМ (вычистка на write-path).
+    """
+
+    objects = AuditLogQuerySet.as_manager()
+
+    actor_id = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Снимок id актора (НЕ FK — append-only аудит хранит историческую ссылку; удаление User не трогает журнал). null для system/Celery",
+    )
+    role = models.CharField(max_length=32)
+    action = models.CharField(max_length=64, db_index=True)
+    obj_type = models.CharField(max_length=64)
+    obj_id = models.CharField(max_length=64, blank=True, default="")
+    ip = models.CharField(max_length=45, null=True, blank=True)
+    extra = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["obj_type", "obj_id"]),
+        ]
+
+    def __str__(self):
+        return (
+            f"AuditLog {self.action} {self.obj_type}:{self.obj_id} "
+            f"@ {self.created_at:%Y-%m-%dT%H:%M:%S}"
+            if self.created_at
+            else f"AuditLog {self.action} {self.obj_type}:{self.obj_id}"
+        )
+
+    def save(self, *args, **kwargs):
+        # AC-3 append-only: запрещаем UPDATE существующей строки (model-level
+        # guard — портируемо, ловит ORM-путь и на SQLite). Bulk-`QuerySet.update`
+        # минует этот guard — для прода его блокирует Postgres-триггер (миграция).
+        if self.pk is not None:
+            raise IntegrityError("AuditLog is append-only: UPDATE is forbidden")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        # AC-3 append-only: запрещаем DELETE (model-level; bulk — Postgres-триггер).
+        raise IntegrityError("AuditLog is append-only: DELETE is forbidden")
+
+
+
+# ── Второй этап: доп. поля, бейджи, саморегистрация, API-токены, фоновые задачи ──
+
+
+class CustomField(models.Model):
+    """Дополнительное поле мероприятия (например «Номер парковки»).
+
+    Показывается в форме участника, форме саморегистрации и учитывается внешним API.
+    Обязательное поле проверяется при добавлении участника.
+    """
+
+    TYPE_CHOICES = [("text", "text"), ("number", "number"), ("date", "date"), ("select", "select")]
+    MAX_PER_EVENT = 20
+
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="custom_fields")
+    field_name = models.CharField(max_length=255)
+    field_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default="text")
+    is_required = models.BooleanField(default=False)
+    options = models.JSONField(default=list, blank=True)
+    sort_order = models.IntegerField(default=0)
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["event", "field_name"], name="custom_field_unique_name"),
+        ]
+
+
+def badge_background_path(instance, filename):
+    ext = (filename.rsplit(".", 1)[-1] or "png").lower()
+    return f"event_{instance.event_id}/badge/background_{uuid.uuid4().hex[:8]}.{ext}"
+
+
+class BadgeTemplate(models.Model):
+    """Шаблон бейджа мероприятия: фон (картинка) и разметка фото и ФИО.
+
+    Без шаблона используется стандартный фон и разметка по умолчанию
+    (services/badges.DEFAULT_LAYOUT).
+    """
+
+    NAME_SOURCE_CHOICES = [("ru", "ru"), ("latin", "latin")]
+
+    event = models.OneToOneField(Event, on_delete=models.CASCADE, related_name="badge_template")
+    background = models.ImageField(upload_to=badge_background_path, blank=True)
+    layout = models.JSONField(default=dict, blank=True)
+    name_source = models.CharField(max_length=5, choices=NAME_SOURCE_CHOICES, default="ru")
+    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class RegistrationLink(models.Model):
+    """Ссылка саморегистрации: участник сам заполняет данные.
+
+    single — для одного человека, после использования гаснет; multi — для любого числа
+    людей, пока оператор её не отключит. Участники попадают черновиками в заявку
+    `request` (создаётся вместе со ссылками) — дальше обычная отправка на проверку.
+    """
+
+    TYPE_CHOICES = [("single", "single"), ("multi", "multi")]
+
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="registration_links")
+    request = models.ForeignKey(Request, on_delete=models.CASCADE, related_name="registration_links")
+    created_by = models.ForeignKey(Operator, on_delete=models.CASCADE, related_name="registration_links")
+    token = models.CharField(max_length=64, unique=True)
+    link_type = models.CharField(max_length=6, choices=TYPE_CHOICES)
+    is_used = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    used_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def is_available(self):
+        return self.is_active and not (self.link_type == "single" and self.is_used)
+
+
+class ApiToken(models.Model):
+    """Bearer-токен внешней системы регистрации для одного мероприятия.
+
+    Хранится только SHA-256 токена; сам токен показывается один раз при создании.
+    Участники из внешней системы попадают черновиками в заявку `request`.
+    """
+
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="api_tokens")
+    request = models.ForeignKey(Request, on_delete=models.CASCADE, related_name="api_tokens")
+    created_by = models.ForeignKey(Operator, on_delete=models.CASCADE, related_name="api_tokens")
+    name = models.CharField(max_length=255, blank=True, default="")
+    token_prefix = models.CharField(max_length=12)
+    token_hash = models.CharField(max_length=64, unique=True)
+    is_active = models.BooleanField(default=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class Job(models.Model):
+    """Фоновая задача (очередь на PostgreSQL, воркер `manage.py run_jobs`).
+
+    Воркер забирает задачу через SELECT … FOR UPDATE SKIP LOCKED — отдельный брокер
+    не нужен. Результат-файл (PDF бейджей) хранится вне MEDIA_ROOT
+    (settings.PRIVATE_FILES_ROOT) и отдаётся только через API с проверкой прав.
+    """
+
+    TYPE_CHOICES = [("badge_pdf", "badge_pdf")]
+    STATUS_CHOICES = [
+        ("pending", "pending"), ("processing", "processing"), ("completed", "completed"), ("failed", "failed"),
+    ]
+
+    type = models.CharField(max_length=30, choices=TYPE_CHOICES)
+    payload = models.JSONField(default=dict)
+    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default="pending", db_index=True)
+    progress = models.PositiveIntegerField(default=0)
+    result = models.JSONField(null=True, blank=True)
+    error = models.TextField(blank=True, default="")
+    attempts = models.PositiveIntegerField(default=0)
+    max_attempts = models.PositiveIntegerField(default=3)
+    file_path = models.CharField(max_length=500, blank=True, default="")
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]

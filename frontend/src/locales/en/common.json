@@ -1,0 +1,57 @@
+{
+  "attendees": {
+    "title": "Attendees",
+    "search_aria": "Search by full name",
+    "search_placeholder": "Search by full name (3+ characters)",
+    "filter_status_aria": "Filter by status",
+    "load_error": "Failed to load the list.",
+    "loading_list": "Loading list",
+    "empty": "Nothing found",
+    "col_name": "Full name",
+    "col_iin": "IIN",
+    "col_status": "Status",
+    "col_added": "Added",
+    "col_actions": "Actions",
+    "subtitle": "Attendees of your events' requests",
+    "add": "Add an attendee",
+    "filters_aria": "Search and filters",
+    "search_hint": "From 3 characters, by surname, first name or father's name",
+    "search_short": "Type {{count}} more — search starts at 3 characters",
+    "filters": "Filters",
+    "filters_count": "Filters · {{count}}",
+    "reset": "Reset filters",
+    "pages_aria": "List pages",
+    "col_attendee": "Attendee",
+    "col_request": "Request and event",
+    "request": "Request {{name}}",
+    "added_on": "Added {{date}}",
+    "open_card": "Open card →",
+    "empty_filtered_hint": "Change the search or reset the filters.",
+    "empty_none": "No attendees yet",
+    "empty_none_hint": "Add the first attendee to a request.",
+    "add_first": "Add the first attendee"
+  },
+  "attendee": {
+    "invalid_id": "Invalid attendee identifier.",
+    "not_found": "Attendee not found.",
+    "no_access": "No access to this attendee.",
+    "session_expired": "Session expired. Redirecting to sign-in…",
+    "load_error": "Failed to load the attendee."
+  },
+  "auth": {
+    "redirecting": "Redirecting to sign-in…",
+    "connection_error": "Could not reach the server. Check your connection and try again."
+  },
+  "actions": {
+    "add": "Add",
+    "open": "Open",
+    "prev": "Back",
+    "next": "Next",
+    "retry": "Retry"
+  },
+  "pagination": {
+    "showing": "Showing {{from}}–{{to}} of {{total}}"
+  },
+  "loading": "Loading…",
+  "network_error": "Network unavailable. Try again."
+}

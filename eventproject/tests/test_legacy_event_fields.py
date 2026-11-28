@@ -39,8 +39,8 @@ class LegacyEventContractTests(TransactionTestCase):
         self.assertEqual((event.name_kaz, event.name_eng), ("Үлгі", "Sample"))
 
     def test_upgrade_populates_missing_api_fields_and_preserves_edited_values(self):
-        previous = ("eventproject", "0025_user_session_generation")
-        current = ("eventproject", "0026_backfill_legacy_event_fields")
+        previous = ("eventproject", "0030_user_session_generation")
+        current = ("eventproject", "0031_backfill_legacy_event_fields")
         executor = MigrationExecutor(connection)
         executor.migrate([previous])
         self.addCleanup(_migrate_to_latest)

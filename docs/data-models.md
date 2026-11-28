@@ -104,14 +104,14 @@
 
 | Поле | Тип | Ограничения |
 |------|-----|-------------|
-| `package_id` | UUIDField | unique, неизменяемый идентификатор пакета (0027) |
+| `package_id` | UUIDField | unique, неизменяемый идентификатор пакета (0032) |
 | `event` | FK → Event | CASCADE |
 | `category` | FK → Request | null, SET_NULL (null = весь event) |
 | `exported_before` | DateTimeField | момент формирования пакета; метка времени элементов ZIP |
 | `user` | FK → User | null, SET_NULL (null = системная задача) |
 | `attendee_count` | IntegerField | количество участников в экспорте |
-| `attendee_ids` | JSONField | null; упорядоченный состав пакета. null — пакет до 0027, повторная выдача недоступна |
-| `manifest` | JSONField | null; `{имя в ZIP: SHA-256}` каждого элемента архива |
+| `attendee_ids` | JSONField | null; упорядоченный состав пакета. null — пакет до 0032, повторная выдача недоступна |
+| `manifest` | JSONField | null; `{имя в ZIP: {sha256, size, crc32}}` каждого элемента архива. Пакеты с прежним видом `{имя: SHA-256}` повторно не выдаются (410) |
 | `archive_name`, `archive_sha256` | CharField | имя файла и SHA-256 выданного архива |
 | `acknowledged_at`, `acknowledged_by` | DateTimeField, FK → User | null; подтверждение приёма получателем |
 | `created_at` | DateTimeField | auto_now_add, null |
@@ -120,8 +120,10 @@
 (`services/export.py::select_ready_attendees`). Дата добавления не учитывается:
 карточка, одобренная позже предыдущей выгрузки, попадает в следующую. Повтор
 исключён терминальным переходом `ready → exported` в той же транзакции.
-Архив с ПД на сервере не хранится: повторная выдача собирает его заново и
-отказывает (409), если содержимое расходится с `manifest`.
+Архив с ПД на сервере не хранится и не пишется во временный файл: выдача
+собирает его потоком (`services/zipstream.py`) из БД и файлов, отказывает (409),
+если содержимое расходится с `manifest`, и обрывает передачу, если файл подменили
+во время неё. Размер архива известен заранее, поддерживается докачка (`Range`).
 
 ### PartnerReceipt — квитанция приёма анкеты партнёра (0029)
 
@@ -190,10 +192,17 @@
 | 0007–0008 | расширение max_length (post→500, visitObjects→1024, docIssue→255); docNumber/iin/patronymic стали nullable |
 | **0009–0010** | **Шифрование ИИН**: 0009 добавляет `iin_encrypted` и батчево шифрует существующие данные (транзакционно, с обратимым откатом); 0010 удаляет plaintext `iin` и переименовывает. Требует `FERNET_KEYS`, иначе ImproperlyConfigured. Откат: `migrate eventproject 0008` |
 | 0011 | ExportLog (delta-экспорт, Epic 4) |
-| 0027 | ExportLog: `package_id`, состав, манифест, подтверждение получателя (этап C). Существующим записям выдаётся собственный `package_id`; откат — `migrate eventproject 0026` |
-| 0028 | Attendee: `review_comment`, `reviewed_at`, `reviewed_by` — последнее решение проверяющего (этап C). Откат — `migrate eventproject 0027` |
-| 0029 | PartnerReceipt — квитанции импорта партнёров (этап C). Откат — `migrate eventproject 0028` |
-| 0030 | Индекс `attendee_dateadd_idx` по `Attendee.dateAdd` (убыв.) — сортировка списка участников API (P2). Откат — `migrate eventproject 0029`, данные не затрагивает |
+| 0025 | AuditLog — журнал значимых действий, строки нельзя изменить или удалить (триггер PostgreSQL) (hd-4.1) |
+| 0026 | Event: `parent`, `is_container` — мероприятие-контейнер и подмероприятия, один уровень (hd-5.1) |
+| 0027–0028 | Attendee: `problem_flags` и заполнение для существующих записей (fe-3.1) |
+| 0029 | Attendee: `last_return_reason`, `return_count` — последняя причина и число возвратов (fe-3.5) |
+| 0030 | UserSessionGeneration — отзыв сессий пользователя (этап B; до сведения линий — 0025) |
+| 0031 | Заполнение прежних полей мероприятий из полей API (этап C; было 0026) |
+| 0032 | ExportLog: `package_id`, состав, манифест, подтверждение получателя (этап C; было 0027). Существующим записям выдаётся собственный `package_id`; откат — `migrate eventproject 0031` |
+| 0033 | Attendee: `review_comment`, `reviewed_at`, `reviewed_by` — последнее решение проверяющего (этап C; было 0028). Откат — `migrate eventproject 0032` |
+| 0034 | PartnerReceipt — квитанции импорта партнёров (этап C; было 0029). Откат — `migrate eventproject 0033` |
+| 0035 | Индекс `attendee_dateadd_idx` по `Attendee.dateAdd` (убыв.) — сортировка списка участников API (P2; было 0030). Откат — `migrate eventproject 0034`, данные не затрагивает |
+| 0036 | Attendee: удалён `last_return_reason` — дубль `review_comment`. Перед удалением его текст переносится в пустой `review_comment`; откат — `migrate eventproject 0035`, причина возвращается в `last_return_reason` у возвращавшихся участников |
 | 0012 | Operator.role (RBAC) |
 | 0013–0015 | Story 2.2: Event.title/description/start_date/end_date/created_by, модель Category, Attendee.category; legacy-поля Event сделаны nullable |
 | qr_event 0002 | QrIin.qr_code |
