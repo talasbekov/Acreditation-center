@@ -64,6 +64,11 @@ ERROR_CODES = {
     "pw_mismatch": {"field": "new_password_repeat", "params": [], "detail": "Введите новый пароль два раза"},
     "pw_wrong_old": {"field": "old_password", "params": [], "detail": "Не удалось подтвердить данные"},
     "pw_weak": {"field": "new_password", "params": [], "detail": "Пароль не отвечает требованиям безопасности."},
+    # ── Заявки оператора (views/request_api.py; тексты — services/lifecycle._TEXT) ──
+    "request_closed": {"field": "request", "params": [], "detail": "Заявка отправлена — добавить участника нельзя."},
+    "request_empty": {"field": None, "params": [], "detail": "Заявка не отправлена: в ней нет участников."},
+    "request_not_ready": {"field": None, "params": [], "detail": "Заявка не отправлена: не все участники готовы."},
+    "rate_limited": {"field": None, "params": [], "detail": "Слишком много запросов. Повторите попытку позже."},
     # ── Generic DRF-коды (авто-эмитятся встроенными field/relation-проверками) ──
     "required": {"field": None, "params": [], "detail": "Обязательное поле."},
     "invalid": {"field": None, "params": [], "detail": "Некорректное значение."},

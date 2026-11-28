@@ -157,6 +157,18 @@
   "pw_wrong_old": {
     "params": []
   },
+  "rate_limited": {
+    "params": []
+  },
+  "request_closed": {
+    "params": []
+  },
+  "request_empty": {
+    "params": []
+  },
+  "request_not_ready": {
+    "params": []
+  },
   "required": {
     "params": []
   },

@@ -13,6 +13,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import uiText from "./generated/ui-text.json";
 import messages from "./generated/messages.json";
 import errors from "./generated/errors.json";
+import statusLabels from "./generated/status-labels.json";
+import lifecycleText from "./generated/lifecycle.json";
 import { EXTRA } from "./texts";
 import type { Problem } from "./api";
 
@@ -25,6 +27,23 @@ type Tri = { ru: string; kz: string; en: string };
 const UI = uiText as Record<string, Tr>;
 const MESSAGES = messages as Record<string, Tri>;
 const ERRORS = errors as Record<string, Tri>;
+const STATUS = statusLabels as Record<Lang, Record<string, string>>;
+const LIFECYCLE = lifecycleText as Record<Lang, Record<string, string>>;
+
+/** Ключ статуса участника для подписи и цвета: черновик с причиной возврата — «returned». */
+export function attendeeStateKey(a: { status: string; review_comment?: string | null }) {
+  return a.status === "draft" && a.review_comment ? "returned" : a.status;
+}
+
+/** Цвет плашки статуса (как фильтр `attendee_tone` в шаблонах). */
+export const STATUS_TONE: Record<string, "blue" | "red" | "amber" | "green"> = {
+  draft: "blue",
+  returned: "red",
+  submitted: "amber",
+  in_review: "amber",
+  ready: "green",
+  exported: "green",
+};
 
 function fill(s: string, params?: Record<string, unknown>) {
   if (!params) return s;
@@ -67,6 +86,10 @@ interface LangState {
   name: (o: NamedRu | null | undefined) => string;
   msg: (key: string, params?: Record<string, unknown>) => string;
   err: (p: Problem | undefined) => string;
+  /** Подпись статуса участника (draft/returned/submitted/…/reason). */
+  status: (key: string) => string;
+  /** Тексты отказов отправки заявки (iin/photo/doc_scan/not_ready/…). */
+  life: (key: string) => string;
 }
 
 const LangContext = createContext<LangState | null>(null);
@@ -112,6 +135,8 @@ export function LangProvider({ children }: { children: React.ReactNode }) {
         return e ? fill(e[lang] || e.ru, params) : key;
       },
       err: (p) => problemText(p, lang),
+      status: (key) => STATUS[lang]?.[key] ?? STATUS.ru[key] ?? key,
+      life: (key) => LIFECYCLE[lang]?.[key] ?? LIFECYCLE.ru[key] ?? key,
     }),
     [lang, setLang],
   );

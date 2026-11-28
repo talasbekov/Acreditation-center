@@ -41,3 +41,7 @@ RATELIMIT_ENABLE = True
 CSRF_COOKIE_SECURE = False
 SESSION_COOKIE_SECURE = False
 SECURE_SSL_REDIRECT = False
+
+# API участников: лимит 20/h проверяет отдельный тест (test_web_operator_api); в остальных
+# тестах он не нужен — счётчик в общем кэше копился бы между тестами.
+ATTENDEE_API_RATE = None

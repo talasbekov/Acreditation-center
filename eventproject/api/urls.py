@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from eventproject.views.event import EventViewSet
 from eventproject.views.operator_api import OperatorViewSet
 from eventproject.views.attendee_api import AttendeeViewSet
-from eventproject.views.request_api import RequestViewSet
+from eventproject.views.request_api import RequestViewSet, cabinet
 from eventproject.views.directories_api import directories
 from eventproject.views.auth_api import ChangePasswordView, LoginView, LogoutView, MeView
 
@@ -34,6 +34,7 @@ def rbac_check(request):
 
 
 urlpatterns = router.urls + [
+    path("cabinet/", cabinet, name="api_cabinet"),
     path("auth/login/", LoginView.as_view(), name="api_login"),
     path("auth/logout/", LogoutView.as_view(), name="api_logout"),
     path("auth/me/", MeView.as_view(), name="api_me"),

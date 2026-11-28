@@ -31,4 +31,12 @@ export const EXTRA: Record<string, { kz?: string; en?: string }> = {
   "Нет": { kz: "Жоқ", en: "No" },
   "Проверка и выгрузка": { kz: "Тексеру және жүктеу", en: "Review and export" },
   "Администрирование": { kz: "Әкімшілік", en: "Administration" },
+  "Заявка": { kz: "Өтінім", en: "Request" },
+  "Заявка не найдена": { kz: "Өтінім табылмады", en: "Request not found" },
+  "Изменения сохранены": { kz: "Өзгерістер сақталды", en: "Changes saved" },
+  "Очередь проверки": { kz: "Тексеру кезегі", en: "Review queue" },
+  "Дашборд и выгрузка": { kz: "Дашборд және жүктеу", en: "Dashboard and export" },
+  "Возвращено на доработку: {n}": { kz: "Түзетуге қайтарылды: {n}", en: "Returned for changes: {n}" },
+  "Удалить заявку {name} вместе с участниками?": { kz: "{name} өтінімін қатысушыларымен бірге жою керек пе?", en: "Delete request {name} with its attendees?" },
+  "Удалить участника {name}?": { kz: "{name} қатысушысын жою керек пе?", en: "Delete attendee {name}?" },
 };

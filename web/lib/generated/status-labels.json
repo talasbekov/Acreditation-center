@@ -1,0 +1,29 @@
+{
+  "en": {
+    "draft": "Draft",
+    "exported": "Approved, transferred",
+    "in_review": "Under review",
+    "ready": "Approved",
+    "reason": "Reason",
+    "returned": "Returned for changes",
+    "submitted": "Sent for review"
+  },
+  "kz": {
+    "draft": "Жоба",
+    "exported": "Рұқсат етілді, қызметке жіберілді",
+    "in_review": "Тексерілуде",
+    "ready": "Рұқсат етілді",
+    "reason": "Себебі",
+    "returned": "Түзетуге қайтарылды",
+    "submitted": "Тексеруге жіберілді"
+  },
+  "ru": {
+    "draft": "Черновик",
+    "exported": "Допущен, передан в службу",
+    "in_review": "На проверке",
+    "ready": "Допущен",
+    "reason": "Причина",
+    "returned": "Возвращён на доработку",
+    "submitted": "Отправлен на проверку"
+  }
+}

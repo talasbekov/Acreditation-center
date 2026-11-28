@@ -53,3 +53,23 @@ class EventSerializer(serializers.ModelSerializer):
         if start and end and end < start:
             raise coded_error("event_date_inverted", field="end_date")
         return attrs
+
+
+def event_brief(event):
+    """Краткая карточка мероприятия для экранов Next.js (кабинет, заявка, карточка).
+
+    Поля — как в HTML-шаблонах старой АЦ: три названия, код, город (код справочника
+    City), даты `date_start`/`date_end` (по ним старые страницы считают «актуальные»).
+    """
+    return {
+        "id": event.id,
+        "name_rus": event.name_rus or event.title or "",
+        "name_kaz": event.name_kaz or "",
+        "name_eng": event.name_eng or "",
+        "event_code": event.event_code or "",
+        "city_code": event.city_code or "",
+        "date_start": event.date_start or event.start_date,
+        "date_end": event.date_end or event.end_date,
+        "parent_id": event.parent_id,
+        "is_container": event.is_container,
+    }

@@ -254,6 +254,26 @@
     "kz": "Ескі құпиясөз дұрыс емес",
     "ru": "Не удалось подтвердить данные"
   },
+  "rate_limited": {
+    "en": "Too many requests. Please try again later.",
+    "kz": "Сұраныстар тым көп. Кейінірек қайталаңыз.",
+    "ru": "Слишком много запросов. Повторите попытку позже."
+  },
+  "request_closed": {
+    "en": "The application has been sent; attendees cannot be added.",
+    "kz": "Өтінім жіберілген — қатысушы қосуға болмайды.",
+    "ru": "Заявка отправлена — добавить участника нельзя."
+  },
+  "request_empty": {
+    "en": "The application was not sent: it has no attendees.",
+    "kz": "Өтінім жіберілмеді: онда қатысушылар жоқ.",
+    "ru": "Заявка не отправлена: в ней нет участников."
+  },
+  "request_not_ready": {
+    "en": "The application was not sent: not all attendees are ready.",
+    "kz": "Өтінім жіберілмеді: барлық қатысушы дайын емес.",
+    "ru": "Заявка не отправлена: не все участники готовы."
+  },
   "required": {
     "en": "[ASSUMPTION] Обязательное поле.",
     "kz": "[ASSUMPTION] Обязательное поле.",

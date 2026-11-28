@@ -5,7 +5,9 @@
 
 * `ui-text.json` — словарь `ui_text.UI` (ключ — русская строка, значения kz/en);
 * `messages.json` — сообщения `page_lang._TEXT` (ключ → ru/kz/en);
-* `errors.json` — тексты машинных кодов ошибок API (`frontend/src/errors/errors.json`).
+* `errors.json` — тексты машинных кодов ошибок API (`frontend/src/errors/errors.json`);
+* `status-labels.json` — подписи статусов участника (`templatetags/lifecycle_tags._LABELS`);
+* `lifecycle.json` — тексты отказов при отправке заявки (`services/lifecycle._TEXT`).
 
 Файлы закоммичены; `tests/test_web_texts.py` проверяет, что они совпадают со свежим
 выводом этой команды.
@@ -18,6 +20,8 @@ from django.conf import settings
 from django.core.management.base import BaseCommand
 
 from eventproject import page_lang
+from eventproject.services import lifecycle
+from eventproject.templatetags import lifecycle_tags
 from eventproject.ui_text import UI
 
 OUTPUT_DIR = Path(settings.BASE_DIR) / "web" / "lib" / "generated"
@@ -35,6 +39,8 @@ def build_files():
         "ui-text.json": serialize(UI),
         "messages.json": serialize(page_lang._TEXT),
         "errors.json": serialize(errors),
+        "status-labels.json": serialize(lifecycle_tags._LABELS),
+        "lifecycle.json": serialize(lifecycle._TEXT),
     }
 
 

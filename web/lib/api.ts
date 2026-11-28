@@ -149,3 +149,18 @@ export async function apiAll<T>(path: string, query?: Query): Promise<T[]> {
     page += 1;
   }
 }
+
+/**
+ * Путь к файлу Django (`/media/...`) без origin. DRF строит абсолютный URL от
+ * адреса, на который пришёл запрос; за прокси это адрес Django, а cookie сессии
+ * есть только у адреса интерфейса — поэтому берём только путь.
+ */
+export function mediaPath(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const u = new URL(url, "http://x");
+    return u.pathname + u.search;
+  } catch {
+    return url;
+  }
+}

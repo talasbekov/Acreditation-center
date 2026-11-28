@@ -1,0 +1,29 @@
+{
+  "en": {
+    "closed": "The application has been sent; attendees cannot be added.",
+    "doc_scan": "no document scan",
+    "empty": "The application was not sent: it has no attendees.",
+    "iin": "IIN missing or invalid",
+    "locked": "The attendee is already under review or approved and cannot be changed.",
+    "not_ready": "The application was not sent: not all attendees are ready.",
+    "photo": "no photo"
+  },
+  "kz": {
+    "closed": "Өтінім жіберілген — қатысушы қосуға болмайды.",
+    "doc_scan": "құжат көшірмесі жоқ",
+    "empty": "Өтінім жіберілмеді: онда қатысушылар жоқ.",
+    "iin": "ЖСН толтырылмаған немесе қате",
+    "locked": "Қатысушы тексеруге жіберілген немесе рұқсат алған — оны өзгертуге болмайды.",
+    "not_ready": "Өтінім жіберілмеді: барлық қатысушы дайын емес.",
+    "photo": "фото жоқ"
+  },
+  "ru": {
+    "closed": "Заявка отправлена — добавить участника нельзя.",
+    "doc_scan": "нет скана документа",
+    "empty": "Заявка не отправлена: в ней нет участников.",
+    "iin": "ИИН не заполнен или неверен",
+    "locked": "Участник уже отправлен на проверку или допущен — изменить его нельзя.",
+    "not_ready": "Заявка не отправлена: не все участники готовы.",
+    "photo": "нет фото"
+  }
+}

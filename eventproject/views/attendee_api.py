@@ -26,6 +26,8 @@ from eventproject.serializers.attendee import (
     AttendeeSerializer,
     raise_if_duplicate,
 )
+from eventproject.models import Attendee, Request
+from eventproject.serializers.rbac import get_operator_events
 from eventproject.serializers.rbac import get_operator_attendee_queryset
 from eventproject.state_machine import ATTENDEE_STATUSES, AttendeeStatus
 from eventproject.validators.residency import resolve_residency
@@ -37,6 +39,27 @@ class Conflict(APIException):
     status_code = 409
     default_detail = "Переход статуса невозможен."
     default_code = "conflict"
+
+
+def _rate_limited(request):
+    """Как HTML-формы участника (`add_attendee`, `update_attendee`): не больше 20 записей в час с IP.
+
+    Частота — `settings.ATTENDEE_API_RATE` (по умолчанию «20/h»; None — без ограничения).
+    """
+    from django.conf import settings
+    from django_ratelimit.core import is_ratelimited
+
+    rate = getattr(settings, "ATTENDEE_API_RATE", "20/h")
+    if not rate:
+        return False
+    return is_ratelimited(request._request, group="attendee-write", key="ip", rate=rate, increment=True)
+
+
+def _too_many():
+    return Response(
+        {"type": "rate_limited", "field": None, "params": {}, "detail": "Too many requests. Please try again later."},
+        status=429,
+    )
 
 # Статусы, после которых редактирование заблокировано (FR22).
 _EDIT_LOCKED_STATUSES = {AttendeeStatus.READY, AttendeeStatus.EXPORTED}
@@ -113,7 +136,11 @@ class AttendeeViewSet(viewsets.ModelViewSet):
         # чистит файлы через post_delete Signal (eventproject/signals.py).
         # Этап C: повторная проверка дубля под блокировкой мероприятия — два
         # одновременных POST с одним ИИН/документом не создадут двух участников.
-        event_id = serializer.validated_data["request"].event_id
+        req = serializer.validated_data["request"]
+        # Как HTML `add_attendee`: в отправленную заявку участника не добавить.
+        if not lifecycle.can_add_to(req):
+            raise Conflict({"request": ErrorDetail(lifecycle.text("closed"), code="request_closed")})
+        event_id = req.event_id
         with intake.event_intake(event_id):
             raise_if_duplicate(event_id, serializer.validated_data)
             attendee = serializer.save(dateAdd=timezone.now())
@@ -177,6 +204,8 @@ class AttendeeViewSet(viewsets.ModelViewSet):
     # override плодил бы двойной аудит (PATCH логировался дважды). PATCH идёт через
     # этот update().
     def update(self, request, *args, **kwargs):
+        if _rate_limited(request):
+            return _too_many()
         instance = self._ensure_editable()
         old_iin = instance.iin
         # Валидация (включая проверку дубля) выполняется под блокировкой мероприятия.
@@ -190,10 +219,32 @@ class AttendeeViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         instance = self._ensure_editable()
         obj_id = instance.pk
+        req = instance.request
         with transaction.atomic():
-            response = super().destroy(request, *args, **kwargs)
+            super().destroy(request, *args, **kwargs)
             self._audit_write(request, "attendee.delete", obj_id)
-        return response
+            # Как HTML `delete_attendee`: последний участник — заявка удаляется вместе с ним.
+            # Ответ остаётся 204 (контракт SPA); интерфейс узнаёт об удалении заявки по 404.
+            if not Attendee.objects.filter(request=req).exists():
+                req_pk = str(req.pk)
+                req.delete()
+                audit_log(
+                    user=request.user, action="request.delete", obj_type="Request", obj_id=req_pk,
+                    ip=request.META.get("REMOTE_ADDR", ""),
+                )
+        return Response(status=204)
+
+    def create(self, request, *args, **kwargs):
+        if _rate_limited(request):
+            return _too_many()
+        # Как HTML `add_attendee`: в отправленную заявку участника не добавить — проверяем
+        # до валидации полей. Чужая заявка здесь не раскрывается: её отсечёт сериализатор.
+        req = Request.objects.filter(pk=str(request.data.get("request") or "")).first() if str(
+            request.data.get("request") or "").isdigit() else None
+        if req is not None and get_operator_events(request.user).filter(pk=req.event_id).exists():
+            if not lifecycle.can_add_to(req):
+                raise Conflict({"request": ErrorDetail(lifecycle.text("closed"), code="request_closed")})
+        return super().create(request, *args, **kwargs)
 
     # ── Переход draft → submitted (операторский submit, AC-6) ────────────
     @action(detail=True, methods=["post"], permission_classes=[IsOperator])
