@@ -1,13 +1,20 @@
-"""Миграция 0036: дубль причины возврата last_return_reason удаляется без потери текста."""
+"""Миграция 0036: дубль причины возврата last_return_reason удаляется без потери текста.
+
+Данные пишутся и читаются историческими моделями (состояние на 0035 и 0036), а не
+текущей `Attendee`: у текущей модели есть поля поздних миграций (0037 и дальше),
+которых в схеме 0035/0036 ещё нет.
+"""
 
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TransactionTestCase
+from django.utils import timezone
 
-from eventproject.models import Attendee, Event
+from eventproject.models import Event
 from eventproject.tests.test_attendee_api import (
+    BDATE,
+    KZ,
     VALID_IIN,
-    _make_attendee,
     _make_operator,
     _make_request,
 )
@@ -22,6 +29,10 @@ def _migrate_to_latest():
     executor.migrate(executor.loader.graph.leaf_nodes())
 
 
+def _attendees_at(node):
+    return MigrationExecutor(connection).loader.project_state([node]).apps.get_model("eventproject", "Attendee").objects
+
+
 class ReturnReasonMigrationTests(TransactionTestCase):
     def setUp(self):
         event = Event.objects.create(name_rus="Событие", title="E")
@@ -29,14 +40,14 @@ class ReturnReasonMigrationTests(TransactionTestCase):
         self.request = _make_request(event, operator)
         MigrationExecutor(connection).migrate([BEFORE])
         self.addCleanup(_migrate_to_latest)
-        self.old = MigrationExecutor(connection).loader.project_state([BEFORE]).apps.get_model(
-            "eventproject", "Attendee"
-        ).objects
+        self.old = _attendees_at(BEFORE)
 
     def _attendee(self, surname, status, review_comment, last_reason, count):
-        att = _make_attendee(self.request, surname=surname, status=status, iin=VALID_IIN)
-        self.old.filter(pk=att.pk).update(
-            review_comment=review_comment, last_return_reason=last_reason, return_count=count
+        att = self.old.create(
+            surname=surname, firstname="Тест", post="P", countryId=KZ, docTypeId="ID", docSeries="AB",
+            docIssue="МВД", sexId="M", visitObjects="Зал", transcription="T", request_id=self.request.pk,
+            dateAdd=timezone.now(), birthDate=BDATE, iin=VALID_IIN, status=status,
+            review_comment=review_comment, last_return_reason=last_reason, return_count=count,
         )
         return att.pk
 
@@ -50,19 +61,19 @@ class ReturnReasonMigrationTests(TransactionTestCase):
         plain = self._attendee("Обычный", "draft", "", None, 0)
 
         MigrationExecutor(connection).migrate([AFTER])
+        after = _attendees_at(AFTER)
 
-        got = dict(Attendee.objects.values_list("pk", "review_comment"))
+        got = dict(after.values_list("pk", "review_comment"))
         self.assertEqual(got[branch_era], "Нет фото")
         self.assertEqual(got[both], "Скан нечитаем")
         self.assertEqual(got[resubmitted], "Старая причина")
         self.assertEqual(got[plain], "")
         # «Возвращён» считается только для черновика: повторно отправленный не стал возвращённым.
-        self.assertEqual(Attendee.objects.get(pk=resubmitted).status, "submitted")
+        self.assertEqual(after.get(pk=resubmitted).status, "submitted")
 
     def test_backward_restores_last_return_reason(self):
         returned = self._attendee("Возврат", "draft", "Нет подписи", "Нет подписи", 1)
         MigrationExecutor(connection).migrate([AFTER])
         executor = MigrationExecutor(connection)
         executor.migrate([BEFORE])
-        old = executor.loader.project_state([BEFORE]).apps.get_model("eventproject", "Attendee").objects
-        self.assertEqual(old.get(pk=returned).last_return_reason, "Нет подписи")
+        self.assertEqual(_attendees_at(BEFORE).get(pk=returned).last_return_reason, "Нет подписи")

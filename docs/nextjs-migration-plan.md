@@ -110,6 +110,24 @@
   их не вызывала; ссылка-активация вызывает).
 * Удаление заявки, участника, мероприятия и оператора спрашивает подтверждение.
 
+## Второй этап (сделан 28.11.2026)
+
+Функции из прототипа `accreditation.zip`, которых в старой АЦ не было. Встроены в
+существующий процесс, а не рядом с ним:
+
+| Функция | Как устроена | API | Экран |
+|---|---|---|---|
+| Доп. поля мероприятия | `CustomField`; значения в `Attendee.custom_field_values`, проверка в `AttendeeSerializer` (общая для формы, саморегистрации и внешнего API) | `events/<id>/custom-fields/`, `custom-fields/<id>/` | `/events/[id]/settings?tab=fields`, форма участника |
+| Саморегистрация | `RegistrationLink` single/multi; участники — черновиками в отдельную заявку оператора (`Request.source = self_registration`); отправленную заявку заменяет новая | `events/<id>/registration-links/`, `public/register/<token>/` | `/events/[id]/settings?tab=links`, `/register/[token]` |
+| Внешние системы | `ApiToken` (хранится SHA-256, показывается один раз); заявка `source = api` | `events/<id>/api-tokens/`, `external/events/<id>/attendees/` (Bearer) | `/events/[id]/settings?tab=tokens` |
+| Результат проверки СГО | Исполнение пакета выгрузки: из списка запрещённых — `access_status = no`, остальные из пакета — `yes`; повторное исполнение перезаписывает | `staff/packages/<uuid>/execute/`, `…/result-template/` | дашборд, пакеты выгрузки |
+| Бейджи | Pillow: фон, фото с обрезкой по центру, ФИО с переносом, PDF по странице на карточку; только `access_status = yes`; один — сразу, пакет — фоновой задачей | `events/<id>/badge-template/`, `…/badges/…`, `jobs/<id>/` | `/staff/[id]/badges` |
+| Фоновые задачи | `Job` + `manage.py run_jobs` (SELECT … FOR UPDATE SKIP LOCKED), сервис `worker`; PDF — в `PRIVATE_FILES_ROOT`, не в `/media` | — | — |
+| Журнал аудита | Просмотр `AuditLog` с фильтрами | `admin/audit-log/` | `/admin/audit` |
+
+Миграция `0037` — только добавления (поля с умолчаниями и новые таблицы), старые данные не меняет.
+На сервере перед запуском нужен `migrate` (как и для любой миграции: `check_release_schema` его не делает).
+
 ## Этапы
 
 1. **Каркас.** `web/` — Next.js; dev-прокси на Django; вход, `me`, выход, смена пароля, активация оператора; шапка, роли, RU/KZ/EN.

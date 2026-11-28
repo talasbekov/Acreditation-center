@@ -17,7 +17,7 @@ services:
   app:
     build: .
     restart: unless-stopped
-    environment:
+    environment: &app-env
       SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY}
       FERNET_KEYS: ${FERNET_KEYS:?Set FERNET_KEYS}
       KAZENERGY_API_KEY: ${KAZENERGY_API_KEY:-}
@@ -42,8 +42,25 @@ services:
     volumes:
       - media:/app/media
       - logs:/app/logs
+      - private_files:/app/private_files
     # A read-only schema check precedes Gunicorn. Schema provisioning is an explicit release step.
     command: ["sh", "-ec", "python manage.py check_release_schema && exec gunicorn eventproject.wsgi:application --bind 0.0.0.0:8000 --workers 2 --worker-class gthread --threads 4 --timeout 120"]
+  worker:
+    # Фоновые задачи (PDF бейджей): очередь на PostgreSQL, manage.py run_jobs.
+    # Тот же образ и окружение, что у app; PDF кладёт в общий том private_files.
+    build: .
+    restart: unless-stopped
+    environment: *app-env
+    depends_on:
+      app:
+        condition: service_healthy
+    volumes:
+      - media:/app/media
+      - logs:/app/logs
+      - private_files:/app/private_files
+    healthcheck:
+      disable: true
+    command: ["python", "manage.py", "run_jobs"]
   ui:
     # Интерфейс на Next.js (web/). Наружу не публикуется: запросы приходят через nginx (web).
     build: ./web
@@ -67,6 +84,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
 volumes:
+  private_files:
   database:
   media:
   logs:

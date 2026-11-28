@@ -13,8 +13,9 @@ WORKDIR /app
 ARG INSTALL_DEV_CLIENTS=0
 # Этап F: уже выпущенные исправления безопасности дистрибутива ставятся при сборке.
 # poppler-utils — pdftoppm/pdfinfo для конвертации скана PDF (pdf2image).
+# font-dejavu — TTF с казахскими буквами для ФИО на бейджах (services/badges.py).
 RUN apk upgrade --no-cache \
-    && apk add --no-cache poppler-utils \
+    && apk add --no-cache poppler-utils font-dejavu \
     && if [ "$INSTALL_DEV_CLIENTS" = "1" ]; then apk add --no-cache curl postgresql-client; fi
 
 # Копируем requirements.txt в рабочую директорию
@@ -29,7 +30,7 @@ RUN pip install --no-cache-dir --require-hashes -r requirements.txt \
 COPY . /app/
 
 # Создаем директории
-RUN mkdir -p /app/logs /app/media /app/staticfiles
+RUN mkdir -p /app/logs /app/media /app/staticfiles /app/private_files
 
 # Создаем пользователя для безопасности
 RUN adduser -D -s /bin/sh app \
