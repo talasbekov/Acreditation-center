@@ -35,7 +35,11 @@ from directories.models import Category as Stick, City, Country, DocumentType, S
 from eventproject.models import Attendee, Category, Event, Operator, Request  # noqa: E402
 from eventproject.validators.iin import _control_digit  # noqa: E402
 
-assert "sqlite" in settings.DATABASES["default"]["ENGINE"], "seed_dev только для settings_dev"
+# Только для локальных стендов: SQLite из settings_dev или явно разрешённая локальная БД
+# (SEED_DEV_ALLOW=1 — например, локальный релизный стек в Docker).
+assert "sqlite" in settings.DATABASES["default"]["ENGINE"] or os.environ.get("SEED_DEV_ALLOW") == "1", (
+    "seed_dev только для локальной разработки"
+)
 
 PASSWORD = "dev-pass-2026"
 SCRIPTS = ROOT / "scripts"

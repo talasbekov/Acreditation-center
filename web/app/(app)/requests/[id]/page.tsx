@@ -187,6 +187,14 @@ function RequestPage() {
                     {t("Удалить")}
                   </ConfirmButton>
                 </>
+              ) : me?.is_superuser && !preview && a.status !== "ready" && a.status !== "exported" ? (
+                // Как `request_admin.html`: администратор удаляет участника, пока его не допустили.
+                <ConfirmButton
+                  question={t("Удалить участника {name}?", { name: `${a.surname} ${a.firstname}` })}
+                  onConfirm={() => remove(a)}
+                >
+                  {t("Удалить")}
+                </ConfirmButton>
               ) : null
             }
           />
