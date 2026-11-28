@@ -164,3 +164,11 @@ export function mediaPath(url: string | null | undefined): string | null {
     return url;
   }
 }
+
+/** Скачать файл со старого адреса Django (не `/api/v1`), например `/download_json/5/`. */
+export async function downloadLegacy(path: string, fallbackName: string, method: "GET" | "POST" = "GET") {
+  const res = await send(path, { method });
+  const cd = res.headers.get("Content-Disposition") || "";
+  const m = cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
+  saveBlob(await res.blob(), m ? decodeURIComponent(m[1]) : fallbackName);
+}

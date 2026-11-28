@@ -96,3 +96,59 @@ export interface Directories {
   categories: DirectoryRow[];
   countries: DirectoryRow[];
 }
+
+export interface City {
+  code: string;
+  name_rus: string;
+  name_kaz: string;
+  name_eng: string;
+}
+
+export interface OperatorRow {
+  id: number;
+  username: string;
+  last_name: string;
+  first_name: string;
+  patronymic: string;
+  email: string;
+  phone_number: string;
+  workplace: string;
+  role: string;
+  is_active: boolean;
+  email_status: string;
+  event_ids?: number[];
+}
+
+export interface AdminRequestRow {
+  id: number;
+  name: string;
+  status: string;
+  date_created: string;
+  registration_time: string;
+  event_id: number;
+  created_by: string;
+}
+
+export interface AdminHome {
+  events: EventBrief[];
+  operators: OperatorRow[];
+  cities: City[];
+}
+
+export interface AdminEventCard {
+  event: EventBrief;
+  city_name: string;
+  operators: OperatorRow[];
+  other_operators: OperatorRow[];
+  requests: AdminRequestRow[];
+  active_requests: AdminRequestRow[];
+  unexported: number;
+  archive: { name: string; size_mb: number; modified: string } | null;
+  events: EventBrief[];
+}
+
+export interface AdminOperatorCard {
+  operator: OperatorRow;
+  events: EventBrief[];
+  requests: AdminRequestRow[];
+}

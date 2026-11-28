@@ -11,6 +11,7 @@ from eventproject.views.attendee_api import AttendeeViewSet
 from eventproject.views.request_api import RequestViewSet, cabinet
 from eventproject.views.directories_api import directories
 from eventproject.views.auth_api import ChangePasswordView, LoginView, LogoutView, MeView
+from eventproject.views import admin_api
 
 
 @ensure_csrf_cookie
@@ -35,6 +36,23 @@ def rbac_check(request):
 
 urlpatterns = router.urls + [
     path("cabinet/", cabinet, name="api_cabinet"),
+    # Страницы администратора (views/admin_api.py) — паритет с /avmac/, /show_event/, /show_operator/.
+    path("admin/home/", admin_api.admin_home, name="api_admin_home"),
+    path("admin/events/", admin_api.admin_create_event, name="api_admin_create_event"),
+    path("admin/events/<int:event_id>/", admin_api.admin_event, name="api_admin_event"),
+    path("admin/events/<int:event_id>/operators/", admin_api.admin_bind_operators, name="api_admin_bind"),
+    path(
+        "admin/events/<int:event_id>/operators/<int:operator_id>/",
+        admin_api.admin_unbind_operator,
+        name="api_admin_unbind",
+    ),
+    path("admin/operators/", admin_api.admin_create_operator, name="api_admin_create_operator"),
+    path("admin/operators/<int:operator_id>/", admin_api.admin_operator, name="api_admin_operator"),
+    path(
+        "admin/operators/<int:operator_id>/new-password/",
+        admin_api.admin_operator_new_password,
+        name="api_admin_operator_new_password",
+    ),
     path("auth/login/", LoginView.as_view(), name="api_login"),
     path("auth/logout/", LogoutView.as_view(), name="api_logout"),
     path("auth/me/", MeView.as_view(), name="api_me"),
