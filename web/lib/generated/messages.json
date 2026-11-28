@@ -1,0 +1,122 @@
+{
+  "account_disabled": {
+    "en": "The account is deactivated",
+    "kz": "Аккаунт өшірілген",
+    "ru": "Аккаунт деактивирован"
+  },
+  "add_failed": {
+    "en": "Could not add. {reason}",
+    "kz": "Қатысушы қосылмады. {reason}",
+    "ru": "Не удалось добавить. {reason}"
+  },
+  "added": {
+    "en": "Attendee {transcription} is successfully added to the request",
+    "kz": "Қатысушы {surname} {firstname} сәтті қосылды",
+    "ru": "Участник {surname} {firstname} был успешно добавлен"
+  },
+  "bad_date_format": {
+    "en": "Check the date format (YYYY-MM-DD).",
+    "kz": "Күн форматын тексеріңіз (ЖЖЖЖ-АА-КК).",
+    "ru": "Проверьте формат дат (ГГГГ-ММ-ДД)."
+  },
+  "delete_failed": {
+    "en": "Could not delete the attendee",
+    "kz": "Қатысушыны өшіру мүмкін болмады",
+    "ru": "Не удалось удалить участника"
+  },
+  "deleted": {
+    "en": "Attendee {surname} {firstname} is deleted",
+    "kz": "Қатысушы {surname} {firstname} жүйеден өшірілді",
+    "ru": "Участник {surname} {firstname} был успешно удален"
+  },
+  "dob_future": {
+    "en": "Wrong date of birth",
+    "kz": "Туған күн қате еңгізілген",
+    "ru": "Проверьте дату рождения"
+  },
+  "doc_expired": {
+    "en": "Wrong document expiry date",
+    "kz": "Құжаттың мерзімі өтіп кетті",
+    "ru": "Истек срок документа"
+  },
+  "doc_not_started": {
+    "en": "Wrong document issued date",
+    "kz": "Құжаттың берілген күні қате",
+    "ru": "Дата выдачи документа еще не наступила"
+  },
+  "iin_checksum": {
+    "en": "Invalid IIN: wrong check digit.",
+    "kz": "ЖСН қате: бақылау цифры дұрыс емес.",
+    "ru": "ИИН некорректен: неверная контрольная цифра."
+  },
+  "iin_date_invalid": {
+    "en": "Invalid IIN: impossible date of birth.",
+    "kz": "ЖСН қате: туған күні жарамсыз.",
+    "ru": "ИИН некорректен: недопустимая дата рождения."
+  },
+  "iin_dob_mismatch": {
+    "en": "The date of birth in the IIN ({iin_dob}) does not match the one entered ({entered_dob}). Check the date.",
+    "kz": "ЖСН-дағы туған күн ({iin_dob}) енгізілген күнмен ({entered_dob}) сәйкес келмейді. Күнді тексеріңіз.",
+    "ru": "Дата рождения в ИИН ({iin_dob}) не совпадает с введённой ({entered_dob}). Проверьте дату."
+  },
+  "iin_format": {
+    "en": "The IIN must contain exactly 12 digits.",
+    "kz": "ЖСН дәл 12 цифрдан тұруы керек.",
+    "ru": "ИИН должен содержать ровно 12 цифр."
+  },
+  "iin_required": {
+    "en": "IIN is required for citizens of Kazakhstan",
+    "kz": "Қазақстан азаматтары үшін ЖСН міндетті",
+    "ru": "ИИН обязателен для граждан Казахстана"
+  },
+  "login_bad": {
+    "en": "Wrong username or password",
+    "kz": "Логин, не құпиясыз сәйкес келмейді",
+    "ru": "Неправильный логин или пароль"
+  },
+  "login_locked": {
+    "en": "The account is temporarily locked after too many failed login attempts. Please try again later.",
+    "kz": "Сәтсіз кіру әрекеттері көп болғандықтан, аккаунт уақытша бұғатталды. Кейінірек қайталап көріңіз.",
+    "ru": "Аккаунт временно заблокирован из-за множества неудачных попыток входа. Повторите попытку позже."
+  },
+  "pw_changed": {
+    "en": "Password is successfully changed",
+    "kz": "Құпиясөз сәтті өзгертілді",
+    "ru": "Пароль успешно изменен"
+  },
+  "pw_failed": {
+    "en": "Could not change the password. Please try again.",
+    "kz": "Құпиясөзді өзгерту мүмкін болмады. Қайталап көріңіз.",
+    "ru": "Не удалось изменить пароль. Попробуйте ещё раз."
+  },
+  "pw_mismatch": {
+    "en": "New passwords do not match",
+    "kz": "Жаңа құпиясөздер сәйкес келмейді",
+    "ru": "Введите новый пароль два раза"
+  },
+  "pw_wrong_old": {
+    "en": "Wrong old password",
+    "kz": "Ескі құпиясөз дұрыс емес",
+    "ru": "Не удалось подтвердить данные"
+  },
+  "ready_to_send": {
+    "en": "Request is ready to send",
+    "kz": "Өтініш жіберуге дайын",
+    "ru": "Заявка готова к отправлению"
+  },
+  "request_deleted": {
+    "en": "Request {name} was deleted because no attendees were left",
+    "kz": "{name} өтінімінде қатысушы қалмағандықтан, ол өшірілді",
+    "ru": "Заявка {name} удалена, так как в ней не осталось участников"
+  },
+  "send_warning": {
+    "en": "Attention! Sending the application does not guarantee entrance to the event",
+    "kz": "Назар аударыңыз!!! Өтініштің жіберілімі шараға кіргізілуге кепіл болмайды",
+    "ru": "Внимание!!! Отправка заявки не гарантирует допуск участника в зону проведения охранного мероприятия в установленную дату"
+  },
+  "sent_at": {
+    "en": "Sent {time}",
+    "kz": "{time} жіберілді",
+    "ru": "Отправлено {time}"
+  }
+}

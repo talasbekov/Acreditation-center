@@ -1,77 +1,84 @@
 "use client";
 
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
-import { useRouter } from "next/navigation";
-import { api, setToken } from "./api";
-import type { Role, Session, SubjectType } from "./types";
+/**
+ * Сессия пользователя. Источник правды — Django (`GET /api/v1/auth/me/`);
+ * в браузере ничего не храним.
+ *
+ * Роли как в старой АЦ (`User.role`, eventproject/models.py):
+ * superuser — администратор (страницы /avmac/…), superoperator — проверка и
+ * выгрузка, operator — заявки и участники, user — без доступа.
+ */
+
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { api, ApiException } from "./api";
+
+export type Role = "superuser" | "superoperator" | "operator" | "user";
+
+export interface Me {
+  id: number;
+  username: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  role: Role;
+  is_superuser: boolean;
+  operator_id: number | null;
+  patronymic: string;
+  workplace: string;
+  force_password_change: boolean;
+}
 
 interface AuthState {
-  session: Session | null;
+  me: Me | null;
   ready: boolean;
-  isAdmin: boolean;
-  login: (login: string, password: string) => Promise<Session>;
-  logout: () => void;
+  login: (username: string, password: string) => Promise<Me>;
+  logout: () => Promise<void>;
+  refresh: () => Promise<Me | null>;
+  setMe: (m: Me | null) => void;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
 
-const STORE_KEY = "acc_session";
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
+  const [me, setMe] = useState<Me | null>(null);
   const [ready, setReady] = useState(false);
-  const router = useRouter();
+
+  const refresh = useCallback(async () => {
+    try {
+      const m = await api<Me>("/auth/me/");
+      setMe(m);
+      return m;
+    } catch (e) {
+      if (e instanceof ApiException && (e.status === 401 || e.status === 403)) {
+        setMe(null);
+        return null;
+      }
+      throw e;
+    } finally {
+      setReady(true);
+    }
+  }, []);
 
   useEffect(() => {
+    refresh().catch(() => setReady(true));
+  }, [refresh]);
+
+  const login = useCallback(async (username: string, password: string) => {
+    const m = await api<Me>("/auth/login/", { method: "POST", body: { username, password } });
+    setMe(m);
+    return m;
+  }, []);
+
+  const logout = useCallback(async () => {
     try {
-      const raw = localStorage.getItem(STORE_KEY);
-      if (raw) setSession(JSON.parse(raw));
-    } catch {
-      /* ignore */
+      await api("/auth/logout/", { method: "POST" });
+    } finally {
+      setMe(null);
     }
-    setReady(true);
   }, []);
-
-  const login = useCallback(async (login: string, password: string) => {
-    const res = await api<{
-      token: string;
-      role: Role;
-      typ: SubjectType;
-      user: Session["user"];
-    }>("/auth/login", { method: "POST", auth: false, body: { login, password } });
-    const sess: Session = {
-      token: res.token,
-      role: res.role,
-      typ: res.typ,
-      user: res.user,
-    };
-    setToken(sess.token);
-    localStorage.setItem(STORE_KEY, JSON.stringify(sess));
-    setSession(sess);
-    return sess;
-  }, []);
-
-  const logout = useCallback(() => {
-    setToken(null);
-    localStorage.removeItem(STORE_KEY);
-    setSession(null);
-    router.push("/login");
-  }, [router]);
-
-  const isAdmin = session?.typ === "user";
 
   return (
-    <AuthContext.Provider
-      value={{ session, ready, isAdmin, login, logout }}
-    >
-      {children}
-    </AuthContext.Provider>
+    <AuthContext.Provider value={{ me, ready, login, logout, refresh, setMe }}>{children}</AuthContext.Provider>
   );
 }
 
@@ -80,3 +87,15 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used within AuthProvider");
   return ctx;
 }
+
+/** Стартовая страница по роли — как редирект после входа в старой АЦ. */
+export function homeFor(me: Me): string {
+  if (me.force_password_change) return "/change-password";
+  if (me.is_superuser) return "/admin/events";
+  return "/cabinet";
+}
+
+export const isAdmin = (me: Me | null) => !!me?.is_superuser;
+export const isStaff = (me: Me | null) => me?.role === "superuser" || me?.role === "superoperator";
+export const isOperatorRole = (me: Me | null) =>
+  me?.role === "operator" || me?.role === "superoperator" || me?.role === "superuser";

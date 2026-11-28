@@ -1,137 +1,151 @@
-import type { ApiError } from "./types";
+/**
+ * Клиент Django API (`/api/v1/`). Тот же origin, что и интерфейс: в разработке
+ * Next.js проксирует `/api/` на Django (next.config.mjs), в бою — nginx.
+ *
+ * Авторизация — Django-сессия (cookie `sessionid`). На мутирующих запросах
+ * отправляем `X-CSRFToken` из cookie `csrftoken`.
+ */
 
-export const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8080/api/v1";
+export const API_PREFIX = "/api/v1";
 
-const TOKEN_KEY = "acc_token";
-
-export function getToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(TOKEN_KEY);
-}
-
-export function setToken(token: string | null) {
-  if (typeof window === "undefined") return;
-  if (token) localStorage.setItem(TOKEN_KEY, token);
-  else localStorage.removeItem(TOKEN_KEY);
+/** Ошибка API в формате RFC 7807 (eventproject/api/exceptions.py). */
+export interface Problem {
+  type?: string;
+  field?: string | null;
+  params?: Record<string, unknown>;
+  detail?: string | null;
+  errors?: Record<string, string>;
+  code?: string;
+  [key: string]: unknown;
 }
 
 export class ApiException extends Error {
   status: number;
-  body: ApiError;
-  constructor(status: number, body: ApiError) {
-    super(body.message || body.error || "Ошибка запроса");
+  problem: Problem;
+  constructor(status: number, problem: Problem) {
+    super(problem.detail || problem.type || `HTTP ${status}`);
     this.status = status;
-    this.body = body;
+    this.problem = problem;
   }
+}
+
+const UNSAFE = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+
+export function getCsrfToken(): string | null {
+  if (typeof document === "undefined") return null;
+  const m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+export async function ensureCsrf(): Promise<void> {
+  if (getCsrfToken()) return;
+  await fetch(`${API_PREFIX}/csrf/`, { credentials: "include" });
+}
+
+type Query = Record<string, string | number | boolean | undefined | null>;
+
+export function withQuery(path: string, query?: Query): string {
+  if (!query) return path;
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(query)) {
+    if (v !== undefined && v !== null && v !== "") qs.set(k, String(v));
+  }
+  const s = qs.toString();
+  return s ? `${path}${path.includes("?") ? "&" : "?"}${s}` : path;
 }
 
 interface RequestOptions {
   method?: string;
   body?: unknown;
-  auth?: boolean;
-  query?: Record<string, string | number | boolean | undefined>;
+  query?: Query;
 }
 
-export async function api<T = unknown>(
-  path: string,
-  opts: RequestOptions = {}
-): Promise<T> {
-  const { method = "GET", body, auth = true, query } = opts;
-  let url = API_BASE + path;
-  if (query) {
-    const qs = new URLSearchParams();
-    Object.entries(query).forEach(([k, v]) => {
-      if (v !== undefined && v !== "") qs.set(k, String(v));
-    });
-    const s = qs.toString();
-    if (s) url += "?" + s;
-  }
-
-  const headers: Record<string, string> = {};
-  if (body !== undefined) headers["Content-Type"] = "application/json";
-  if (auth) {
-    const t = getToken();
-    if (t) headers["Authorization"] = "Bearer " + t;
-  }
-
-  const res = await fetch(url, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  });
-
-  if (res.status === 204) return undefined as T;
-
+async function parse(res: Response): Promise<unknown> {
   const text = await res.text();
-  const data = text ? JSON.parse(text) : undefined;
-
-  if (!res.ok) {
-    throw new ApiException(res.status, (data as ApiError) || { error: "error" });
+  if (!text) return undefined;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { detail: text };
   }
-  return data as T;
 }
 
-/**
- * apiForm отправляет multipart/form-data — так спецификация принимает файлы
- * (фон бейджа). Content-Type ставит браузер: вручную его задавать нельзя,
- * иначе потеряется boundary.
- */
-export async function apiForm<T = unknown>(
-  path: string,
-  form: FormData,
-  method = "PUT"
-): Promise<T> {
-  const headers: Record<string, string> = {};
-  const t = getToken();
-  if (t) headers["Authorization"] = "Bearer " + t;
+async function send(path: string, init: RequestInit): Promise<Response> {
+  const method = (init.method || "GET").toUpperCase();
+  const headers = new Headers(init.headers);
+  if (UNSAFE.has(method)) {
+    await ensureCsrf();
+    const token = getCsrfToken();
+    if (token) headers.set("X-CSRFToken", token);
+  }
+  const res = await fetch(path, { ...init, method, headers, credentials: "include" });
+  if (!res.ok) {
+    const body = (await parse(res)) as Problem | undefined;
+    const problem: Problem = body && typeof body === "object" ? body : {};
+    if (!problem.type && problem.code) problem.type = String(problem.code);
+    throw new ApiException(res.status, problem);
+  }
+  return res;
+}
 
-  const res = await fetch(API_BASE + path, { method, headers, body: form });
+/** JSON-запрос к `/api/v1${path}`. */
+export async function api<T = unknown>(path: string, opts: RequestOptions = {}): Promise<T> {
+  const { method = "GET", body, query } = opts;
+  const headers: Record<string, string> = { Accept: "application/json" };
+  let payload: BodyInit | undefined;
+  if (body instanceof FormData) {
+    payload = body; // boundary ставит браузер
+  } else if (body !== undefined) {
+    headers["Content-Type"] = "application/json";
+    payload = JSON.stringify(body);
+  }
+  const res = await send(withQuery(API_PREFIX + path, query), { method, headers, body: payload });
   if (res.status === 204) return undefined as T;
-
-  const text = await res.text();
-  const data = text ? JSON.parse(text) : undefined;
-  if (!res.ok) {
-    throw new ApiException(res.status, (data as ApiError) || { error: "error" });
-  }
-  return data as T;
+  return (await parse(res)) as T;
 }
 
-/** apiBlob тянет бинарный ответ (PDF, картинку) с заголовком авторизации. */
-export async function apiBlob(
-  path: string,
-  query?: Record<string, string | undefined>
-): Promise<Blob> {
-  let url = API_BASE + path;
-  if (query) {
-    const qs = new URLSearchParams();
-    Object.entries(query).forEach(([k, v]) => v && qs.set(k, v));
-    const s = qs.toString();
-    if (s) url += "?" + s;
-  }
-  const headers: Record<string, string> = {};
-  const t = getToken();
-  if (t) headers["Authorization"] = "Bearer " + t;
-
-  const res = await fetch(url, { headers });
-  if (!res.ok) {
-    const text = await res.text();
-    let body: ApiError = { error: "error" };
-    try {
-      body = JSON.parse(text) as ApiError;
-    } catch {
-      /* не JSON — оставляем общую ошибку */
-    }
-    throw new ApiException(res.status, body);
-  }
-  return res.blob();
+/** Бинарный ответ (ZIP, JSON-файл, PDF) для скачивания. */
+export async function apiBlob(path: string, query?: Query, method = "GET"): Promise<{ blob: Blob; filename: string | null }> {
+  const res = await send(withQuery(API_PREFIX + path, query), { method });
+  const cd = res.headers.get("Content-Disposition") || "";
+  const m = cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
+  return { blob: await res.blob(), filename: m ? decodeURIComponent(m[1]) : null };
 }
 
-/** downloadBlob сохраняет полученный файл через временную ссылку. */
-export function downloadBlob(blob: Blob, filename: string) {
+export function saveBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
+  a.href = url;
   a.download = filename;
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(a.href);
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** Скачать файл из API и сохранить под именем из ответа (или запасным). */
+export async function download(path: string, fallbackName: string, query?: Query, method = "GET") {
+  const { blob, filename } = await apiBlob(path, query, method);
+  saveBlob(blob, filename || fallbackName);
+}
+
+/** Страница DRF: `{count, next, previous, results}`. */
+export interface Page<T> {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+}
+
+/** Все страницы списка подряд (списки в АЦ небольшие: сотни записей). */
+export async function apiAll<T>(path: string, query?: Query): Promise<T[]> {
+  const out: T[] = [];
+  let page = 1;
+  for (;;) {
+    const data = await api<Page<T> | T[]>(path, { query: { ...query, page } });
+    if (Array.isArray(data)) return data;
+    out.push(...data.results);
+    if (!data.next) return out;
+    page += 1;
+  }
 }

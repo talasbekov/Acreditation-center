@@ -1,104 +1,124 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/lib/auth";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { homeFor, useAuth } from "@/lib/auth";
 import { ApiException } from "@/lib/api";
+import { LANGS, useLang } from "@/lib/i18n";
 
-export default function LoginPage() {
-  const { login, session, ready } = useAuth();
+/** Только адрес этого же сайта (как `_safe_next_url` в старой АЦ). */
+function safeNext(raw: string | null): string | null {
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/login")) return null;
+  return raw;
+}
+
+function LoginForm() {
+  const { login, me, ready } = useAuth();
+  const { t, err, lang, setLang } = useLang();
   const router = useRouter();
-  const [loginValue, setLoginValue] = useState("");
+  const params = useSearchParams();
+  const next = safeNext(params.get("next"));
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (ready && session) router.replace("/events");
-  }, [ready, session, router]);
+    if (ready && me) router.replace(me.force_password_change ? "/change-password" : next || homeFor(me));
+  }, [ready, me, next, router]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
     try {
-      await login(loginValue, password);
-      router.replace("/events");
-    } catch (err) {
-      if (err instanceof ApiException) setError(err.message);
-      else setError("Не удалось подключиться к серверу");
+      await login(username, password);
+    } catch (ex) {
+      setError(ex instanceof ApiException ? err(ex.problem) : t("Не удалось подключиться к серверу"));
     } finally {
       setLoading(false);
     }
   };
 
-  const quickFill = (l: string, p: string) => {
-    setLoginValue(l);
-    setPassword(p);
-  };
-
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-brand-700 to-brand-900 p-4">
       <div className="card w-full max-w-md p-8">
-        <div className="mb-6 text-center">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-600 text-3xl">
-            🛡️
+        <div className="mb-4 flex justify-end">
+          <div className="flex overflow-hidden rounded-lg border border-slate-200" role="group" aria-label={t("Язык")}>
+            {LANGS.map((l) => (
+              <button
+                key={l}
+                type="button"
+                onClick={() => setLang(l)}
+                aria-pressed={lang === l}
+                className={`px-2.5 py-1 text-xs font-semibold uppercase ${
+                  lang === l ? "bg-brand-600 text-white" : "bg-white text-slate-500"
+                }`}
+              >
+                {l}
+              </button>
+            ))}
           </div>
-          <h1 className="text-xl font-bold text-slate-900">Центр аккредитации</h1>
-          <p className="text-sm text-slate-500">Служба государственной охраны РК</p>
         </div>
-
+        <div className="mb-6 text-center">
+          <h1 className="text-xl font-bold text-slate-900">
+            {t("Аккредитационный центр Службы государственной охраны Республики Казахстан")}
+          </h1>
+        </div>
         <form onSubmit={submit} className="space-y-4">
           <div>
-            <label className="label">Логин</label>
+            <label className="label" htmlFor="username">
+              {t("Логин")}
+            </label>
             <input
+              id="username"
               className="input"
-              value={loginValue}
-              onChange={(e) => setLoginValue(e.target.value)}
+              placeholder={t("Введите логин")}
+              autoComplete="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               autoFocus
               required
             />
           </div>
           <div>
-            <label className="label">Пароль</label>
+            <label className="label" htmlFor="password">
+              {t("Пароль")}
+            </label>
             <input
+              id="password"
               type="password"
               className="input"
+              placeholder={t("Введите пароль")}
+              autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
           </div>
           {error && (
-            <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
               {error}
             </div>
           )}
           <button type="submit" className="btn-primary w-full" disabled={loading}>
-            {loading ? "Вход…" : "Войти"}
+            {loading ? t("Вход…") : t("Войти")}
           </button>
         </form>
-
-        <div className="mt-6 border-t border-slate-100 pt-4">
-          <p className="mb-2 text-center text-xs text-slate-400">
-            Демо-доступы (mock API):
-          </p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => quickFill("admin", "admin")}
-              className="btn-secondary flex-1 text-xs"
-            >
-              Админ
-            </button>
-            <button
-              onClick={() => quickFill("operator", "operator")}
-              className="btn-secondary flex-1 text-xs"
-            >
-              Оператор
-            </button>
-          </div>
-        </div>
+        <p className="mt-6 text-center text-sm">
+          <a className="text-brand-700 underline" href="/static/docs/instructions.pdf" target="_blank" rel="noopener noreferrer">
+            {t("Инструкция по заполнению данных для аккредитации")}
+          </a>
+        </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }
