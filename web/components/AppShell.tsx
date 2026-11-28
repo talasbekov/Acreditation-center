@@ -37,6 +37,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     : [
         { href: "/admin/events", label: t("Мероприятия"), show: isAdmin(me) },
         { href: "/admin/operators", label: t("Операторы"), show: isAdmin(me) },
+        { href: "/admin/audit", label: t("Журнал аудита"), show: isAdmin(me) },
         { href: "/cabinet", label: t("Кабинет"), show: !isAdmin(me) },
         { href: "/staff", label: t("Проверка и выгрузка"), show: isStaff(me) },
       ].filter((n) => n.show);

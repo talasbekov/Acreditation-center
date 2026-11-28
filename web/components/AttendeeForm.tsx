@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api, ApiException } from "@/lib/api";
 import { KZ_COUNTRY_ID, useDirectories } from "@/lib/directories";
 import { useLang } from "@/lib/i18n";
-import type { Attendee } from "@/lib/types";
+import type { Attendee, CustomField, Directories } from "@/lib/types";
 import { ErrorBox, Field } from "./ui";
 
 /**
@@ -89,18 +89,40 @@ function today() {
 
 export default function AttendeeForm({
   requestId,
+  eventId,
   attendee,
   onSaved,
   onCancel,
+  directories,
+  customFields,
+  submit: submitOverride,
+  submitLabel,
 }: {
-  requestId: number;
+  requestId?: number;
+  /** Мероприятие — для дополнительных полей (если они не переданы явно). */
+  eventId?: number;
   attendee?: Attendee;
   onSaved: (a: Attendee) => void;
-  onCancel: () => void;
+  onCancel?: () => void;
+  /** Публичная форма: справочники и доп. поля приходят вместе со ссылкой. */
+  directories?: Directories;
+  customFields?: CustomField[];
+  submit?: (body: FormData) => Promise<Attendee>;
+  submitLabel?: string;
 }) {
   const { t, err } = useLang();
-  const dirs = useDirectories();
+  const fetched = useDirectories(!directories);
+  const dirs = directories ?? fetched;
   const mode = attendee ? "edit" : "add";
+  const [fields, setFields] = useState<CustomField[]>(customFields || []);
+  const [cf, setCf] = useState<Record<string, string>>(attendee?.custom_field_values || {});
+
+  useEffect(() => {
+    if (customFields || !eventId) return;
+    api<{ results: CustomField[] }>(`/events/${eventId}/custom-fields/`)
+      .then((r) => setFields(r.results))
+      .catch(() => setFields([]));
+  }, [eventId, customFields]);
   const [v, setV] = useState<Values>(attendee ? fromAttendee(attendee) : EMPTY);
   const [photo, setPhoto] = useState<File | null>(null);
   const [scan, setScan] = useState<File | null>(null);
@@ -157,7 +179,7 @@ export default function AttendeeForm({
     setErrors({});
     setError("");
     const body = new FormData();
-    body.set("request", String(requestId));
+    if (requestId) body.set("request", String(requestId));
     for (const [k, val] of Object.entries(v)) {
       if (k === "iin" && !resident) continue;
       if (k === "stickId" && resident) continue;
@@ -165,10 +187,13 @@ export default function AttendeeForm({
     }
     if (photo) body.set("photo", photo);
     if (scan) body.set("docScan", scan);
+    if (fields.length) body.set("custom_field_values", JSON.stringify(cf));
     try {
-      const saved = attendee
-        ? await api<Attendee>(`/attendees/${attendee.id}/`, { method: "PATCH", body })
-        : await api<Attendee>("/attendees/", { method: "POST", body });
+      const saved = submitOverride
+        ? await submitOverride(body)
+        : attendee
+          ? await api<Attendee>(`/attendees/${attendee.id}/`, { method: "PATCH", body })
+          : await api<Attendee>("/attendees/", { method: "POST", body });
       onSaved(saved);
     } catch (ex) {
       if (ex instanceof ApiException) {
@@ -373,6 +398,51 @@ export default function AttendeeForm({
         </div>
       </section>
 
+      {fields.length > 0 && (
+        <section className="card p-5" aria-labelledby="sec-extra">
+          <h2 id="sec-extra" className="mb-4 text-base font-semibold">
+            {t("Дополнительные поля")}
+          </h2>
+          {errors.custom_field_values && (
+            <p role="alert" className="mb-3 text-sm text-red-700">
+              {errors.custom_field_values}
+            </p>
+          )}
+          <div className="grid gap-4 sm:grid-cols-2">
+            {fields.map((f) => {
+              const id = `cf-${f.id}`;
+              const value = cf[String(f.id)] || "";
+              const change = (val: string) => setCf((s) => ({ ...s, [String(f.id)]: val }));
+              return (
+                <Field key={f.id} label={f.field_name} required={f.is_required} htmlFor={id}>
+                  {f.field_type === "select" ? (
+                    <select id={id} className="input" required={f.is_required} value={value} onChange={(e) => change(e.target.value)}>
+                      <option value="">—</option>
+                      {f.options.map((o) => (
+                        <option key={o} value={o}>
+                          {o}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      id={id}
+                      className="input"
+                      type={f.field_type === "date" ? "date" : f.field_type === "number" ? "number" : "text"}
+                      step={f.field_type === "number" ? "any" : undefined}
+                      required={f.is_required}
+                      maxLength={1000}
+                      value={value}
+                      onChange={(e) => change(e.target.value)}
+                    />
+                  )}
+                </Field>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
       {mode === "add" && (
         <p className="text-sm text-slate-600">
           {t(
@@ -382,11 +452,13 @@ export default function AttendeeForm({
       )}
       <div className="flex flex-wrap gap-2">
         <button type="submit" className="btn-primary" disabled={saving}>
-          {mode === "edit" ? t("Сохранить изменения") : t("Добавить участника")}
+          {submitLabel || (mode === "edit" ? t("Сохранить изменения") : t("Добавить участника"))}
         </button>
-        <button type="button" className="btn-secondary" onClick={onCancel}>
-          {t("Отмена")}
-        </button>
+        {onCancel && (
+          <button type="button" className="btn-secondary" onClick={onCancel}>
+            {t("Отмена")}
+          </button>
+        )}
       </div>
     </form>
   );

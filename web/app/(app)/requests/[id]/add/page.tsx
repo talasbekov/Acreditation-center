@@ -42,6 +42,7 @@ export default function AddAttendeePage() {
       />
       <AttendeeForm
         requestId={req.id}
+        eventId={req.event.id}
         onCancel={() => router.push(`/requests/${id}`)}
         onSaved={(a) => {
           setFlash(msg("added", { surname: a.surname, firstname: a.firstname, transcription: a.transcription }));

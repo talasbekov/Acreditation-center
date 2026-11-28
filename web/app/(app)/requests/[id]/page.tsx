@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth";
 import { useDirectories } from "@/lib/directories";
 import { takeFlash } from "@/lib/flash";
 import { useLang } from "@/lib/i18n";
-import type { Attendee, RequestDetail, SendProblem } from "@/lib/types";
+import type { Attendee, CustomField, RequestDetail, SendProblem } from "@/lib/types";
 import AttendeeCard from "@/components/AttendeeCard";
 import { ConfirmButton, PageHeader, Spinner, formatDateTime } from "@/components/ui";
 
@@ -28,12 +28,16 @@ function RequestPage() {
   const [problems, setProblems] = useState<SendProblem[]>([]);
   const [gone, setGone] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [fields, setFields] = useState<CustomField[]>([]);
   const preview = search.get("preview") === "1" && !!req?.can_preview;
 
   const load = useCallback(async () => {
     try {
       const data = await api<RequestDetail>(`/requests/${params.id}/`);
       setReq(data);
+      api<{ results: CustomField[] }>(`/events/${data.event.id}/custom-fields/`)
+        .then((r) => setFields(r.results))
+        .catch(() => setFields([]));
       return data;
     } catch (e) {
       if (e instanceof ApiException && e.status === 404) setGone(t("Заявка не найдена"));
@@ -174,6 +178,7 @@ function RequestPage() {
             key={a.id}
             a={a}
             dirs={dirs}
+            fields={fields}
             actions={
               a.status === "draft" && !preview ? (
                 <>

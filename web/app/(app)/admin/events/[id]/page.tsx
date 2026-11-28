@@ -160,6 +160,12 @@ function EventCard() {
               <Link className="btn-secondary" href={`/staff/${ev.id}/review`}>
                 {t("Очередь проверки")}
               </Link>
+              <Link className="btn-secondary" href={`/staff/${ev.id}/badges`}>
+                {t("Бейджи")}
+              </Link>
+              <Link className="btn-secondary" href={`/events/${ev.id}/settings`}>
+                {t("Настройки мероприятия")}
+              </Link>
             </div>
           </section>
 

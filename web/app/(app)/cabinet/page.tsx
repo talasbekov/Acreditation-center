@@ -90,6 +90,9 @@ export default function CabinetPage() {
                 <button type="button" className="btn-primary" disabled={busy === ev.id} onClick={() => createRequest(ev.id)}>
                   {t("+ Создать новый список участников (заявку) для этого мероприятия")}
                 </button>
+                <Link className="btn-secondary" href={`/events/${ev.id}/settings`}>
+                  {t("Настройки мероприятия")}
+                </Link>
                 {me && (me.role === "superoperator" || me.role === "superuser") && (
                   <>
                     <Link className="btn-secondary" href={`/staff/${ev.id}/review`}>

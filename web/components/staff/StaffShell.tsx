@@ -15,6 +15,7 @@ export default function StaffShell({ eventId, children }: { eventId: string; chi
   const tabs = [
     { href: `/staff/${eventId}/review`, label: t("Очередь проверки") },
     { href: `/staff/${eventId}/dashboard`, label: t("Дашборд и выгрузка") },
+    { href: `/staff/${eventId}/badges`, label: t("Бейджи") },
   ];
   return (
     <div>

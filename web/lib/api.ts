@@ -189,3 +189,13 @@ export async function postLegacy(path: string): Promise<{ redirected: boolean; s
   }
   return { redirected: false, status: res.status, text: await res.text() };
 }
+
+/** POST JSON → бинарный ответ (например, PNG предпросмотра бейджа). */
+export async function apiBlobPost(path: string, body: unknown): Promise<Blob> {
+  const res = await send(API_PREFIX + path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  return res.blob();
+}

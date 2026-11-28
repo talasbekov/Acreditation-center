@@ -3,18 +3,20 @@
 import { mediaPath } from "@/lib/api";
 import { dirName } from "@/lib/directories";
 import { attendeeStateKey, STATUS_TONE, useLang } from "@/lib/i18n";
-import type { Attendee, Directories } from "@/lib/types";
-import { Badge, formatDate } from "./ui";
+import type { Attendee, CustomField, Directories } from "@/lib/types";
+import { Badge, formatDate, formatDateTime } from "./ui";
 
 /** Карточка участника — как блок `<article>` в `request.html`. */
 export default function AttendeeCard({
   a,
   dirs,
   actions,
+  fields,
 }: {
   a: Attendee;
   dirs: Directories | null;
   actions?: React.ReactNode;
+  fields?: CustomField[];
 }) {
   const { t, status } = useLang();
   const key = attendeeStateKey(a);
@@ -34,6 +36,8 @@ export default function AttendeeCard({
     [t("Дата выдачи:"), formatDate(a.docBegin), true],
     [t("Действителен до:"), formatDate(a.docEnd), true],
     [t("Кем выдан:"), a.docIssue],
+    ...(fields || []).map((f): [string, string | undefined] => [`${f.field_name}:`, a.custom_field_values?.[String(f.id)]]),
+    [t("Бейдж напечатан:"), a.badge_printed_at ? formatDateTime(a.badge_printed_at) : ""],
   ];
 
   return (
@@ -45,7 +49,11 @@ export default function AttendeeCard({
           </h2>
           <p className="text-sm text-slate-500">{a.transcription}</p>
         </div>
-        <Badge color={STATUS_TONE[key] || "blue"}>{status(key)}</Badge>
+        <div className="flex flex-wrap gap-1">
+          <Badge color={STATUS_TONE[key] || "blue"}>{status(key)}</Badge>
+          {a.access_status === "yes" && <Badge color="green">{t("Доступ разрешён")}</Badge>}
+          {a.access_status === "no" && <Badge color="red">{t("Доступ запрещён")}</Badge>}
+        </div>
       </div>
       {a.status === "draft" && a.review_comment && (
         <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">

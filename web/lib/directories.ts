@@ -8,10 +8,11 @@ import { useLang } from "./i18n";
 const cache = new Map<string, Promise<Directories>>();
 
 /** Справочники СГО (пол, типы документов, категории, страны) на языке интерфейса. */
-export function useDirectories(): Directories | null {
+export function useDirectories(enabled = true): Directories | null {
   const { lang } = useLang();
   const [data, setData] = useState<Directories | null>(null);
   useEffect(() => {
+    if (!enabled) return;
     let alive = true;
     let p = cache.get(lang);
     if (!p) {
@@ -23,7 +24,7 @@ export function useDirectories(): Directories | null {
     return () => {
       alive = false;
     };
-  }, [lang]);
+  }, [lang, enabled]);
   return data;
 }
 

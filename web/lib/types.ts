@@ -63,6 +63,10 @@ export interface Attendee {
   dateAdd: string;
   review_comment: string;
   return_count: number;
+  access_status?: "yes" | "no" | "none";
+  access_decided_at?: string | null;
+  badge_printed_at?: string | null;
+  custom_field_values?: Record<string, string>;
 }
 
 export interface RequestDetail {
@@ -171,6 +175,8 @@ export interface ExportPackage {
   acknowledged_at: string | null;
   acknowledged_by: string | null;
   can_redownload: boolean;
+  executed_at?: string | null;
+  denied_count?: number;
 }
 
 export interface Dashboard {
@@ -187,6 +193,7 @@ export interface Dashboard {
   flags_total: number;
   categories: { id: number; name: string; status: string }[];
   packages: ExportPackage[];
+  access?: Record<string, number>;
 }
 
 export interface ReviewItem {
@@ -217,4 +224,81 @@ export interface ReviewQueue {
   overflow: boolean;
   summary: Record<string, number>;
   max_reason: number;
+}
+
+// ── Второй этап ──
+
+export interface CustomField {
+  id: number;
+  field_name: string;
+  field_type: "text" | "number" | "date" | "select";
+  is_required: boolean;
+  options: string[];
+  sort_order: number;
+}
+
+export interface RegistrationLinkRow {
+  id: number;
+  token: string;
+  url: string;
+  link_type: "single" | "multi";
+  is_used: boolean;
+  is_active: boolean;
+  is_available: boolean;
+  used_count: number;
+  request_id: number;
+  created_at: string;
+  created_by: string;
+}
+
+export interface ApiTokenRow {
+  id: number;
+  name: string;
+  token_prefix: string;
+  is_active: boolean;
+  last_used_at: string | null;
+  created_at: string;
+  request_id: number;
+  endpoint: string;
+  created_by: string;
+  token?: string;
+}
+
+export interface BadgeLayout {
+  badge: { width_mm: number; height_mm: number; dpi: number };
+  photo: { x_mm: number; y_mm: number; width_mm: number; height_mm: number; radius_mm: number };
+  name: { x0: number; x1: number; y: number; line_height: number; max_pt: number; min_pt: number; color: string };
+}
+
+export interface BadgeTemplateInfo {
+  event_id: number;
+  is_default: boolean;
+  has_background: boolean;
+  layout: BadgeLayout;
+  name_source: "ru" | "latin";
+  updated_at: string | null;
+  font_ok: boolean;
+}
+
+export interface BadgeCandidate {
+  id: number;
+  name: string;
+  transcription: string;
+  request_name: string;
+  status: string;
+  access_status: "yes" | "no" | "none";
+  badge_printed_at: string | null;
+  has_photo: boolean;
+}
+
+export interface JobInfo {
+  id: number;
+  type: string;
+  status: "pending" | "processing" | "completed" | "failed";
+  progress: number;
+  result: { badge_count: number; warnings: { id: number | null; name: string; problem: string }[]; file_name: string } | null;
+  error: string;
+  created_at: string;
+  completed_at: string | null;
+  has_file: boolean;
 }

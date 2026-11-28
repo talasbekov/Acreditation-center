@@ -57,6 +57,7 @@ export default function EditAttendeePage() {
       />
       <AttendeeForm
         requestId={attendee.request}
+        eventId={req?.event.id}
         attendee={attendee}
         onCancel={() => router.push(back())}
         onSaved={() => {

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { api, postLegacy } from "@/lib/api";
+import { api, ApiException, download, postLegacy } from "@/lib/api";
 import { useLang } from "@/lib/i18n";
 import type { Dashboard } from "@/lib/types";
 import Notice, { type NoticeValue } from "@/components/Notice";
@@ -12,7 +12,7 @@ import { Badge, PageHeader, Spinner, formatDateTime } from "@/components/ui";
 
 /** «Дашборд и выгрузка» (`/dashboard/<event>/`): статусы, флаги, пакеты выгрузки. */
 function DashboardPage({ eventId }: { eventId: string }) {
-  const { t } = useLang();
+  const { t, err } = useLang();
   const [d, setD] = useState<Dashboard | null>(null);
   const [notice, setNotice] = useState<NoticeValue>(null);
   const [busy, setBusy] = useState<number | null>(null);
@@ -54,6 +54,20 @@ function DashboardPage({ eventId }: { eventId: string }) {
     }
   };
 
+  /** Исполнение результата проверки СГО: файл JSON с denied_participant_ids. */
+  const execute = async (packageId: string, file: File) => {
+    const body = new FormData();
+    body.set("result", file);
+    try {
+      const r = await api<{ allowed: number; denied: number }>(`/staff/packages/${packageId}/execute/`, { method: "POST", body });
+      setNotice({ ok: true, text: t("Результат исполнен: доступ разрешён — {a}, запрещён — {d}", { a: r.allowed, d: r.denied }) });
+      await load();
+    } catch (e) {
+      setNotice({ ok: false, text: e instanceof ApiException ? err(e.problem) : t("Не удалось подключиться к серверу") });
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const acknowledge = async (packageId: string) => {
     const r = await postLegacy(`/export_package/${packageId}/acknowledge/`);
     if (!r.redirected) setNotice({ ok: false, text: r.text || t("Произошла ошибка. Повторите позже.") });
@@ -93,6 +107,17 @@ function DashboardPage({ eventId }: { eventId: string }) {
         {stat(d.draft, <Badge color="blue">{t("Черновики")}</Badge>, t("у операторов"))}
         {stat(d.exported, <Badge color="green">{t("Выгружены")}</Badge>, t("переданы в службу"))}
       </div>
+      {d.access && (
+        <div className="mt-3 flex flex-wrap gap-2 text-sm">
+          <span className="text-slate-500">{t("Результат проверки СГО")}:</span>
+          <Badge color="green">{t("Доступ разрешён")}: {d.access.yes || 0}</Badge>
+          <Badge color="red">{t("Доступ запрещён")}: {d.access.no || 0}</Badge>
+          <Badge color="gray">{t("Не определён")}: {d.access.none || 0}</Badge>
+          <Link href={`/staff/${eventId}/badges`} className="text-brand-700 hover:underline">
+            {t("Бейджи")} →
+          </Link>
+        </div>
+      )}
       {d.all_ready && (
         <p className="mt-4 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">
           {t("Все {n} участников готовы к экспорту", { n: d.total })}
@@ -193,6 +218,35 @@ function DashboardPage({ eventId }: { eventId: string }) {
                     {t("Получатель подтвердил приём")}
                   </button>
                 )}
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
+                {p.executed_at ? (
+                  <Badge color="green">
+                    {t("Результат СГО исполнен")} {formatDateTime(p.executed_at)} · {t("запрещено")}: {p.denied_count}
+                  </Badge>
+                ) : (
+                  <Badge color="amber">{t("Результат СГО не исполнен")}</Badge>
+                )}
+                <label className="btn-secondary cursor-pointer">
+                  {p.executed_at ? t("Исполнить повторно…") : t("Исполнить результат…")}
+                  <input
+                    type="file"
+                    accept=".json,application/json"
+                    className="sr-only"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      e.target.value = "";
+                      if (f) execute(p.package_id, f);
+                    }}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="btn-ghost text-xs"
+                  onClick={() => download(`/staff/packages/${p.package_id}/result-template/`, `result_${p.package_id}.json`)}
+                >
+                  {t("Заготовка файла результата")}
+                </button>
               </div>
             </li>
           ))}
