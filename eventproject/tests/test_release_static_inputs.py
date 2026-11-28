@@ -35,3 +35,11 @@ class ReleaseStaticInputsTests(SimpleTestCase):
             if (BASE / "static" / name).is_file() and f"static/{name}" not in allowed
         )
         self.assertEqual(missing, [], "Добавьте в .dockerignore: " + ", ".join(missing))
+
+    def test_every_linked_static_file_exists(self):
+        absent = sorted(
+            f"static/{name} (из {template})"
+            for name, template in _template_static_refs().items()
+            if not (BASE / "static" / name).is_file()
+        )
+        self.assertEqual(absent, [], "Шаблоны ссылаются на несуществующие файлы: " + ", ".join(absent))
