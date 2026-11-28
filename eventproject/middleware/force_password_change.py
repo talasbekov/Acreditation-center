@@ -23,7 +23,9 @@ CHANGE_PASSWORD_PATH = "/change_password/"
 # сегментам, а не по подстроке: иначе путь вроде /events/change_password_report/
 # обошёл бы форс-смену (review finding).
 _EXEMPT_SEGMENTS = {"change_password", "new_password", "logout"}
-_EXEMPT_PREFIXES = ("/static", "/media", "/api/health")
+# `/api/v1/auth/` — вход, выход, профиль и смена пароля для Next.js: интерфейс должен
+# узнать про обязательную смену (`me`) и выполнить её (`change-password`).
+_EXEMPT_PREFIXES = ("/static", "/media", "/api/health", "/api/v1/auth/")
 
 
 class ForcePasswordChangeMiddleware:

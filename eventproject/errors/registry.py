@@ -53,6 +53,17 @@ ERROR_CODES = {
     "event_hierarchy_depth": {"field": "parent", "params": [], "detail": "Иерархия мероприятий — ровно один уровень."},
     "event_dates_outside_parent": {"field": "start_date", "params": [], "detail": "Даты под-мероприятия должны быть в пределах дат родителя."},
     "container_name_required": {"field": "is_container", "params": [], "detail": "Контейнер-мероприятие обязано иметь название на ru/kz/en."},
+    # ── Вход и пароль (views/auth_api.py; тексты — page_lang._TEXT) ─────────
+    "login_bad": {"field": None, "params": [], "detail": "Неправильный логин или пароль"},
+    "login_locked": {
+        "field": None,
+        "params": [],
+        "detail": "Аккаунт временно заблокирован из-за множества неудачных попыток входа. Повторите попытку позже.",
+    },
+    "account_disabled": {"field": None, "params": [], "detail": "Аккаунт деактивирован"},
+    "pw_mismatch": {"field": "new_password_repeat", "params": [], "detail": "Введите новый пароль два раза"},
+    "pw_wrong_old": {"field": "old_password", "params": [], "detail": "Не удалось подтвердить данные"},
+    "pw_weak": {"field": "new_password", "params": [], "detail": "Пароль не отвечает требованиям безопасности."},
     # ── Generic DRF-коды (авто-эмитятся встроенными field/relation-проверками) ──
     "required": {"field": None, "params": [], "detail": "Обязательное поле."},
     "invalid": {"field": None, "params": [], "detail": "Некорректное значение."},

@@ -1,4 +1,7 @@
 {
+  "account_disabled": {
+    "params": []
+  },
   "blank": {
     "params": []
   },
@@ -88,6 +91,12 @@
   "invalid_choice": {
     "params": []
   },
+  "login_bad": {
+    "params": []
+  },
+  "login_locked": {
+    "params": []
+  },
   "max_length": {
     "params": []
   },
@@ -137,6 +146,15 @@
     "params": []
   },
   "problem_invalid": {
+    "params": []
+  },
+  "pw_mismatch": {
+    "params": []
+  },
+  "pw_weak": {
+    "params": []
+  },
+  "pw_wrong_old": {
     "params": []
   },
   "required": {

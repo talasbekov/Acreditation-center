@@ -10,6 +10,7 @@ from eventproject.views.operator_api import OperatorViewSet
 from eventproject.views.attendee_api import AttendeeViewSet
 from eventproject.views.request_api import RequestViewSet
 from eventproject.views.directories_api import directories
+from eventproject.views.auth_api import ChangePasswordView, LoginView, LogoutView, MeView
 
 
 @ensure_csrf_cookie
@@ -33,6 +34,10 @@ def rbac_check(request):
 
 
 urlpatterns = router.urls + [
+    path("auth/login/", LoginView.as_view(), name="api_login"),
+    path("auth/logout/", LogoutView.as_view(), name="api_logout"),
+    path("auth/me/", MeView.as_view(), name="api_me"),
+    path("auth/change-password/", ChangePasswordView.as_view(), name="api_change_password"),
     path("rbac-check/", rbac_check, name="rbac_check"),
     path("csrf/", csrf_cookie, name="csrf_cookie"),
     path("directories/", directories, name="directories"),
