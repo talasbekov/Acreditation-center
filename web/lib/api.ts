@@ -172,3 +172,20 @@ export async function downloadLegacy(path: string, fallbackName: string, method:
   const m = cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);
   saveBlob(await res.blob(), m ? decodeURIComponent(m[1]) : fallbackName);
 }
+
+/**
+ * POST на старый адрес Django без перехода по редиректу. Успех старых форм —
+ * 302/303 на HTML-страницу: здесь это `{ redirected: true }`. Иначе — текст ответа
+ * (например «Новых записей нет») и код статуса.
+ */
+export async function postLegacy(path: string): Promise<{ redirected: boolean; status: number; text: string }> {
+  await ensureCsrf();
+  const headers = new Headers();
+  const token = getCsrfToken();
+  if (token) headers.set("X-CSRFToken", token);
+  const res = await fetch(path, { method: "POST", headers, credentials: "include", redirect: "manual" });
+  if (res.type === "opaqueredirect" || (res.status >= 300 && res.status < 400)) {
+    return { redirected: true, status: res.status, text: "" };
+  }
+  return { redirected: false, status: res.status, text: await res.text() };
+}

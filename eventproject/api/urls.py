@@ -11,7 +11,7 @@ from eventproject.views.attendee_api import AttendeeViewSet
 from eventproject.views.request_api import RequestViewSet, cabinet
 from eventproject.views.directories_api import directories
 from eventproject.views.auth_api import ChangePasswordView, LoginView, LogoutView, MeView
-from eventproject.views import admin_api
+from eventproject.views import admin_api, staff_api
 
 
 @ensure_csrf_cookie
@@ -36,6 +36,13 @@ def rbac_check(request):
 
 urlpatterns = router.urls + [
     path("cabinet/", cabinet, name="api_cabinet"),
+    # Проверка и выгрузка супероператора (views/staff_api.py) — паритет с /dashboard/, /review/.
+    path("staff/events/", staff_api.staff_events, name="api_staff_events"),
+    path("staff/events/<int:event_id>/dashboard/", staff_api.staff_dashboard, name="api_staff_dashboard"),
+    path("staff/events/<int:event_id>/review/", staff_api.staff_review, name="api_staff_review"),
+    path(
+        "staff/attendees/<int:attendee_id>/<str:decision>/", staff_api.staff_decision, name="api_staff_decision"
+    ),
     # Страницы администратора (views/admin_api.py) — паритет с /avmac/, /show_event/, /show_operator/.
     path("admin/home/", admin_api.admin_home, name="api_admin_home"),
     path("admin/events/", admin_api.admin_create_event, name="api_admin_create_event"),

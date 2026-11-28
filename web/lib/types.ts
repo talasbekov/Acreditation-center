@@ -152,3 +152,69 @@ export interface AdminOperatorCard {
   events: EventBrief[];
   requests: AdminRequestRow[];
 }
+
+export interface DashboardFlag {
+  key: string;
+  label: string;
+  items: { id: number; name: string }[];
+  shown: number;
+  total: number;
+  overflow: boolean;
+}
+
+export interface ExportPackage {
+  package_id: string;
+  category: string | null;
+  exported_before: string;
+  attendee_count: number;
+  archive_name: string;
+  acknowledged_at: string | null;
+  acknowledged_by: string | null;
+  can_redownload: boolean;
+}
+
+export interface Dashboard {
+  event: EventBrief;
+  total: number;
+  ready: number;
+  review: number;
+  submitted: number;
+  in_review: number;
+  draft: number;
+  exported: number;
+  all_ready: boolean;
+  flags: DashboardFlag[];
+  flags_total: number;
+  categories: { id: number; name: string; status: string }[];
+  packages: ExportPackage[];
+}
+
+export interface ReviewItem {
+  id: number;
+  surname: string;
+  firstname: string;
+  patronymic: string;
+  status: string;
+  transcription: string;
+  birthDate: string | null;
+  country: string;
+  doc_type: string;
+  docSeries: string;
+  docNumber: string;
+  docEnd: string | null;
+  post: string;
+  visitObjects: string;
+  photo: string | null;
+  docScan: string | null;
+  request_name: string;
+  operator: string;
+}
+
+export interface ReviewQueue {
+  event: EventBrief;
+  items: ReviewItem[];
+  total: number;
+  overflow: boolean;
+  summary: Record<string, number>;
+  max_reason: number;
+}
