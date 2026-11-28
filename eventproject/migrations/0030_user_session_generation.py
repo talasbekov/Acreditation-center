@@ -5,7 +5,7 @@ import django.db.models.deletion
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("eventproject", "0024_recompute_is_resident"),
+        ("eventproject", "0029_attendee_last_return_reason_attendee_return_count"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

@@ -7,6 +7,9 @@
 !src/**/*.ts
 !src/**/*.tsx
 !src/**/*.css
+# Переводы ru/kz/en и словарь ошибок API импортируются кодом SPA.
+!src/locales/*/*.json
+!src/errors/*.json
 src/**/*.test.ts
 src/**/*.test.tsx
 !public/favicon.svg

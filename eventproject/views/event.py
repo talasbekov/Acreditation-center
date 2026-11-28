@@ -5,6 +5,7 @@ import datetime
 
 from datetime import date, timedelta, datetime
 
+from django.db import transaction
 from django.http import HttpResponse
 from django.http import HttpResponseRedirect
 from django.conf import settings
@@ -170,7 +171,16 @@ def delete_event(request, event_id):
             logging.getLogger(__name__).error("Event media cleanup failed")
             return HttpResponse("Не удалось удалить файлы мероприятия.", status=503)
         success_message = "Мероприятие: " + event.name_rus + " успешно удалено"
+        # hd-4.2 (AC-4): obj_id — ДО .delete() (Django обнуляет pk после удаления).
+        event_pk = str(event.id)
         event.delete()
+        audit_log(
+            user=request.user,
+            action="event.delete",
+            obj_type="Event",
+            obj_id=event_pk,
+            ip=request.META.get("REMOTE_ADDR", ""),
+        )
         return show_admin(request, success_message)
     except Event.DoesNotExist:
         return HttpResponse("Could not find event", status=404)
@@ -214,6 +224,22 @@ class EventViewSet(ModelViewSet):
             obj_id=str(event.id),
             ip=self.request.META.get("REMOTE_ADDR", ""),
         )
+
+    def perform_destroy(self, instance):
+        # hd-4.2 (AC-4): default DRF destroy() был реален (DELETE /api/v1/events/{id}/),
+        # но не аудировался. obj_id — ДО .delete() (Django обнуляет pk после удаления).
+        # code review hd-4.2: atomic — сбой аудита откатывает удаление (паттерн
+        # AttendeeViewSet.destroy + docstring audit_log: DRF destroy под atomic).
+        obj_id = str(instance.id)
+        with transaction.atomic():
+            instance.delete()
+            audit_log(
+                user=self.request.user,
+                action="event.delete",
+                obj_type="Event",
+                obj_id=obj_id,
+                ip=self.request.META.get("REMOTE_ADDR", ""),
+            )
 
     @action(detail=True, methods=["get", "post"],
             permission_classes=[IsSuperoperator])

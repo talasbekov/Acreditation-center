@@ -1,0 +1,106 @@
+{
+  "page": {
+    "add_title": "Add an attendee",
+    "add_context": "The attendee is added to the selected request as a draft.",
+    "edit_title": "Attendee",
+    "edit_context": "Attendee card"
+  },
+  "label": {
+    "surname": "Surname",
+    "firstname": "First name",
+    "patronymic": "Father's name",
+    "transcription": "Name in Latin letters",
+    "birthDate": "Date of birth",
+    "sexId": "Sex",
+    "post": "Post",
+    "countryId": "Citizenship",
+    "iin": "IIN",
+    "stickId": "Category",
+    "docTypeId": "Document type",
+    "docSeries": "Series",
+    "docNumber": "Document number",
+    "docBegin": "Issued date",
+    "docEnd": "Expiry date",
+    "docIssue": "Issued by",
+    "request": "Request",
+    "visitObjects": "Visiting objects",
+    "photo": "Attendee photo",
+    "docScan": "Document scan"
+  },
+  "section": {
+    "main": "Basic details",
+    "citizenship": "Citizenship",
+    "citizenship_desc": "Citizens of Kazakhstan need an IIN; citizens of other countries need a category.",
+    "document": "Document",
+    "request": "Request and visit",
+    "files": "Files",
+    "files_desc": "The photo and scan are needed to send for review. A draft can be saved without them."
+  },
+  "hint": {
+    "if_any": "If any",
+    "transcription": "Surname and first name in Latin letters, as in the document",
+    "iin": "12 digits; the date of birth in the IIN must match the one entered",
+    "docIssue": "If stated in the document",
+    "request_edit": "The attendee cannot be moved to another request.",
+    "request_add": "The request defines the attendee's event.",
+    "visitObjects": "Halls and sites that need access"
+  },
+  "placeholder": {
+    "choose": "— select —",
+    "country": "— select a country —",
+    "category": "— select a category —",
+    "doc_type": "— select a type —",
+    "request": "— select a request —"
+  },
+  "option": {
+    "loading": "Loading…",
+    "unknown_code": "Code {{code}}",
+    "request_fallback": "Request #{{id}}"
+  },
+  "iin_valid": "✓ IIN format OK",
+  "intro": "Until saved, the data exists only in this open form. Leaving the page discards the changes.",
+  "required_note": "Fields marked with {{mark}} are required.",
+  "required_sr": "(required)",
+  "readonly_title": "Editing is locked",
+  "readonly_text": "The attendee has been sent for review or approved. The data is read-only.",
+  "dirs_error": "Could not load the reference lists (sex, documents, countries). Reload the page.",
+  "submit": "Save",
+  "submit_edit": "Save changes",
+  "saving": "Saving…",
+  "toast": {
+    "added": "Attendee added",
+    "updated": "Changes saved",
+    "save_error": "Could not save",
+    "submitted": "Attendee sent for review"
+  },
+  "invalid_value": "Invalid value",
+  "summary_title_one": "Not saved: fix the field",
+  "summary_title_many": "Not saved: fix the fields",
+  "photo": {
+    "label": "Attendee photo (3×4)",
+    "instruction": "Full face, light background, no glasses. JPG, PNG or WEBP, portrait 3×4, at least 600×800, up to 5 MB."
+  },
+  "document": {
+    "label": "Document scan",
+    "instruction": "JPG, PNG, WEBP or PDF, portrait, at least 600×800, up to 5 MB."
+  },
+  "upload": {
+    "choose": "Choose file",
+    "none": "No file chosen",
+    "selected": "Selected file: {{name}}. It will be uploaded when you save.",
+    "preview_alt": "Preview: {{label}}",
+    "pdf_badge": "PDF: {{name}}",
+    "current_note": "Current file. To replace it, choose a new one.",
+    "current_alt": "Current: {{label}}"
+  },
+  "back": "← Back to attendees",
+  "cancel": "Cancel",
+  "card": {
+    "aria": "Attendee status",
+    "status": "Status:",
+    "reason": "Reason for return:",
+    "submit_note": "Save your changes first: the saved data is sent for review. After sending, editing is closed until the reviewer decides.",
+    "submit": "Send for review",
+    "submitting": "Sending…"
+  }
+}

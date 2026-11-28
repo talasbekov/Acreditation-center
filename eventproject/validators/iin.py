@@ -24,10 +24,8 @@ _ERR_DATE_INVALID = "ИИН некорректен: недопустимая д�
 class ValidationResult:
     valid: bool
     error: str = ""
-    # Код ошибки и подстановки — для перевода сообщения на язык страницы
-    # (`page_lang.residency_error`). `error` остаётся русским: его отдаёт API.
-    code: str = ""
-    params: tuple = ()
+    code: str = ""          # машинный код (fe-1.1) — errors/registry.py
+    params: dict = None     # динамические params (напр. iin_dob_mismatch)
 
 
 def normalize_iin(value):
@@ -106,7 +104,7 @@ def validate_iin(iin, birth_date):
 
     control = _control_digit(digits)
     if control is None or control != digits[11]:
-        return ValidationResult(valid=False, error=_ERR_CONTROL, code="iin_control")
+        return ValidationResult(valid=False, error=_ERR_CONTROL, code="iin_checksum")
 
     # Дата рождения: позиции 1–6 (YYMMDD) + век из позиции 7.
     century = _CENTURY_BASE.get(digits[6])
@@ -134,8 +132,11 @@ def validate_iin(iin, birth_date):
                 f"Дата рождения в ИИН ({_format_date(iin_date)}) не совпадает "
                 f"с введённой ({_format_date(birth_date)}). Проверьте дату."
             ),
-            code="iin_birth_mismatch",
-            params=(("iin_date", _format_date(iin_date)), ("birth_date", _format_date(birth_date))),
+            code="iin_dob_mismatch",
+            params={
+                "iin_dob": _format_date(iin_date),
+                "entered_dob": _format_date(birth_date),
+            },
         )
 
     return ValidationResult(valid=True)

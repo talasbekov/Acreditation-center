@@ -21,7 +21,7 @@ def assign_package_ids(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("eventproject", "0026_backfill_legacy_event_fields"),
+        ("eventproject", "0031_backfill_legacy_event_fields"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

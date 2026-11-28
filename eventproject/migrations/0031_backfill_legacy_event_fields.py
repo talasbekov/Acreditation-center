@@ -14,5 +14,5 @@ def fill_legacy_event_fields(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-    dependencies = [("eventproject", "0025_user_session_generation")]
+    dependencies = [("eventproject", "0030_user_session_generation")]
     operations = [migrations.RunPython(fill_legacy_event_fields, migrations.RunPython.noop)]

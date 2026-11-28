@@ -1,20 +1,17 @@
-// Подписи статусов участника — те же, что на HTML-страницах оператора
-// (eventproject/templatetags/lifecycle_tags.py, RU).
+// Статусы участника — те же, что на HTML-страницах оператора
+// (eventproject/templatetags/lifecycle_tags.py). Подписи — каталог `status` (ru/kz/en).
 
-export const STATUS_LABELS: Record<string, string> = {
-  draft: 'Черновик',
-  submitted: 'Отправлен на проверку',
-  in_review: 'На проверке',
-  ready: 'Допущен',
-  exported: 'Допущен, передан в службу',
+/** Коды статусов в порядке жизненного цикла (services/lifecycle.py). */
+export const STATUS_CODES = ['draft', 'submitted', 'in_review', 'ready', 'exported'] as const
+
+export function isStatusCode(value: string): boolean {
+  return (STATUS_CODES as readonly string[]).includes(value)
 }
 
-export const RETURNED_LABEL = 'Возвращён на доработку'
-
-/** Подпись статуса; черновик с причиной возврата — «Возвращён на доработку». */
-export function statusLabel(status: string, returned = false): string {
-  if (status === 'draft' && returned) return RETURNED_LABEL
-  return STATUS_LABELS[status] ?? status
+/** Ключ подписи статуса; черновик, возвращённый проверяющим, — `status:returned`. */
+export function statusKey(status: string, returned = false): string {
+  if (status === 'draft' && returned) return 'status:returned'
+  return `status:${status}`
 }
 
 /** Оператор правит и отправляет только черновик (сервер отвечает так же). */

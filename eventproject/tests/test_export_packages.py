@@ -278,8 +278,8 @@ class ConsistencyUnderLockTests(PackageTestBase):
 
 
 class PackageMigrationTests(TransactionTestCase):
-    before = [("eventproject", "0026_backfill_legacy_event_fields")]
-    after = [("eventproject", "0027_exportlog_package")]
+    before = [("eventproject", "0031_backfill_legacy_event_fields")]
+    after = [("eventproject", "0032_exportlog_package")]
 
     def tearDown(self):
         # Restore the newest schema (later migrations exist beyond `after`).

@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('eventproject', '0029_partner_receipt'),
+        ('eventproject', '0034_partner_receipt'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

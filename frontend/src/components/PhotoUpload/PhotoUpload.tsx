@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next'
 import { UploadZone } from '@/components/upload/UploadZone'
 
 export interface PhotoUploadProps {
@@ -13,11 +14,12 @@ export interface PhotoUploadProps {
  * Принимает только изображения; серверная Pillow-валидация (3×4, ≥600×800, ≤5МБ).
  */
 export function PhotoUpload(props: PhotoUploadProps) {
+  const { t } = useTranslation()
   return (
     <UploadZone
       id="photo"
-      label="Фото участника (3×4)"
-      instruction="Анфас, светлый фон, без очков. JPG, PNG или WEBP, вертикальное 3×4, не меньше 600×800, до 5 МБ."
+      label={t('operatorForm:photo.label')}
+      instruction={t('operatorForm:photo.instruction')}
       accept="image/jpeg,image/png,image/webp"
       {...props}
     />

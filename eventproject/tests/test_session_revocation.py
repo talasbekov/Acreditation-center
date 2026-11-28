@@ -108,7 +108,7 @@ class SessionRevocationTests(TestCase):
 class SessionGenerationMigrationTests(TransactionTestCase):
     def test_existing_inactive_and_previously_deactivated_users_start_with_a_revocation(self):
         previous = ("eventproject", "0024_recompute_is_resident")
-        latest = ("eventproject", "0025_user_session_generation")
+        latest = ("eventproject", "0030_user_session_generation")
         executor = MigrationExecutor(connection)
         executor.migrate([previous])
         try:

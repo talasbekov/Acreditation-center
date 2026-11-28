@@ -24,6 +24,8 @@ export interface Attendee {
   /** Этап D: контекст строки — номер заявки и мероприятие. */
   request_name?: string
   event_name?: string
+  /** Story fe-3.7: сколько раз участника возвращали. */
+  return_count?: number
 }
 
 /** Detail (`GET /api/v1/attendees/{id}/`) — полный AttendeeSerializer (для edit, 5.5). */
@@ -54,4 +56,7 @@ export interface AttendeeDetail {
   docScan: string | null
   /** Этап C: причина возврата от проверяющего (пусто, если не возвращали). */
   review_comment?: string
+  /** Story fe-3.7: последняя причина возврата (ИИН скрыт) и счётчик возвратов. */
+  last_return_reason?: string | null
+  return_count?: number
 }
