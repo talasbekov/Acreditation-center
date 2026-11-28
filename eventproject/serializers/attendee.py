@@ -101,7 +101,7 @@ def _strip_blank_file_fields(data, blank_fields):
     return {key: value for key, value in data.items() if key not in blank_fields}
 
 
-# Story fe-3.7 (review P2): скраб 12-значного ИИН в admin-authored `last_return_reason`
+# Story fe-3.7 (review P2): скраб 12-значного ИИН в admin-authored причине возврата (`review_comment`)
 # перед выдачей оператору/админам. Причина — свободный текст проверяющего, мог содержать
 # сырой ИИН → на masked-safe list-поверхности (+ cross-tenant видимость у superuser/
 # superoperator) это утечка. Зеркало защитного `audit._scrub_pii`.
@@ -127,7 +127,8 @@ class AttendeeSerializer(serializers.ModelSerializer):
     photo = serializers.FileField(required=False, allow_null=True)
     docScan = serializers.FileField(required=False, allow_null=True)
     # fe-3.7 (review P2): причина возврата со скрабом ИИН (admin free-text → баннер edit).
-    last_return_reason = serializers.SerializerMethodField()
+    # SerializerMethodField — только чтение: меняется лишь через return/.
+    review_comment = serializers.SerializerMethodField()
 
     class Meta:
         model = Attendee
@@ -158,16 +159,15 @@ class AttendeeSerializer(serializers.ModelSerializer):
             "is_resident",
             "status",
             "dateAdd",
+            # Причина возврата (со скрабом ИИН) и счётчик возвратов.
             "review_comment",
-            # Story fe-3.7: счётчик и причина возврата (причина — со скрабом ИИН).
-            "last_return_reason",
             "return_count",
         ]
-        # Выставляются сервером/логикой, не клиентом. review_comment и
-        # last_return_reason — причина возврата (меняются только через return/);
-        # last_return_reason — SerializerMethodField, поэтому не в read_only_fields.
+        # Выставляются сервером/логикой, не клиентом. review_comment — причина
+        # возврата (меняется только через return/); SerializerMethodField, поэтому
+        # не в read_only_fields.
         read_only_fields = [
-            "id", "is_resident", "status", "dateAdd", "review_comment", "return_count",
+            "id", "is_resident", "status", "dateAdd", "return_count",
         ]
         # Этап D: как в HTML-форме — серия документа и «Кем выдан» необязательны,
         # категория участника (stickId) необязательна (у резидента РК не хранится).
@@ -272,8 +272,8 @@ class AttendeeSerializer(serializers.ModelSerializer):
             raise_if_duplicate(req.event_id, attrs, instance)
         return attrs
 
-    def get_last_return_reason(self, obj):
-        return _scrub_reason(obj.last_return_reason)
+    def get_review_comment(self, obj):
+        return _scrub_reason(obj.review_comment)
 
 
 class AttendeeListSerializer(serializers.ModelSerializer):

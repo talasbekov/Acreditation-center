@@ -202,6 +202,7 @@
 | 0033 | Attendee: `review_comment`, `reviewed_at`, `reviewed_by` — последнее решение проверяющего (этап C; было 0028). Откат — `migrate eventproject 0032` |
 | 0034 | PartnerReceipt — квитанции импорта партнёров (этап C; было 0029). Откат — `migrate eventproject 0033` |
 | 0035 | Индекс `attendee_dateadd_idx` по `Attendee.dateAdd` (убыв.) — сортировка списка участников API (P2; было 0030). Откат — `migrate eventproject 0034`, данные не затрагивает |
+| 0036 | Attendee: удалён `last_return_reason` — дубль `review_comment`. Перед удалением его текст переносится в пустой `review_comment`; откат — `migrate eventproject 0035`, причина возвращается в `last_return_reason` у возвращавшихся участников |
 | 0012 | Operator.role (RBAC) |
 | 0013–0015 | Story 2.2: Event.title/description/start_date/end_date/created_by, модель Category, Attendee.category; legacy-поля Event сделаны nullable |
 | qr_event 0002 | QrIin.qr_code |

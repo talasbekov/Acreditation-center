@@ -72,6 +72,8 @@ release ps
 
 Миграция 0035 только создаёт индекс `attendee_dateadd_idx` (`CREATE INDEX`, не `CONCURRENTLY`): на время построения запись в таблицу участников блокируется. На 150 тыс. строк в PostgreSQL 15 миграция заняла около 1 с. Если таблица в рабочей БД значительно больше, DBA заранее оценивает время по числу строк. Откат — `migrate eventproject 0034`, данные не меняются; старый код индекс не использует и не мешает ему.
 
+Миграция 0036 удаляет `Attendee.last_return_reason` — дубль `review_comment`. Перед удалением текст причины переносится в `review_comment`, если тот пуст (возвраты до сведения линий), поэтому причины не теряются. Откат — `migrate eventproject 0035`: причина возвращается в `last_return_reason` у участников с `return_count > 0`.
+
 ## 5. Чек-лист допуска кандидата от 26 ноября 2026
 
 Кандидат — состояние после этапов C–F ([отчёт 22](../../docs/modernization-audit/22-STAGE-F-OPERATIONS.md)). Исходники зафиксированы списком контрольных сумм ([evidence/stage-e](../../docs/modernization-audit/evidence/stage-e/source-manifest.sha256)). Испытанные локальные образы (Docker Desktop, linux/amd64):
@@ -90,6 +92,14 @@ release ps
 | PostgreSQL (`release/postgres`) | `sha256:3f5387070f27b5206e138cb70e5e4584bd39862decea2a9fa70fc98271b54287` |
 | nginx + SPA (`frontend/Dockerfile.release`) | `sha256:42f226d7acdd0ae2b27dfddaf364626ae6a858a196602481d40ff2ccfdbcfea8` |
 | nginx + SPA, новый базовый `nginx:stable-alpine@sha256:8eb04fe3…` (nginx 1.30.8, Alpine 3.24.4) | `sha256:767aad711a672fcbe9fe066460b07fd1bc4653a5cd0e5035fed71ce92b32157d` — Trivy 0.76.2: 0 находок; заменяет строку выше |
+
+Образ приложения переведён на Alpine (`python:3.12-alpine@sha256:c5ba3deef00c…`, Alpine 3.24.4, ветка `hardening/app-image-alpine`): в Debian-образе оставалась 71 High без исправлений в системных пакетах, которые приложению не нужны. `pip` удаляется из образа после установки зависимостей.
+
+| Образ | Image ID | Trivy 0.76.2 |
+|---|---|---|
+| приложение на Alpine | `sha256:acbc955813f48bbbb7a8fa75ea5b247ff9732a7dadfc18141f6c89faf09555c1` | Critical 0 / High 0 / Medium 0 / Low 0 (было 0 / 71 / 140 / 206) |
+
+Проверено в этом образе: полный набор Django на PostgreSQL 15 — 727 из 727, включая тесты PDF (Poppler из apk); запуск как в `compose.release.yml` (`migrate`, `check_release_schema`, gunicorn) — healthcheck `healthy`, `/api/health/` отвечает 200. Dev-вариант (`INSTALL_DEV_CLIENTS=1`) содержит `pg_isready` и `curl`; команда приложения в `docker-compose.yml` теперь через `sh`, а не `bash`.
 
 Собирать без кэша (`docker build --no-cache`): иначе слой с `apt-get upgrade` / `apk upgrade` берётся из кэша и исправления не попадают в образ.
 

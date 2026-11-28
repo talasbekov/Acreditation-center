@@ -1,7 +1,7 @@
 """Story fe-3.5 — тесты return-экшена AttendeeViewSet (`POST /attendees/{id}/return/`).
 
 Покрытие AC:
-  • AC-1 — FSM in_review→submitted, last_return_reason/return_count, save(update_fields),
+  • AC-1 — FSM in_review→draft, review_comment/return_count, save(update_fields),
     audit через _record_decision (action="attendee.returned", reason), reason-обязателен (400),
     409-guard на не-in_review, masked-safe ответ {id,status} (реш.#6: НЕ AttendeeSerializer).
   • AC-2 — RBAC IsSuperoperator (оператор→403, аноним→401/403), scope/404.
@@ -71,12 +71,12 @@ class AttendeeReturnHappyPathTests(AttendeeReturnBase):
         self.assertEqual(self.a_in_review.status, "draft")
 
     def test_stores_reason_and_increments_count(self):
-        # AC-1: причина сохраняется в last_return_reason, return_count += 1.
+        # AC-1: причина сохраняется в review_comment, return_count += 1.
         self.assertEqual(self.a_in_review.return_count, 0)
         resp = self._return(self.a_in_review.id)
         self.assertEqual(resp.status_code, 200)
         self.a_in_review.refresh_from_db()
-        self.assertEqual(self.a_in_review.last_return_reason, REASON)
+        self.assertEqual(self.a_in_review.review_comment, REASON)
         self.assertEqual(self.a_in_review.return_count, 1)
 
     def test_response_is_masked_safe_no_raw_iin(self):

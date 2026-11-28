@@ -54,9 +54,8 @@ export interface AttendeeDetail {
   /** P2-7: URL загруженного фото/документа (для превью в edit). */
   photo: string | null
   docScan: string | null
-  /** Этап C: причина возврата от проверяющего (пусто, если не возвращали). */
+  /** Этап C: причина возврата от проверяющего, ИИН скрыт (пусто, если не возвращали). */
   review_comment?: string
-  /** Story fe-3.7: последняя причина возврата (ИИН скрыт) и счётчик возвратов. */
-  last_return_reason?: string | null
+  /** Story fe-3.7: счётчик возвратов. */
   return_count?: number
 }
