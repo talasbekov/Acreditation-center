@@ -44,3 +44,7 @@ CSRF_COOKIE_SECURE = False
 SESSION_COOKIE_SECURE = False
 SECURE_SSL_REDIRECT = False
 SECURE_HSTS_SECONDS = 0
+
+# Второй этап: фоновые задачи сразу (без воркера); закрытые файлы — в .dev/private.
+JOBS_RUN_INLINE = True
+PRIVATE_FILES_ROOT = str(_DEV_DIR / "private")

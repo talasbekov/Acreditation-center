@@ -15,6 +15,7 @@
 from datetime import date, timedelta
 
 from django.core.cache import cache
+from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -50,6 +51,8 @@ def _package_row(pkg):
         "acknowledged_at": pkg.acknowledged_at,
         "acknowledged_by": pkg.acknowledged_by.username if pkg.acknowledged_by_id else None,
         "can_redownload": bool(pkg.can_redownload),
+        "executed_at": pkg.executed_at,
+        "denied_count": len(pkg.denied_ids or []),
     }
 
 
@@ -73,6 +76,10 @@ def staff_dashboard(request, event_id):
             "event": event_brief(event),
             **data,
             "categories": [{"id": r.id, "name": r.name, "status": r.status} for r in categories],
+            "access": {
+                row["access_status"]: row["n"]
+                for row in Attendee.objects.filter(request__event=event).values("access_status").annotate(n=Count("id"))
+            },
             "packages": [_package_row(p) for p in packages],
         }
     )
@@ -153,3 +160,42 @@ def staff_decision(request, attendee_id, decision):
         )
     cache.delete(f"dashboard:event:{event_id}")
     return Response({"message": f"{name} {_DONE[decision]}"})
+
+
+# ── Второй этап: исполнение результата проверки СГО ─────────────────────────────
+
+
+@api_view(["POST"])
+@permission_classes([IsSuperoperator])
+def staff_package_execute(request, package_id):
+    """«Исполнить»: загрузить файл результата СГО по пакету выгрузки.
+
+    Файл — multipart-поле `result` (JSON) или JSON в теле запроса.
+    """
+    from eventproject.services import sgo_result
+
+    export_log = get_object_or_404(ExportLog, package_id=package_id)
+    upload = request.FILES.get("result")
+    if upload is not None:
+        if upload.size > 5 * 1024 * 1024:
+            return Response({"type": "sgo_result_invalid", "detail": "Файл результата больше 5 МБ."}, status=400)
+        payload = sgo_result.parse_result(upload.read())
+    else:
+        payload = sgo_result.parse_result(dict(request.data))
+    summary = sgo_result.execute(export_log.pk, payload, request.user, request.META.get("REMOTE_ADDR", ""))
+    return Response({"package_id": str(export_log.package_id), **summary})
+
+
+@api_view(["GET"])
+@permission_classes([IsSuperoperator])
+def staff_package_result_template(request, package_id):
+    """Заготовка файла результата для пакета: те же номера участников, что в attendees.json."""
+    export_log = get_object_or_404(ExportLog, package_id=package_id)
+    return Response(
+        {
+            "export_id": str(export_log.package_id),
+            "event_id": export_log.event_id,
+            "participant_ids": export_log.attendee_ids or [],
+            "denied_participant_ids": [],
+        }
+    )

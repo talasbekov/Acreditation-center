@@ -129,6 +129,9 @@ class AttendeeSerializer(serializers.ModelSerializer):
     # fe-3.7 (review P2): причина возврата со скрабом ИИН (admin free-text → баннер edit).
     # SerializerMethodField — только чтение: меняется лишь через return/.
     review_comment = serializers.SerializerMethodField()
+    # Второй этап: значения доп. полей мероприятия {"<id поля>": "значение"}.
+    # В multipart приходит JSON-строкой — DRF JSONField разбирает её сам.
+    custom_field_values = serializers.JSONField(required=False)
 
     class Meta:
         model = Attendee
@@ -162,12 +165,18 @@ class AttendeeSerializer(serializers.ModelSerializer):
             # Причина возврата (со скрабом ИИН) и счётчик возвратов.
             "review_comment",
             "return_count",
+            # Второй этап: результат проверки СГО, печать бейджа, доп. поля.
+            "access_status",
+            "access_decided_at",
+            "badge_printed_at",
+            "custom_field_values",
         ]
         # Выставляются сервером/логикой, не клиентом. review_comment — причина
         # возврата (меняется только через return/); SerializerMethodField, поэтому
         # не в read_only_fields.
         read_only_fields = [
             "id", "is_resident", "status", "dateAdd", "return_count",
+            "access_status", "access_decided_at", "badge_printed_at",
         ]
         # Этап D: как в HTML-форме — серия документа и «Кем выдан» необязательны,
         # категория участника (stickId) необязательна (у резидента РК не хранится).
@@ -270,6 +279,17 @@ class AttendeeSerializer(serializers.ModelSerializer):
         # Под блокировкой мероприятия проверка повторяется в AttendeeViewSet.
         if req is not None:
             raise_if_duplicate(req.event_id, attrs, instance)
+
+        # Второй этап: доп. поля мероприятия. При добавлении обязательные поля проверяются
+        # всегда; при правке — если клиент прислал значения (старые клиенты их не знают).
+        if req is not None and (instance is None or "custom_field_values" in attrs):
+            from eventproject.services.custom_fields import clean_values
+
+            attrs["custom_field_values"] = clean_values(
+                req.event_id,
+                attrs.get("custom_field_values"),
+                existing=getattr(instance, "custom_field_values", None) if instance is not None else None,
+            )
         return attrs
 
     def get_review_comment(self, obj):

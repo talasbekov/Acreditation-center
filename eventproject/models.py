@@ -265,6 +265,11 @@ class Request(models.Model):
         Operator, on_delete=models.CASCADE, related_name="created_operator"
     )
     registration_time = models.DateTimeField()
+    # Второй этап: откуда пришли участники заявки. manual — оператор вручную (как
+    # раньше); self_registration — по ссылке саморегистрации; api — внешняя система
+    # по API-токену. Такие заявки создаются автоматически на ссылку/токен.
+    SOURCE_CHOICES = [("manual", "manual"), ("self_registration", "self_registration"), ("api", "api")]
+    source = models.CharField(max_length=20, choices=SOURCE_CHOICES, default="manual")
     exported_by = models.ForeignKey(
         Operator,
         on_delete=models.CASCADE,
@@ -355,6 +360,16 @@ class Attendee(models.Model):
     # отдельное поле last_return_reason удалено миграцией 0036 как дубль.
     # «Возвращена» = draft + return_count>0 (отдельного статуса нет).
     return_count = models.PositiveIntegerField(default=0)
+    # Второй этап — результат проверки СГО (исполнение пакета выгрузки): yes — доступ
+    # разрешён, no — запрещён, none — ещё не определён. Не статус FSM: решение СГО
+    # приходит после выгрузки и может перезаписываться повторным исполнением.
+    ACCESS_CHOICES = [("none", "none"), ("yes", "yes"), ("no", "no")]
+    access_status = models.CharField(max_length=4, choices=ACCESS_CHOICES, default="none")
+    access_decided_at = models.DateTimeField(null=True, blank=True)
+    # Отметка о печати бейджа, не статус: перепечатка перезаписывает дату.
+    badge_printed_at = models.DateTimeField(null=True, blank=True)
+    # Значения дополнительных полей мероприятия: {"<id поля>": "значение"}.
+    custom_field_values = models.JSONField(default=dict, blank=True)
 
     class Meta:
         # BE-9: статус ограничен FSM-набором и на уровне БД — прямой
@@ -462,6 +477,13 @@ class ExportLog(models.Model):
         help_text="Кто отметил подтверждение получателя",
     )
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    # Второй этап — исполнение результата проверки СГО по этому пакету. Повторное
+    # исполнение перезаписывает решения по последнему файлу результата.
+    executed_at = models.DateTimeField(null=True, blank=True)
+    executed_by = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="executed_export_logs",
+    )
+    denied_ids = models.JSONField(null=True, blank=True)
 
     @property
     def can_redownload(self):
@@ -583,3 +605,129 @@ class AuditLog(models.Model):
     def delete(self, *args, **kwargs):
         # AC-3 append-only: запрещаем DELETE (model-level; bulk — Postgres-триггер).
         raise IntegrityError("AuditLog is append-only: DELETE is forbidden")
+
+
+
+# ── Второй этап: доп. поля, бейджи, саморегистрация, API-токены, фоновые задачи ──
+
+
+class CustomField(models.Model):
+    """Дополнительное поле мероприятия (например «Номер парковки»).
+
+    Показывается в форме участника, форме саморегистрации и учитывается внешним API.
+    Обязательное поле проверяется при добавлении участника.
+    """
+
+    TYPE_CHOICES = [("text", "text"), ("number", "number"), ("date", "date"), ("select", "select")]
+    MAX_PER_EVENT = 20
+
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="custom_fields")
+    field_name = models.CharField(max_length=255)
+    field_type = models.CharField(max_length=10, choices=TYPE_CHOICES, default="text")
+    is_required = models.BooleanField(default=False)
+    options = models.JSONField(default=list, blank=True)
+    sort_order = models.IntegerField(default=0)
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+        constraints = [
+            models.UniqueConstraint(fields=["event", "field_name"], name="custom_field_unique_name"),
+        ]
+
+
+def badge_background_path(instance, filename):
+    ext = (filename.rsplit(".", 1)[-1] or "png").lower()
+    return f"event_{instance.event_id}/badge/background_{uuid.uuid4().hex[:8]}.{ext}"
+
+
+class BadgeTemplate(models.Model):
+    """Шаблон бейджа мероприятия: фон (картинка) и разметка фото и ФИО.
+
+    Без шаблона используется стандартный фон и разметка по умолчанию
+    (services/badges.DEFAULT_LAYOUT).
+    """
+
+    NAME_SOURCE_CHOICES = [("ru", "ru"), ("latin", "latin")]
+
+    event = models.OneToOneField(Event, on_delete=models.CASCADE, related_name="badge_template")
+    background = models.ImageField(upload_to=badge_background_path, blank=True)
+    layout = models.JSONField(default=dict, blank=True)
+    name_source = models.CharField(max_length=5, choices=NAME_SOURCE_CHOICES, default="ru")
+    updated_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    updated_at = models.DateTimeField(auto_now=True)
+
+
+class RegistrationLink(models.Model):
+    """Ссылка саморегистрации: участник сам заполняет данные.
+
+    single — для одного человека, после использования гаснет; multi — для любого числа
+    людей, пока оператор её не отключит. Участники попадают черновиками в заявку
+    `request` (создаётся вместе со ссылками) — дальше обычная отправка на проверку.
+    """
+
+    TYPE_CHOICES = [("single", "single"), ("multi", "multi")]
+
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="registration_links")
+    request = models.ForeignKey(Request, on_delete=models.CASCADE, related_name="registration_links")
+    created_by = models.ForeignKey(Operator, on_delete=models.CASCADE, related_name="registration_links")
+    token = models.CharField(max_length=64, unique=True)
+    link_type = models.CharField(max_length=6, choices=TYPE_CHOICES)
+    is_used = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    used_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def is_available(self):
+        return self.is_active and not (self.link_type == "single" and self.is_used)
+
+
+class ApiToken(models.Model):
+    """Bearer-токен внешней системы регистрации для одного мероприятия.
+
+    Хранится только SHA-256 токена; сам токен показывается один раз при создании.
+    Участники из внешней системы попадают черновиками в заявку `request`.
+    """
+
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="api_tokens")
+    request = models.ForeignKey(Request, on_delete=models.CASCADE, related_name="api_tokens")
+    created_by = models.ForeignKey(Operator, on_delete=models.CASCADE, related_name="api_tokens")
+    name = models.CharField(max_length=255, blank=True, default="")
+    token_prefix = models.CharField(max_length=12)
+    token_hash = models.CharField(max_length=64, unique=True)
+    is_active = models.BooleanField(default=True)
+    last_used_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class Job(models.Model):
+    """Фоновая задача (очередь на PostgreSQL, воркер `manage.py run_jobs`).
+
+    Воркер забирает задачу через SELECT … FOR UPDATE SKIP LOCKED — отдельный брокер
+    не нужен. Результат-файл (PDF бейджей) хранится вне MEDIA_ROOT
+    (settings.PRIVATE_FILES_ROOT) и отдаётся только через API с проверкой прав.
+    """
+
+    TYPE_CHOICES = [("badge_pdf", "badge_pdf")]
+    STATUS_CHOICES = [
+        ("pending", "pending"), ("processing", "processing"), ("completed", "completed"), ("failed", "failed"),
+    ]
+
+    type = models.CharField(max_length=30, choices=TYPE_CHOICES)
+    payload = models.JSONField(default=dict)
+    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default="pending", db_index=True)
+    progress = models.PositiveIntegerField(default=0)
+    result = models.JSONField(null=True, blank=True)
+    error = models.TextField(blank=True, default="")
+    attempts = models.PositiveIntegerField(default=0)
+    max_attempts = models.PositiveIntegerField(default=3)
+    file_path = models.CharField(max_length=500, blank=True, default="")
+    created_by = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["created_at", "id"]

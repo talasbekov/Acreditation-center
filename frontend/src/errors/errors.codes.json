@@ -2,6 +2,29 @@
   "account_disabled": {
     "params": []
   },
+  "badge_background_invalid": {
+    "params": [
+      "reason"
+    ]
+  },
+  "badge_layout_invalid": {
+    "params": [
+      "reason"
+    ]
+  },
+  "badge_limit": {
+    "params": [
+      "limit"
+    ]
+  },
+  "badge_not_allowed": {
+    "params": [
+      "names"
+    ]
+  },
+  "badge_nothing_to_print": {
+    "params": []
+  },
   "blank": {
     "params": []
   },
@@ -16,6 +39,25 @@
   },
   "country_unknown": {
     "params": []
+  },
+  "custom_field_invalid": {
+    "params": [
+      "name"
+    ]
+  },
+  "custom_field_limit": {
+    "params": []
+  },
+  "custom_field_name_taken": {
+    "params": []
+  },
+  "custom_field_options_required": {
+    "params": []
+  },
+  "custom_field_required": {
+    "params": [
+      "name"
+    ]
   },
   "date": {
     "params": []
@@ -91,6 +133,14 @@
   "invalid_choice": {
     "params": []
   },
+  "link_count_invalid": {
+    "params": [
+      "max"
+    ]
+  },
+  "link_unavailable": {
+    "params": []
+  },
   "login_bad": {
     "params": []
   },
@@ -119,6 +169,9 @@
     "params": []
   },
   "null": {
+    "params": []
+  },
+  "operator_profile_required": {
     "params": []
   },
   "param_not_int": {
@@ -173,6 +226,20 @@
     "params": []
   },
   "return_reason_invalid": {
+    "params": []
+  },
+  "sgo_result_invalid": {
+    "params": []
+  },
+  "sgo_result_no_package": {
+    "params": []
+  },
+  "sgo_result_unknown_ids": {
+    "params": [
+      "ids"
+    ]
+  },
+  "sgo_result_wrong_package": {
     "params": []
   },
   "status_invalid": {

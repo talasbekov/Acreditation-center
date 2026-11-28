@@ -313,3 +313,62 @@ def admin_operator_new_password(request, operator_id):
         },
         status=status.HTTP_400_BAD_REQUEST,
     )
+
+
+# ── Второй этап: журнал аудита ────────────────────────────────────────────────
+
+AUDIT_PAGE = 50
+
+
+@api_view(["GET"])
+@permission_classes([IsSuperuser])
+def admin_audit_log(request):
+    """Журнал значимых действий (AuditLog): фильтры action, obj_type, obj_id, actor, даты."""
+    from eventproject.models import AuditLog
+
+    qs = AuditLog.objects.all().order_by("-created_at", "-id")
+    p = request.query_params
+    if p.get("action"):
+        qs = qs.filter(action__icontains=p["action"])
+    if p.get("obj_type"):
+        qs = qs.filter(obj_type=p["obj_type"])
+    if p.get("obj_id"):
+        qs = qs.filter(obj_id=p["obj_id"])
+    if p.get("actor"):
+        users = User.objects.filter(username__icontains=p["actor"]).values_list("pk", flat=True)
+        qs = qs.filter(actor_id__in=list(users))
+    for key, lookup in (("date_from", "created_at__date__gte"), ("date_to", "created_at__date__lte")):
+        if p.get(key):
+            try:
+                qs = qs.filter(**{lookup: datetime.strptime(p[key], "%Y-%m-%d").date()})
+            except ValueError:
+                return _fail("Дата в формате ГГГГ-ММ-ДД.")
+    try:
+        page = max(1, int(p.get("page", 1)))
+    except ValueError:
+        page = 1
+    total = qs.count()
+    rows = list(qs[(page - 1) * AUDIT_PAGE: page * AUDIT_PAGE])
+    names = dict(User.objects.filter(pk__in={r.actor_id for r in rows if r.actor_id}).values_list("pk", "username"))
+    return Response(
+        {
+            "count": total,
+            "page": page,
+            "page_size": AUDIT_PAGE,
+            "results": [
+                {
+                    "id": r.id,
+                    "created_at": r.created_at,
+                    "actor": names.get(r.actor_id, "") if r.actor_id else "system",
+                    "role": r.role,
+                    "action": r.action,
+                    "obj_type": r.obj_type,
+                    "obj_id": r.obj_id,
+                    "ip": r.ip,
+                    "extra": r.extra,
+                }
+                for r in rows
+            ],
+            "actions": sorted(set(AuditLog.objects.values_list("action", flat=True).distinct()[:200])),
+        }
+    )

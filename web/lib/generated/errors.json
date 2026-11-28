@@ -4,6 +4,31 @@
     "kz": "Аккаунт өшірілген",
     "ru": "Аккаунт деактивирован"
   },
+  "badge_background_invalid": {
+    "en": "The badge background does not fit: {reason}.",
+    "kz": "Бейдж фоны сәйкес келмейді: {reason}.",
+    "ru": "Фон бейджа не подходит: {reason}."
+  },
+  "badge_layout_invalid": {
+    "en": "Invalid badge layout: {reason}",
+    "kz": "Бейдж белгілеуі қате: {reason}",
+    "ru": "Разметка бейджа неверна: {reason}"
+  },
+  "badge_limit": {
+    "en": "At most {limit} badges per PDF.",
+    "kz": "Бір PDF-те {limit}-ден аспайтын бейдж болады.",
+    "ru": "В одном PDF не больше {limit} бейджей."
+  },
+  "badge_not_allowed": {
+    "en": "Badges are printed only for granted access. Remove: {names}.",
+    "kz": "Бейдж тек рұқсат берілгенде басылады. Алып тастаңыз: {names}.",
+    "ru": "Бейдж печатается только при разрешённом доступе. Исключите: {names}."
+  },
+  "badge_nothing_to_print": {
+    "en": "Nothing to print: no attendees with granted access and no badge yet.",
+    "kz": "Басатын ешкім жоқ: бейджсіз рұқсаты бар қатысушылар жоқ.",
+    "ru": "Некого печатать: нет участников с разрешённым доступом без бейджа."
+  },
   "blank": {
     "en": "[ASSUMPTION] Поле не может быть пустым.",
     "kz": "[ASSUMPTION] Поле не может быть пустым.",
@@ -28,6 +53,31 @@
     "en": "[ASSUMPTION] Неизвестный код страны.",
     "kz": "[ASSUMPTION] Неизвестный код страны.",
     "ru": "Неизвестный код страны."
+  },
+  "custom_field_invalid": {
+    "en": "Invalid value of the field “{name}”.",
+    "kz": "«{name}» өрісінің мәні қате.",
+    "ru": "Неверное значение поля «{name}»."
+  },
+  "custom_field_limit": {
+    "en": "An event can have at most 20 custom fields.",
+    "kz": "Іс-шарада 20-дан аспайтын қосымша өріс болады.",
+    "ru": "У мероприятия не больше 20 дополнительных полей."
+  },
+  "custom_field_name_taken": {
+    "en": "A field with this name already exists.",
+    "kz": "Мұндай атаумен өріс бар.",
+    "ru": "Поле с таким названием уже есть."
+  },
+  "custom_field_options_required": {
+    "en": "List the options, one per line.",
+    "kz": "Тізім үшін нұсқаларды әр жолға біреуден көрсетіңіз.",
+    "ru": "Для списка укажите варианты, по одному в строке."
+  },
+  "custom_field_required": {
+    "en": "Fill in the field “{name}”.",
+    "kz": "«{name}» өрісін толтырыңыз.",
+    "ru": "Заполните поле «{name}»."
   },
   "date": {
     "en": "[ASSUMPTION] Некорректная дата.",
@@ -144,6 +194,16 @@
     "kz": "[ASSUMPTION] Недопустимый выбор.",
     "ru": "Недопустимый выбор."
   },
+  "link_count_invalid": {
+    "en": "The number of links is 1 to {max}.",
+    "kz": "Сілтемелер саны — 1-ден {max}-ге дейін.",
+    "ru": "Количество ссылок — от 1 до {max}."
+  },
+  "link_unavailable": {
+    "en": "The link is invalid or has already been used.",
+    "kz": "Сілтеме жарамсыз немесе бұрын пайдаланылған.",
+    "ru": "Ссылка недействительна или уже использована."
+  },
   "login_bad": {
     "en": "Wrong username or password",
     "kz": "Логин, не құпиясыз сәйкес келмейді",
@@ -193,6 +253,11 @@
     "en": "[ASSUMPTION] Поле не может быть пустым.",
     "kz": "[ASSUMPTION] Поле не может быть пустым.",
     "ru": "Поле не может быть пустым."
+  },
+  "operator_profile_required": {
+    "en": "Only an operator account can do this.",
+    "kz": "Әрекет тек оператор тіркелгісіне қолжетімді.",
+    "ru": "Действие доступно только учётной записи оператора."
   },
   "param_not_int": {
     "en": "[ASSUMPTION] Должно быть целым числом.",
@@ -283,6 +348,26 @@
     "en": "Give a reason for the return (up to 1000 characters).",
     "kz": "Қайтару себебін көрсетіңіз (1000 таңбадан аспауы керек).",
     "ru": "Укажите причину возврата (не длиннее 1000 символов)."
+  },
+  "sgo_result_invalid": {
+    "en": "The result file is unreadable: JSON with denied_participant_ids is expected.",
+    "kz": "Нәтиже файлы оқылмайды: denied_participant_ids тізімі бар JSON қажет.",
+    "ru": "Файл результата не читается: нужен JSON со списком denied_participant_ids."
+  },
+  "sgo_result_no_package": {
+    "en": "The package has no attendee list and cannot be executed.",
+    "kz": "Пакетте қатысушылар құрамы жоқ — оны орындау мүмкін емес.",
+    "ru": "У пакета нет состава участников — исполнить его нельзя."
+  },
+  "sgo_result_unknown_ids": {
+    "en": "The file lists attendees that are not in this package: {ids}.",
+    "kz": "Файлда осы пакетке жатпайтын қатысушы нөмірлері бар: {ids}.",
+    "ru": "В файле номера участников не из этого пакета: {ids}."
+  },
+  "sgo_result_wrong_package": {
+    "en": "The result file belongs to another package or event.",
+    "kz": "Нәтиже файлы басқа пакетке немесе іс-шараға тиесілі.",
+    "ru": "Файл результата относится к другому пакету или мероприятию."
   },
   "status_invalid": {
     "en": "[ASSUMPTION] Недопустимое значение статуса.",
